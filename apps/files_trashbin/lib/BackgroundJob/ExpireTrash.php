@@ -1,5 +1,6 @@
 <?php
 /**
+ * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
@@ -87,16 +88,20 @@ class ExpireTrash extends \OC\BackgroundJob\TimedJob {
 			return;
 		}
 
-		$offset = $this->config->getAppValue('files_trashbin', 'cronjob_user_offset', 0);
-		$users = $this->userManager->search('', self::USERS_PER_SESSION, $offset);
+		\OC::$server->getDatabaseConnection()->beginTransaction();
+		// get current offset
+		$offset = (int)$this->config->getAppValue('files_trashbin', 'cronjob_user_offset', 0);
+		// check if there is at least one user at this offset
+		$users = $this->userManager->search('', 1, $offset);
 		if (!count($users)) {
-			// No users found, reset offset and retry
+			// no users found, reset offset to start at the beginning
 			$offset = 0;
-			$users = $this->userManager->search('', self::USERS_PER_SESSION);
 		}
+		// move offset for next run
+		$this->config->setAppValue('files_trashbin', 'cronjob_user_offset', $offset + self::USERS_PER_SESSION);
+		\OC::$server->getDatabaseConnection()->commit();
 
-		$offset += self::USERS_PER_SESSION;
-		$this->config->setAppValue('files_trashbin', 'cronjob_user_offset', $offset);
+		$users = $this->userManager->search('', self::USERS_PER_SESSION, $offset);
 
 		foreach ($users as $user) {
 			$uid = $user->getUID();
@@ -124,6 +129,7 @@ class ExpireTrash extends \OC\BackgroundJob\TimedJob {
 				return false;
 			}
 		}
+
 		return true;
 	}
 }

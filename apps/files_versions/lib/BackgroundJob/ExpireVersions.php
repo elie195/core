@@ -1,5 +1,6 @@
 <?php
 /**
+ * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
@@ -22,6 +23,7 @@
 
 namespace OCA\Files_Versions\BackgroundJob;
 
+use OCP\IConfig;
 use OCP\IUserManager;
 use OCA\Files_Versions\AppInfo\Application;
 use OCA\Files_Versions\Storage;
@@ -29,25 +31,33 @@ use OCA\Files_Versions\Expiration;
 
 class ExpireVersions extends \OC\BackgroundJob\TimedJob {
 
-	const ITEMS_PER_SESSION = 1000;
-
 	/**
 	 * @var Expiration
 	 */
 	private $expiration;
-	
+
+	/**
+	 * @var IConfig
+	 */
+	private $config;
+
 	/**
 	 * @var IUserManager
 	 */
 	private $userManager;
 
-	public function __construct(IUserManager $userManager = null, Expiration $expiration = null) {
+	const USERS_PER_SESSION = 1000;
+
+	public function __construct(IConfig $config = null,
+								IUserManager $userManager = null,
+								Expiration $expiration = null) {
 		// Run once per 30 minutes
 		$this->setInterval(60 * 30);
 
-		if (is_null($expiration) || is_null($userManager)) {
+		if (is_null($expiration) || is_null($userManager) || is_null($config)) {
 			$this->fixDIForJobs();
 		} else {
+			$this->config = $config;
 			$this->expiration = $expiration;
 			$this->userManager = $userManager;
 		}
@@ -55,6 +65,7 @@ class ExpireVersions extends \OC\BackgroundJob\TimedJob {
 
 	protected function fixDIForJobs() {
 		$application = new Application();
+		$this->config = \OC::$server->getConfig();
 		$this->expiration = $application->getContainer()->query('Expiration');
 		$this->userManager = \OC::$server->getUserManager();
 	}
@@ -65,7 +76,21 @@ class ExpireVersions extends \OC\BackgroundJob\TimedJob {
 			return;
 		}
 
-		$users = $this->userManager->search('');
+		\OC::$server->getDatabaseConnection()->beginTransaction();
+		// get current offset
+		$offset = (int)$this->config->getAppValue('files_versions', 'cronjob_user_offset', 0);
+		// check if there is at least one user at this offset
+		$users = $this->userManager->search('', 1, $offset);
+		if (!count($users)) {
+			// no users found, reset offset to start at the beginning
+			$offset = 0;
+		}
+		// move offset for next run
+		$this->config->setAppValue('files_versions', 'cronjob_user_offset', $offset + self::USERS_PER_SESSION);
+		\OC::$server->getDatabaseConnection()->commit();
+
+		$users = $this->userManager->search('', self::USERS_PER_SESSION, $offset);
+
 		foreach ($users as $user) {
 			$uid = $user->getUID();
 			if ($user->getLastLogin() === 0 || !$this->setupFS($uid)) {
@@ -91,6 +116,7 @@ class ExpireVersions extends \OC\BackgroundJob\TimedJob {
 				return false;
 			}
 		}
+
 		return true;
 	}
 }
