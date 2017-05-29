@@ -19,7 +19,7 @@
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -147,6 +147,7 @@ class OC_Files {
 			$streamer->sendHeaders($name);
 			$executionTime = intval(OC::$server->getIniWrapper()->getNumeric('max_execution_time'));
 			set_time_limit(0);
+			ignore_user_abort(true);
 			if ($getType === self::ZIP_FILES) {
 				foreach ($files as $file) {
 					$file = $dir . '/' . $file;
@@ -259,12 +260,12 @@ class OC_Files {
 		if (\OC\Files\Filesystem::isReadable($filename)) {
 			self::sendHeaders($filename, $name, $rangeArray);
 		} elseif (!\OC\Files\Filesystem::file_exists($filename)) {
-			header("HTTP/1.0 404 Not Found");
+			header("HTTP/1.1 404 Not Found");
 			$tmpl = new OC_Template('', '404', 'guest');
 			$tmpl->printPage();
 			exit();
 		} else {
-			header("HTTP/1.0 403 Forbidden");
+			header("HTTP/1.1 403 Forbidden");
 			die('403 Forbidden');
 		}
 		if (isset($params['head']) && $params['head']) {

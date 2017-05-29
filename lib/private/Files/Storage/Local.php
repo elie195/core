@@ -1,9 +1,11 @@
 <?php
 /**
  * @author Bart Visscher <bartv@thisnet.nl>
+ * @author Boris Rybalkin <ribalkin@gmail.com>
  * @author Brice Maron <brice@bmaron.net>
  * @author Jakob Sack <mail@jakobsack.de>
  * @author Joas Schilling <coding@schilljs.com>
+ * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Klaas Freitag <freitag@owncloud.com>
  * @author Martin Mattel <martin.mattel@diemattels.at>
  * @author Michael Gapczynski <GapczynskiM@gmail.com>
@@ -15,7 +17,7 @@
  * @author Tigran Mkrtchyan <tigran.mkrtchyan@desy.de>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -203,18 +205,7 @@ class Local extends \OC\Files\Storage\Common {
 	}
 
 	public function file_get_contents($path) {
-		// file_get_contents() has a memory leak: https://bugs.php.net/bug.php?id=61961
-		$fileName = $this->getSourcePath($path);
-
-		$fileSize = filesize($fileName);
-		if ($fileSize === 0) {
-			return '';
-		}
-
-		$handle = fopen($fileName, 'rb');
-		$content = fread($handle, $fileSize);
-		fclose($handle);
-		return $content;
+		return file_get_contents($this->getSourcePath($path));
 	}
 
 	public function file_put_contents($path, $data) {

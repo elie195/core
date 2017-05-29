@@ -1,7 +1,11 @@
 OC.L10N.register(
     "core",
     {
+<<<<<<< HEAD
     "Please select a file." : "Selekteer asseblief 'n lêer.",
+=======
+    "Please select a file." : "Kies asseblief 'n lêer.",
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "File is too big" : "Die lêer is te groot",
     "Invalid file provided" : "Ongeldige lêer voorsien",
     "No image or file provided" : "Geen prent of lêer voorsien",
@@ -65,16 +69,12 @@ OC.L10N.register(
     "Error" : "Fout",
     "Error while sharing" : "Deel veroorsaak fout",
     "Error while unsharing" : "Deel terugneem veroorsaak fout",
-    "Error setting expiration date" : "Fout met opstel van verval datum",
     "Set expiration date" : "Stel verval datum",
     "Expiration date" : "Verval datum",
-    "Resharing is not allowed" : "Herdeling is nie toegelaat nie ",
-    "Password protect" : "Beskerm met Wagwoord",
     "Password" : "Wagwoord",
-    "Email link to person" : "E-pos aan persoon",
-    "Send" : "Stuur",
     "Sending ..." : "Stuur ...",
     "Email sent" : "E-pos gestuur",
+    "Email link to person" : "E-pos aan persoon",
     "Shared with you and the group {group} by {owner}" : "Met jou en die groep {group} gedeel deur {owner}",
     "Shared with you by {owner}" : "Met jou gedeel deur {owner}",
     "group" : "groep",
@@ -84,6 +84,7 @@ OC.L10N.register(
     "delete" : "uitvee",
     "access control" : "toegang beheer",
     "Share" : "Deel",
+    "Resharing is not allowed" : "Herdeling is nie toegelaat nie ",
     "Warning" : "Waarskuwing",
     "The object type is not specified." : "Hierdie objek tipe is nie gespesifiseer nie.",
     "Add" : "Voeg by",

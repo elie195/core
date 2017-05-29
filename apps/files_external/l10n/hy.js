@@ -6,6 +6,8 @@ OC.L10N.register(
     "Username" : "Օգտանուն",
     "Password" : "Գաղտնաբառ",
     "Save" : "Պահպանել",
+    "Port" : "Պորտ",
+    "WebDAV" : "WebDAV",
     "URL" : "URL",
     "Dropbox" : "Dropbox",
     "Location" : "Տեղակայություն",

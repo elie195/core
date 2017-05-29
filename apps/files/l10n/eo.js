@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "Memoro ne validas",
     "Unknown error" : "Nekonata eraro",
-    "Files" : "Dosieroj",
     "All files" : "Ĉiuj dosieroj",
+    "Saved" : "Konservita",
     "Home" : "Hejmo",
     "Close" : "Fermi",
     "Favorites" : "Favoratoj",
@@ -20,6 +20,7 @@ OC.L10N.register(
     "Delete" : "Forigi",
     "Disconnect storage" : "Malkonekti memoron",
     "Unshare" : "Malkunhavigi",
+    "Files" : "Dosieroj",
     "Details" : "Detaloj",
     "Select" : "Elekti",
     "Pending" : "Traktotaj",

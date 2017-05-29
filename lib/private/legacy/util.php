@@ -20,12 +20,14 @@
  * @author Jakob Sack <mail@jakobsack.de>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Jörn Friedrich Dreyer <jfd@butonic.de>
+ * @author Kawohl <john@owncloud.com>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Markus Goetz <markus@woboq.com>
  * @author Martin Mattel <martin.mattel@diemattels.at>
  * @author Marvin Thomas Rabe <mrabe@marvinrabe.de>
  * @author Michael Gapczynski <GapczynskiM@gmail.com>
  * @author Morris Jobke <hey@morrisjobke.de>
+ * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
@@ -37,7 +39,7 @@
  * @author Vincent Petry <pvince81@owncloud.com>
  * @author Volkan Gezer <volkangezer@gmail.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -64,6 +66,9 @@ class OC_Util {
 	public static $headers = [];
 	private static $rootMounted = false;
 	private static $fsSetup = false;
+	private static $version;
+	const EDITION_COMMUNITY = 'Community';
+	const EDITION_ENTERPRISE = 'Enterprise';
 
 	protected static function getAppManager() {
 		return \OC::$server->getAppManager();
@@ -175,6 +180,17 @@ class OC_Util {
 			return $storage;
 		});
 
+		// install storage checksum wrapper
+		\OC\Files\Filesystem::addStorageWrapper('oc_checksum', function ($mountPoint, \OCP\Files\Storage\IStorage $storage) {
+			if (!$storage->instanceOfStorage('\OCA\Files_Sharing\SharedStorage')) {
+				return new \OC\Files\Storage\Wrapper\Checksum(['storage' => $storage]);
+			}
+
+			return $storage;
+
+		}, 1);
+
+
 		\OC\Files\Filesystem::addStorageWrapper('oc_encoding', function ($mountPoint, \OCP\Files\Storage $storage, \OCP\Files\Mount\IMountPoint $mount) {
 			if ($mount->getOption('encoding_compatibility', false) && !$storage->instanceOfStorage('\OCA\Files_Sharing\SharedStorage') && !$storage->isLocal()) {
 				return new \OC\Files\Storage\Wrapper\Encoding(['storage' => $storage]);
@@ -207,6 +223,57 @@ class OC_Util {
 
 		OC_Hook::emit('OC_Filesystem', 'preSetup', ['user' => $user]);
 		\OC\Files\Filesystem::logWarningWhenAddingStorageWrapper(true);
+
+		// Make users storage readonly if he is a guest or in a read_only group
+
+		$isGuest = \OC::$server->getConfig()->getUserValue(
+			$user,
+			'owncloud',
+			'isGuest',
+			false
+		);
+
+		if (!$isGuest) {
+			$readOnlyGroups = json_decode(\OC::$server->getConfig()->getAppValue(
+				'core',
+				'read_only_groups',
+				'[]'
+			), true);
+
+			if (!is_array($readOnlyGroups)) {
+				$readOnlyGroups = [];
+			}
+
+
+			$userGroups = array_keys(
+				\OC::$server->getGroupManager()->getUserIdGroups($user)
+			);
+
+			$readOnlyGroupMemberships = array_intersect(
+				$readOnlyGroups,
+				$userGroups
+			);
+		}
+
+
+		if ($isGuest === '1' || !empty($readOnlyGroupMemberships)) {
+			\OC\Files\Filesystem::addStorageWrapper(
+				'oc_readonly',
+				function ($mountPoint, $storage) use ($user) {
+					if ($mountPoint === '/' || $mountPoint === "/$user/") {
+						return new \OC\Files\Storage\Wrapper\ReadOnlyJail(
+							[
+								'storage' => $storage,
+								'mask' => \OCP\Constants::PERMISSION_READ,
+								'path' => 'files'
+							]
+						);
+					}
+
+					return $storage;
+				}
+			);
+		}
 
 		//check if we are using an object storage
 		$objectStore = \OC::$server->getSystemConfig()->getValue('objectstore', null);
@@ -370,7 +437,7 @@ class OC_Util {
 	 */
 	public static function getVersion() {
 		OC_Util::loadVersion();
-		return \OC::$server->getSession()->get('OC_Version');
+		return self::$version['OC_Version'];
 	}
 
 	/**
@@ -380,21 +447,20 @@ class OC_Util {
 	 */
 	public static function getVersionString() {
 		OC_Util::loadVersion();
-		return \OC::$server->getSession()->get('OC_VersionString');
+		return self::$version['OC_VersionString'];
 	}
 
 	/**
-	 * @description get the current installed edition of ownCloud. There is the community
-	 * edition that just returns an empty string and the enterprise edition
-	 * that returns "Enterprise".
+	 * @description get the current installed edition of ownCloud. 
+	 * There is the community edition that returns "Community" and 
+	 * the enterprise edition that returns "Enterprise".
 	 * @return string
 	 */
 	public static function getEditionString() {
 		if (OC_App::isEnabled('enterprise_key')) {
-			return "Enterprise";
-		} else {
-			return "";
-		}
+ 			return OC_Util::EDITION_ENTERPRISE;
+ 		} else {
+			return OC_Util::EDITION_COMMUNITY;		}
 
 	}
 
@@ -404,7 +470,7 @@ class OC_Util {
 	 */
 	public static function getChannel() {
 		OC_Util::loadVersion();
-		return \OC::$server->getSession()->get('OC_Channel');
+		return self::$version['OC_Channel'];
 	}
 
 	/**
@@ -413,41 +479,30 @@ class OC_Util {
 	 */
 	public static function getBuild() {
 		OC_Util::loadVersion();
-		return \OC::$server->getSession()->get('OC_Build');
+		return self::$version['OC_Build'];
 	}
 
 	/**
 	 * @description load the version.php into the session as cache
 	 */
 	private static function loadVersion() {
-		$timestamp = filemtime(OC::$SERVERROOT . '/version.php');
-		if (!\OC::$server->getSession()->exists('OC_Version') or OC::$server->getSession()->get('OC_Version_Timestamp') != $timestamp) {
-			require OC::$SERVERROOT . '/version.php';
-			$session = \OC::$server->getSession();
-			/** @var $timestamp int */
-			$session->set('OC_Version_Timestamp', $timestamp);
-			/** @var $OC_Version string */
-			$session->set('OC_Version', $OC_Version);
-			/** @var $OC_VersionString string */
-			$session->set('OC_VersionString', $OC_VersionString);
-			/** @var $OC_Build string */
-			$session->set('OC_Build', $OC_Build);
-			
-			// Allow overriding update channel
-			
-			if (\OC::$server->getSystemConfig()->getValue('installed', false)) {
-				$channel = \OC::$server->getAppConfig()->getValue('core', 'OC_Channel');
-			} else {
-				/** @var $OC_Channel string */
-				$channel = $OC_Channel;
-			}
-			
-			if (!is_null($channel)) {
-				$session->set('OC_Channel', $channel);
-			} else {
-				/** @var $OC_Channel string */
-				$session->set('OC_Channel', $OC_Channel);
-			}
+		require __DIR__ . '/../../../version.php';
+		/** @var $OC_Version string */
+		/** @var $OC_VersionString string */
+		/** @var $OC_Build string */
+		/** @var $OC_Channel string */
+		self::$version = [
+			'OC_Version' => $OC_Version,
+			'OC_VersionString' => $OC_VersionString,
+			'OC_Build' => $OC_Build,
+			'OC_Channel' => $OC_Channel,
+		];
+
+		// Allow overriding update channel
+
+		if (\OC::$server->getSystemConfig()->getValue('installed', false)) {
+			$channel = \OC::$server->getConfig()->getAppValue('core', 'OC_Channel', $OC_Channel);
+			self::$version['OC_Channel'] = $channel;
 		}
 	}
 
@@ -687,7 +742,7 @@ class OC_Util {
 					$errors = array_merge($errors, self::checkDataDirectoryPermissions($CONFIG_DATADIRECTORY));
 				} else {
 					$errors[] = [
-						'error' => $l->t('Cannot create "data" directory (%s)', [$CONFIG_DATADIRECTORY]),
+						'error' => $l->t('Cannot create "data" directory'),
 						'hint' => $l->t('This can usually be fixed by '
 							. '<a href="%s" target="_blank" rel="noreferrer">giving the webserver write access to the root directory</a>.',
 							[$urlGenerator->linkToDocs('admin-dir_permissions')])
@@ -699,7 +754,7 @@ class OC_Util {
 					. '%sgiving the webserver write access to the root directory%s.',
 					['<a href="' . $urlGenerator->linkToDocs('admin-dir_permissions') . '" target="_blank" rel="noreferrer">', '</a>']);
 				$errors[] = [
-					'error' => 'Data directory (' . $CONFIG_DATADIRECTORY . ') not writable by ownCloud',
+					'error' => 'Your Data directory is not writable by ownCloud',
 					'hint' => $permissionsHint
 				];
 			} else {
@@ -910,7 +965,11 @@ class OC_Util {
 			$perms = substr(decoct(@fileperms($dataDirectory)), -3);
 			if (substr($perms, 2, 1) != '0') {
 				$errors[] = [
+<<<<<<< HEAD
 					'error' => $l->t('Data directory (%s) is readable by other users', [$dataDirectory]),
+=======
+					'error' => $l->t('Your Data directory is readable by other users'),
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 					'hint' => $permissionsModHint
 				];
 			}
@@ -930,13 +989,13 @@ class OC_Util {
 		$errors = [];
 		if ($dataDirectory[0] !== '/') {
 			$errors[] = [
-				'error' => $l->t('Data directory (%s) must be an absolute path', [$dataDirectory]),
+				'error' => $l->t('Your Data directory must be an absolute path'),
 				'hint' => $l->t('Check the value of "datadirectory" in your configuration')
 			];
 		}
 		if (!file_exists($dataDirectory . '/.ocdata')) {
 			$errors[] = [
-				'error' => $l->t('Data directory (%s) is invalid', [$dataDirectory]),
+				'error' => $l->t('Your Data directory  is invalid'),
 				'hint' => $l->t('Please check that the data directory contains a file' .
 					' ".ocdata" in its root.')
 			];

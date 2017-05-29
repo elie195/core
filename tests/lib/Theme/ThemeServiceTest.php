@@ -51,4 +51,14 @@ class ThemeServiceTest extends \PHPUnit\Framework\TestCase {
 		$this->assertEquals('default', $theme->getName());
 		$this->assertEquals('themes/default/', $theme->getDirectory());
 	}
+<<<<<<< HEAD
+=======
+
+	public function testSetAppThemeSetsName() {
+		$themeService = new ThemeService();
+		$this->assertEmpty($themeService->getTheme()->getName());
+		$themeService->setAppTheme('some-app-theme');
+		$this->assertEquals('some-app-theme', $themeService->getTheme()->getName());
+	}
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 }

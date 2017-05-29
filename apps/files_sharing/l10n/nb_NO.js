@@ -3,7 +3,7 @@ OC.L10N.register(
     {
     "Server to server sharing is not enabled on this server" : "Server til server-deling er ikke aktivert på denne serveren",
     "The mountpoint name contains invalid characters." : "Navnet på oppkoblingspunktet inneholder ugyldige tegn.",
-    "Not allowed to create a federated share with the same user server" : "Ikke tillatt å opprette en Sammenknyttet sky-deling med den samme bruker-serveren",
+    "Not allowed to create a federated share with the same user server" : "Ikke tillatt å opprette en forent deling med den samme bruker-serveren",
     "Invalid or untrusted SSL certificate" : "Ugyldig eller ikke-klarert SSL-sertifikat",
     "Could not authenticate to remote share, password might be wrong" : "Klarte ikke å autentisere mot ekstern deling. Passordet kan være feil",
     "Storage not valid" : "Lagerplass ikke gyldig",
@@ -104,6 +104,7 @@ OC.L10N.register(
     "the link expired" : "lenken er utløpt",
     "sharing is disabled" : "deling er deaktivert",
     "For more info, please ask the person who sent this link." : "For mer informasjon, spør personen som sendte lenken.",
+    "%s is publicly shared" : "%s er offentlig delt",
     "Add to your ownCloud" : "Legg til i din ownCloud",
     "Download" : "Last ned",
     "Download %s" : "Last ned %s",

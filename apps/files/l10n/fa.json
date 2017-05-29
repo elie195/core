@@ -1,8 +1,8 @@
 { "translations": {
     "Storage invalid" : "فضای ذخیره‌سازی نامعتبر",
     "Unknown error" : "خطای نامشخص",
-    "Files" : "پرونده‌ها",
     "All files" : "تمامی فایل‌ها",
+    "Saved" : "ذخیره شد",
     "Home" : "خانه",
     "Close" : "بستن",
     "Favorites" : "موارد محبوب",
@@ -16,6 +16,7 @@
     "Rename" : "تغییرنام",
     "Delete" : "حذف",
     "Unshare" : "لغو اشتراک",
+    "Files" : "پرونده‌ها",
     "Details" : "جزئیات",
     "Select" : "انتخاب",
     "Pending" : "در انتظار",

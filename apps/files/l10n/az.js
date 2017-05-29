@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "İnformasiya daşıyıcısı yalnışdır",
     "Unknown error" : "Bəlli olmayan səhv baş verdi",
-    "Files" : "Fayllar",
     "All files" : "Bütün fayllar",
+    "Saved" : "Saxlanıldı",
     "Home" : "Ev",
     "Close" : "Bağla",
     "Favorites" : "Sevimlilər",
@@ -19,6 +19,7 @@ OC.L10N.register(
     "Delete" : "Sil",
     "Disconnect storage" : "Daşıyıcını ayır",
     "Unshare" : "Paylaşımı durdur",
+    "Files" : "Fayllar",
     "Details" : "Detallar",
     "Select" : "Seç",
     "Pending" : "Gözləmə",

@@ -1,15 +1,15 @@
 <?php
 /**
  * @author Bernhard Posselt <dev@bernhard-posselt.com>
- * @author Björn Schießle <bjoern@schiessle.org>
  * @author Julius Haertl <jus@bitgrid.net>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Morris Jobke <hey@morrisjobke.de>
- * @author Roeland Jago Douma <rullzer@owncloud.com>
+ * @author Peter Prochaska <info@peter-prochaska.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Ujjwal Bhardwaj <ujjwalb1996@gmail.com>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@ namespace OC\Core\Controller;
 use \OCP\AppFramework\Controller;
 use \OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ILogger;
 use \OCP\IURLGenerator;
 use \OCP\IRequest;
 use \OCP\IL10N;
@@ -70,6 +71,8 @@ class LostController extends Controller {
 	protected $mailer;
 	/** @var ITimeFactory */
 	protected $timeFactory;
+	/** @var ILogger */
+	protected $logger;
 
 	/**
 	 * @param string $appName
@@ -84,6 +87,7 @@ class LostController extends Controller {
 	 * @param string $isDataEncrypted
 	 * @param IMailer $mailer
 	 * @param ITimeFactory $timeFactory
+	 * @param ILogger $logger
 	 */
 	public function __construct($appName,
 								IRequest $request,
@@ -96,7 +100,8 @@ class LostController extends Controller {
 								$from,
 								$isDataEncrypted,
 								IMailer $mailer,
-								ITimeFactory $timeFactory) {
+								ITimeFactory $timeFactory,
+								ILogger $logger) {
 		parent::__construct($appName, $request);
 		$this->urlGenerator = $urlGenerator;
 		$this->userManager = $userManager;
@@ -108,6 +113,7 @@ class LostController extends Controller {
 		$this->config = $config;
 		$this->mailer = $mailer;
 		$this->timeFactory = $timeFactory;
+		$this->logger = $logger;
 	}
 
 	/**
@@ -234,26 +240,49 @@ class LostController extends Controller {
 	/**
 	 * @param string $user
 	 * @throws \Exception
+	 * @return boolean
 	 */
 	protected function sendEmail($user) {
-		if (!$this->userManager->userExists($user)) {
-			throw new \Exception($this->l10n->t('Couldn\'t send reset email. Please make sure your username is correct.'));
+		if ($this->userManager->userExists($user)) {
+			$userObject = $this->userManager->get($user);
+			$email = $userObject->getEMailAddress();
+
+			if (empty($email)) {
+				$this->logger->error('Could not send reset email because there is no email address for this username. User: {user}', ['app' => 'core', 'user' => $user]);
+				return false;
+			}
+		} else {
+			$users = $this->userManager->getByEmail($user);
+
+			switch (count($users)) {
+				case 0:
+					$this->logger->error('Could not send reset email because User does not exist. User: {user}', ['app' => 'core', 'user' => $user]);
+					return false;
+				case 1:
+					$this->logger->info('User with input as email address found. User: {user}', ['app' => 'core', 'user' => $user]);
+					$email = $users[0]->getEMailAddress();
+					$user = $users[0]->getUID();
+					break;
+				default:
+					$this->logger->error('Could not send reset email because the email id is not unique. User: {user}', ['app' => 'core', 'user' => $user]);
+					return false;
+			}
 		}
 
-		$userObject = $this->userManager->get($user);
-		$email = $userObject->getEMailAddress();
-
-		if (empty($email)) {
-			throw new \Exception(
-				$this->l10n->t('Could not send reset email because there is no email address for this username. Please contact your administrator.')
-			);
+		$token = $this->config->getUserValue($user, 'owncloud', 'lostpassword');
+		if ($token !== '') {
+			$splittedToken = explode(':', $token);
+			if ((count($splittedToken)) === 2 && $splittedToken[0] > ($this->timeFactory->getTime() - 60 * 5)) {
+				$this->logger->alert('The email is not sent because a password reset email was sent recently.');
+				return false;
+			}
 		}
 
 		$token = $this->secureRandom->generate(21,
-			ISecureRandom::CHAR_DIGITS.
-			ISecureRandom::CHAR_LOWER.
+			ISecureRandom::CHAR_DIGITS .
+			ISecureRandom::CHAR_LOWER .
 			ISecureRandom::CHAR_UPPER);
-		$this->config->setUserValue($user, 'owncloud', 'lostpassword', $this->timeFactory->getTime() .':'. $token);
+		$this->config->setUserValue($user, 'owncloud', 'lostpassword', $this->timeFactory->getTime() . ':' . $token);
 
 		$link = $this->urlGenerator->linkToRouteAbsolute('core.lost.resetform', ['userId' => $user, 'token' => $token]);
 
@@ -273,6 +302,8 @@ class LostController extends Controller {
 				'Couldn\'t send reset email. Please contact your administrator.'
 			));
 		}
+
+		return true;
 	}
 
 }

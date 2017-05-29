@@ -29,4 +29,13 @@ class ThemeTest extends \PHPUnit\Framework\TestCase {
 		$this->sut->setDirectory('test/directory');
 		$this->assertEquals('test/directory', $this->sut->getDirectory());
 	}
+<<<<<<< HEAD
+=======
+
+	public function testNameCanBeSet() {
+		$this->assertEmpty($this->sut->getName());
+		$this->sut->setName('some-name');
+		$this->assertEquals('some-name', $this->sut->getName());
+	}
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 }

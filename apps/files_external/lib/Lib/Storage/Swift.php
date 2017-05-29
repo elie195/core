@@ -15,7 +15,7 @@
  * @author Tim Dettrick <t.dettrick@uq.edu.au>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -44,7 +44,7 @@ use OpenCloud\Rackspace;
 use OpenCloud\ObjectStore\Resource\DataObject;
 use OpenCloud\ObjectStore\Exception;
 
-class Swift extends \OC\Files\Storage\Common {
+class Swift extends \OCP\Files\Storage\StorageAdapter {
 
 	/**
 	 * @var \OpenCloud\ObjectStore\Service

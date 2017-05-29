@@ -1,11 +1,13 @@
 <?php
 /**
+ * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -147,14 +149,22 @@ interface IUserManager {
 	 * returns how many users have logged in once
 	 *
 	 * @return int
+<<<<<<< HEAD
 	 * @since 9.2.0
+=======
+	 * @since 10.0
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	 */
 	public function countSeenUsers();
 
 	/**
 	 * @param \Closure $callback
+<<<<<<< HEAD
 	 * @param string $search
 	 * @since 9.2.0
+=======
+	 * @since 10.0
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	 */
 	public function callForSeenUsers (\Closure $callback);
 

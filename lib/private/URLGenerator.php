@@ -6,12 +6,13 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author mmccarn <mmccarn-github@mmsionline.us>
  * @author Morris Jobke <hey@morrisjobke.de>
- * @author Robin Appelman <icewind@owncloud.com>
+ * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
+ * @author Roeland Jago Douma <rullzer@users.noreply.github.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Thomas Tanghus <thomas@tanghus.net>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -47,6 +48,11 @@ class URLGenerator implements IURLGenerator {
 	private $cacheFactory;
 	/** @var IRouter */
 	private $router;
+<<<<<<< HEAD
+=======
+	/** @var Theme */
+	private $theme;
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 	/**
 	 * @param IConfig $config
@@ -59,6 +65,10 @@ class URLGenerator implements IURLGenerator {
 		$this->config = $config;
 		$this->cacheFactory = $cacheFactory;
 		$this->router = $router;
+<<<<<<< HEAD
+=======
+		$this->theme = \OC_Util::getTheme();
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 
 	/**
@@ -146,11 +156,12 @@ class URLGenerator implements IURLGenerator {
 	 */
 	public function imagePath($app, $image) {
 		$cache = $this->cacheFactory->create('imagePath');
-		$cacheKey = $app.'-'.$image;
+		$cacheKey = $this->theme->getName().'-'.$app.'-'.$image;
 		if($key = $cache->get($cacheKey)) {
 			return $key;
 		}
 
+<<<<<<< HEAD
 		/** @var Theme $theme */
 		$theme = \OC_Util::getTheme();
 		$themeName = $theme->getName();
@@ -193,8 +204,11 @@ class URLGenerator implements IURLGenerator {
 			&& file_exists(\OC::$SERVERROOT . "/core/img/$basename.png")) {
 			$path =  \OC::$WEBROOT . "/themes/$themeName/core/img/$basename.png";
 		}
+=======
+		$path = $this->getImagePath($app, $image);
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
-		if($path !== '') {
+		if($path !== '' && !is_null($path)) {
 			$cache->set($cacheKey, $path);
 			return $path;
 		} else {
@@ -202,6 +216,55 @@ class URLGenerator implements IURLGenerator {
 		}
 	}
 
+	/**
+	 * @param string $app
+	 * @param string $imageName
+	 * @return string
+	 */
+	private function getImagePath($app, $imageName) {
+		$appWebPath = \OC_App::getAppWebPath($app);
+		$appPath = substr($appWebPath, strlen(\OC::$WEBROOT));
+
+		$directories = ["/core", ""];
+
+		if ($app) {
+			array_unshift($directories, "$appPath", "/$app");
+		}
+
+		foreach($directories as $directory) {
+			$directory = $directory . "/img/";
+			$themeDirectory = $this->theme->getDirectory();
+
+			$file = $directory . $imageName;
+
+			if (!empty($themeDirectory)) {
+				if ($imagePath = $this->getImagePathOrFallback('/' . substr($this->theme->getDirectory(), 0, -1) . $file)) {
+					return $imagePath;
+				}
+			}
+
+			if ($imagePath = $this->getImagePathOrFallback($file)) {
+				return $imagePath;
+			}
+		}
+	}
+
+	/**
+	 * @param string $file
+	 * @return string
+	 */
+	private function getImagePathOrFallback($file) {
+
+		if (file_exists(\OC::$SERVERROOT . $file)) {
+			return \OC::$WEBROOT . $file;
+		}
+
+		$fallback = substr($file, 0, -3) . 'png';
+
+		if (file_exists(\OC::$SERVERROOT . $fallback)) {
+			return \OC::$WEBROOT . $fallback;
+		}
+	}
 
 	/**
 	 * Makes an URL absolute

@@ -534,7 +534,7 @@ class CheckSetupControllerTest extends TestCase {
 	public function testIsUsedTlsLibOutdatedWithAppstoreDisabledAndServerToServerSharingEnabled() {
 		// Appstore is disabled by default in EE
 		$appStoreDefault = false;
-		if (\OC_Util::getEditionString() === '') {
+		if (\OC_Util::getEditionString() === \OC_Util::EDITION_COMMUNITY) {
 			$appStoreDefault = true;
 		}
 
@@ -569,7 +569,7 @@ class CheckSetupControllerTest extends TestCase {
 	public function testIsUsedTlsLibOutdatedWithAppstoreDisabledAndServerToServerSharingDisabled() {
 		// Appstore is disabled by default in EE
 		$appStoreDefault = false;
-		if (\OC_Util::getEditionString() === '') {
+		if (\OC_Util::getEditionString() === \OC_Util::EDITION_COMMUNITY) {
 			$appStoreDefault = true;
 		}
 
@@ -608,7 +608,7 @@ class CheckSetupControllerTest extends TestCase {
 		$this->urlGenerator
 			->expects($this->once())
 			->method('linkToRoute')
-			->with('settings_admin')
+			->with('settings.SettingsPage.getAdmin')
 			->will($this->returnValue('/admin'));
 
 		$expected = new RedirectResponse('/admin');

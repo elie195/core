@@ -3,9 +3,11 @@
  * @author Björn Schießle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
+ * @author Roeland Jago Douma <rullzer@users.noreply.github.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -62,6 +64,9 @@ class ShareesTest extends TestCase {
 	/** @var \OCP\IUserSession|\PHPUnit_Framework_MockObject_MockObject */
 	protected $session;
 
+	/** @var \OCP\IConfig|\PHPUnit_Framework_MockObject_MockObject */
+	protected $config;
+
 	/** @var \OCP\IRequest|\PHPUnit_Framework_MockObject_MockObject */
 	protected $request;
 
@@ -72,6 +77,28 @@ class ShareesTest extends TestCase {
 		parent::setUp();
 
 		$this->userManager = $this->getMockBuilder(IUserManager::class)
+<<<<<<< HEAD
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->groupManager = $this->getMockBuilder(IGroupManager::class)
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->contactsManager = $this->getMockBuilder(IManager::class)
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->session = $this->getMockBuilder(IUserSession::class)
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->request = $this->getMockBuilder(IRequest::class)
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->shareManager = $this->getMockBuilder(\OCP\Share\IManager::class)
+=======
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -95,13 +122,22 @@ class ShareesTest extends TestCase {
 			->disableOriginalConstructor()
 			->getMock();
 
+		$this->config = $this->getMockBuilder(IConfig::class)
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+			->disableOriginalConstructor()
+			->getMock();
+
 		$this->sharees = new ShareesController(
 			'files_sharing',
 			$this->request,
 			$this->groupManager,
 			$this->userManager,
 			$this->contactsManager,
+<<<<<<< HEAD
 			$this->getMockBuilder(IConfig::class)->disableOriginalConstructor()->getMock(),
+=======
+			$this->config,
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			$this->session,
 			$this->getMockBuilder(IURLGenerator::class)->disableOriginalConstructor()->getMock(),
 			$this->getMockBuilder(ILogger::class)->disableOriginalConstructor()->getMock(),
@@ -134,7 +170,11 @@ class ShareesTest extends TestCase {
 	 * @param string $gid
 	 * @return \OCP\IGroup|\PHPUnit_Framework_MockObject_MockObject
 	 */
+<<<<<<< HEAD
 	protected function getGroupMock($gid) {
+=======
+	protected function getGroupMock($gid, $displayName = null) {
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		$group = $this->getMockBuilder(IGroup::class)
 			->disableOriginalConstructor()
 			->getMock();
@@ -142,6 +182,15 @@ class ShareesTest extends TestCase {
 		$group->expects($this->any())
 			->method('getGID')
 			->willReturn($gid);
+
+		if (is_null($displayName)) {
+			// note: this is how the Group class behaves
+			$displayName = $gid;
+		}
+
+		$group->expects($this->any())
+			->method('getDisplayName')
+			->willReturn($displayName);
 
 		return $group;
 	}
@@ -468,12 +517,43 @@ class ShareesTest extends TestCase {
 		return [
 			['test', false, true, [], [], [], [], true, false],
 			['test', false, false, [], [], [], [], true, false],
+			// group without display name
 			[
 				'test', false, true,
 				[$this->getGroupMock('test1')],
 				[],
 				[],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
+				true,
+				false,
+			],
+			// group with display name, search by id
+			[
+				'test', false, true,
+				[$this->getGroupMock('test1', 'Test One')],
+				[],
+				[],
+				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
+				true,
+				false,
+			],
+			// group with display name, search by display name
+			[
+				'one', false, true,
+				[$this->getGroupMock('test1', 'Test One')],
+				[],
+				[],
+				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
+				true,
+				false,
+			],
+			// group with display name, search by display name, exact expected
+			[
+				'Test One', false, true,
+				[$this->getGroupMock('test1', 'Test One')],
+				[],
+				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
+				[],
 				true,
 				false,
 			],
@@ -781,8 +861,11 @@ class ShareesTest extends TestCase {
 
 	public function dataGetRemote() {
 		return [
+			// #0
 			['test', [], true, [], [], true],
+			// #1
 			['test', [], false, [], [], true],
+			// #2
 			[
 				'test@remote',
 				[],
@@ -793,6 +876,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #3
 			[
 				'test@remote',
 				[],
@@ -803,6 +887,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #4
 			[
 				'test',
 				[
@@ -828,6 +913,7 @@ class ShareesTest extends TestCase {
 				],
 				true,
 			],
+			// #5
 			[
 				'test',
 				[
@@ -851,6 +937,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #6
 			[
 				'test@remote',
 				[
@@ -878,6 +965,7 @@ class ShareesTest extends TestCase {
 				],
 				true,
 			],
+			// #7
 			[
 				'test@remote',
 				[
@@ -903,6 +991,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #8
 			[
 				'username@localhost',
 				[
@@ -928,6 +1017,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #9
 			[
 				'username@localhost',
 				[
@@ -953,7 +1043,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
-			// contact with space
+			// #10: contact with space
 			[
 				'user name@localhost',
 				[
@@ -979,7 +1069,7 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
-			// remote with space, no contact
+			// #11: remote with space, no contact
 			[
 				'user space@remote',
 				[
@@ -1005,6 +1095,60 @@ class ShareesTest extends TestCase {
 				[],
 				true,
 			],
+			// #12: if no user found and domain name matches local domain, keep remote entry
+			[
+				'test@trusted.domain.tld',
+				[],
+				true,
+				[
+					['label' => 'test@trusted.domain.tld', 'value' => ['shareType' => Share::SHARE_TYPE_REMOTE, 'shareWith' => 'test@trusted.domain.tld']],
+				],
+				[],
+				true,
+				[]
+			],
+			// #13: if no user found and domain name does not match local domain, keep remote entry
+			[
+				'test@domain.tld',
+				[],
+				true,
+				[
+					['label' => 'test@domain.tld', 'value' => ['shareType' => Share::SHARE_TYPE_REMOTE, 'shareWith' => 'test@domain.tld']],
+				],
+				[],
+				true,
+				[]
+			],
+			// #14: if exact user found and domain name matches local domain, skip generated remote entry
+			[
+				'test@trusted.domain.tld',
+				[],
+				true,
+				[],
+				[],
+				true,
+				[
+					'users' => [
+						['label' => 'test@domain.tld', 'value' => ['shareType' => Share::SHARE_TYPE_USER, 'shareWith' => 'test@domain.tld']],
+					]
+				]
+			],
+			// #15: if exact user found but with a non-local domain, keep the remote entry
+			[
+				'test@domain.tld',
+				[],
+				true,
+				[
+					['label' => 'test@domain.tld', 'value' => ['shareType' => Share::SHARE_TYPE_REMOTE, 'shareWith' => 'test@domain.tld']],
+				],
+				[],
+				true,
+				[
+					'users' => [
+						['label' => 'test@domain.tld', 'value' => ['shareType' => Share::SHARE_TYPE_USER, 'shareWith' => 'test@domain.tld']],
+					]
+				]
+			],
 		];
 	}
 
@@ -1017,8 +1161,20 @@ class ShareesTest extends TestCase {
 	 * @param array $exactExpected
 	 * @param array $expected
 	 * @param bool $reachedEnd
+	 * @param array $previousExact
 	 */
-	public function testGetRemote($searchTerm, $contacts, $shareeEnumeration, $exactExpected, $expected, $reachedEnd) {
+	public function testGetRemote($searchTerm, $contacts, $shareeEnumeration, $exactExpected, $expected, $reachedEnd, $previousExact = []) {
+		$this->config->expects($this->any())
+			->method('getSystemValue')
+			->with('trusted_domains')
+			->willReturn(['trusted.domain.tld', 'trusted2.domain.tld']);
+		// inject previous results if needed
+		if (!empty($previousExact)) {
+			$result = $this->invokePrivate($this->sharees, 'result');
+			$result['exact'] = array_merge($result['exact'], $previousExact);
+			$this->invokePrivate($this->sharees, 'result', [$result]);
+		}
+
 		$this->invokePrivate($this->sharees, 'shareeEnumeration', [$shareeEnumeration]);
 		$this->contactsManager->expects($this->any())
 			->method('search')
@@ -1149,10 +1305,14 @@ class ShareesTest extends TestCase {
 	 * @param string $message
 	 */
 	public function testSearchInvalid($message, $search = '', $itemType = null, $page = 1, $perPage = 200) {
+<<<<<<< HEAD
 		$config = $this->getMockBuilder(IConfig::class)
 			->disableOriginalConstructor()
 			->getMock();
 		$config->expects($this->never())
+=======
+		$this->config->expects($this->never())
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			->method('getAppValue');
 
 		/** @var ShareesController | \PHPUnit_Framework_MockObject_MockObject $sharees */
@@ -1163,7 +1323,7 @@ class ShareesTest extends TestCase {
 				$this->groupManager,
 				$this->userManager,
 				$this->contactsManager,
-				$config,
+				$this->config,
 				$this->session,
 				$this->getMockBuilder('OCP\IURLGenerator')->disableOriginalConstructor()->getMock(),
 				$this->getMockBuilder('OCP\ILogger')->disableOriginalConstructor()->getMock(),
@@ -1312,7 +1472,11 @@ class ShareesTest extends TestCase {
 				$this->groupManager,
 				$this->userManager,
 				$this->contactsManager,
+<<<<<<< HEAD
 				$this->getMockBuilder(IConfig::class)->disableOriginalConstructor()->getMock(),
+=======
+				$this->config,
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 				$this->session,
 				$this->getMockBuilder(IURLGenerator::class)->disableOriginalConstructor()->getMock(),
 				$this->getMockBuilder(ILogger::class)->disableOriginalConstructor()->getMock(),

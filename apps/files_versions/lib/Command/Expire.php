@@ -3,8 +3,9 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Robin Appelman <icewind@owncloud.com>
+ * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -57,8 +58,6 @@ class Expire implements ICommand {
 			return;
 		}
 
-		\OC_Util::setupFS($this->user);
-		Storage::expire($this->fileName);
-		\OC_Util::tearDownFS();
+		Storage::expire($this->fileName, $this->user);
 	}
 }

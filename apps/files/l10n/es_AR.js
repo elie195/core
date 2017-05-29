@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "Almacenamiento invalido",
     "Unknown error" : "Error desconocido",
-    "Files" : "Archivos",
     "All files" : "Todos los archivos",
+    "Saved" : "Guardado",
     "Home" : "Particular",
     "Close" : "Cerrar",
     "Favorites" : "Favoritos",
@@ -18,6 +18,7 @@ OC.L10N.register(
     "Rename" : "Cambiar nombre",
     "Delete" : "Borrar",
     "Unshare" : "Dejar de compartir",
+    "Files" : "Archivos",
     "Details" : "Detalles",
     "Select" : "Seleccionar",
     "Pending" : "Pendientes",

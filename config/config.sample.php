@@ -123,6 +123,7 @@ $CONFIG = array(
  */
 'dbtableprefix' => '',
 
+
 /**
  * Indicates whether the ownCloud instance was installed successfully; ``true``
  * indicates a successful installation, and ``false`` indicates an unsuccessful
@@ -200,6 +201,17 @@ $CONFIG = array(
  * which can be used as passwords on their clients.
  */
 'token_auth_enforced' => false,
+
+/**
+ * Disable ownCloud's built-in CSRF protection mechanism.
+ *
+ * In some specific setups CSRF protection is handled in the environment, e.g.,
+ * running F5 ASM. In these cases the built-in mechanism is not needed and can be disabled.
+ * Generally speaking, however, this config switch should be left unchanged.
+ *
+ * WARNING: leave this as is if you're not sure what it does
+ */
+'csrf.disabled' => false,
 
 /**
  * The directory where the skeleton files are located. These files will be
@@ -919,19 +931,43 @@ $CONFIG = array(
 'memcache.distributed' => '\OC\Memcache\Memcached',
 
 /**
- * Connection details for redis to use for memory caching.
+ * Connection details for redis to use for memory caching in a single server configuration.
  *
  * For enhanced security it is recommended to configure Redis
  * to require a password. See http://redis.io/topics/security
  * for more information.
  */
-'redis' => array(
+'redis' => [
 	'host' => 'localhost', // can also be a unix domain socket: '/tmp/redis.sock'
 	'port' => 6379,
 	'timeout' => 0.0,
 	'password' => '', // Optional, if not defined no password will be used.
 	'dbindex' => 0, // Optional, if undefined SELECT will not run and will use Redis Server's default DB Index.
-),
+],
+
+/**
+ * Connection details for a Redis Cluster
+ *
+ * Only for use with Redis Clustering, for Sentinel-based setups use the single
+ * server configuration above, and perform HA on the hostname.
+ *
+ * Redis Cluster support requires the php module phpredis in version 3.0.0 or higher.
+ *
+ * Available failover modes:
+ *  - \RedisCluster::FAILOVER_NONE - only send commands to master nodes (default)
+ *  - \RedisCluster::FAILOVER_ERROR - failover to slaves for read commands if master is unavailable
+ *  - \RedisCluster::FAILOVER_DISTRIBUTE - randomly distribute read commands across master and slaves
+ */
+'redis.cluster' => [
+	'seeds' => [ // provide some/all of the cluster servers to bootstrap discovery, port required
+		'localhost:7000',
+		'localhost:7001'
+	],
+	'timeout' => 0.0,
+	'read_timeout' => 0.0,
+	'failover_mode' => \RedisCluster::FAILOVER_DISTRIBUTE
+],
+
 
 /**
  * Server details for one or more memcached servers to use for memory caching.
@@ -1068,6 +1104,39 @@ $CONFIG = array(
  * can be 'WAL' or 'DELETE' see for more details https://www.sqlite.org/wal.html
  */
 'sqlite.journal_mode' => 'DELETE',
+
+/**
+ * During setup, if requirements are met (see below), this setting is set to true
+ * and MySQL can handle 4 byte characters instead of 3 byte characters.
+ *
+ * If you want to convert an existing 3-byte setup into a 4-byte setup please 
+ * set the parameters in MySQL as mentioned below run the migration command:
+ *  ./occ db:convert-mysql-charset
+ * The config setting will be set automatically after a successful run.
+ * 
+ * Consult the documentation for more details.
+ * 
+ * MySQL requires a special setup for longer indexes (> 767 bytes) which are
+ * needed:
+ *
+ * [mysqld]
+ * innodb_large_prefix=ON
+ * innodb_file_format=Barracuda
+ * innodb_file_per_table=ON
+ *
+ * Tables will be created with
+ *  * character set: utf8mb4
+ *  * collation:     utf8mb4_bin
+ *  * row_format:    compressed
+ *
+ * See:
+ * https://dev.mysql.com/doc/refman/5.7/en/charset-unicode-utf8mb4.html
+ * https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_large_prefix
+ * https://mariadb.com/kb/en/mariadb/xtradbinnodb-server-system-variables/#innodb_large_prefix
+ * http://www.tocker.ca/2013/10/31/benchmarking-innodb-page-compression-performance.html
+ * http://mechanics.flite.com/blog/2014/07/29/using-innodb-large-prefix-to-avoid-error-1071/
+ */
+'mysql.utf8mb4' => false,
 
 /**
  * Database types that are supported for installation.
@@ -1297,6 +1366,13 @@ $CONFIG = array(
  * the user has resolved conflicts.
  */
 'data-fingerprint' => '',
+
+/**
+ * Set this property to false if you want to disable the files_external local mount Option.
+ * Default: true
+ *
+ */
+'files_external_allow_local' => true,
 
 /**
  * This entry is just here to show a warning in case somebody copied the sample

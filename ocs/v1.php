@@ -5,12 +5,14 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Morris Jobke <hey@morrisjobke.de>
+ * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Robin Appelman <icewind@owncloud.com>
+ * @author Roeland Jago Douma <rullzer@users.noreply.github.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -65,8 +67,15 @@ try {
 } catch (MethodNotAllowedException $e) {
 	OC_API::setContentType();
 	OC_Response::setStatus(405);
+<<<<<<< HEAD
 } catch (Exception $ex) {
 	OC_API::respond($ex->getResult(), OC_API::requestedFormat());
+=======
+	exit();
+} catch (Exception $ex) {
+	OC_API::respond($ex->getResult(), OC_API::requestedFormat());
+	exit();
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 }
 
 /*

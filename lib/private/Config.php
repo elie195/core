@@ -11,10 +11,12 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Michael Gapczynski <GapczynskiM@gmail.com>
  * @author Morris Jobke <hey@morrisjobke.de>
+ * @author Philipp Schaffrath <github@philipp.schaffrath.email>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -38,6 +40,9 @@ namespace OC;
  * configuration file of ownCloud.
  */
 class Config {
+
+	const ENV_PREFIX = 'OC_';
+
 	/** @var array Associative array ($key => $value) */
 	protected $cache = [];
 	/** @var string */
@@ -70,15 +75,22 @@ class Config {
 	}
 
 	/**
-	 * Gets a value from config.php
+	 * Returns a config value
 	 *
-	 * If it does not exist, $default will be returned.
+	 * gets its value from an `OC_` prefixed environment variable
+	 * if it doesn't exist from config.php
+	 * if this doesn't exist either, it will return the given `$default`
 	 *
 	 * @param string $key key
 	 * @param mixed $default = null default value
 	 * @return mixed the value or $default
 	 */
 	public function getValue($key, $default = null) {
+		$envValue = getenv(self::ENV_PREFIX . $key);
+		if ($envValue) {
+			return $envValue;
+		}
+
 		if (isset($this->cache[$key])) {
 			return $this->cache[$key];
 		}

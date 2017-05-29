@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2015, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ class Licenses {
 /**
 @AUTHORS@
  *
- * @copyright Copyright (c) @YEAR@, ownCloud GmbH.
+ * @copyright Copyright (c) @YEAR@, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -128,6 +128,7 @@ With help from many libraries and frameworks including:
 
 	/**
 	 * @param string $source
+	 * @return bool
 	 */
 	private function isMITLicensed($source) {
 		$lines = explode(PHP_EOL, $source);
@@ -252,7 +253,6 @@ if (isset($argv[1])) {
 		__DIR__ . '/../apps/systemtags',
 		__DIR__ . '/../apps/testing',
 		__DIR__ . '/../apps/updatenotification',
-		__DIR__ . '/../apps/user_ldap',
 		__DIR__ . '/../core',
 		__DIR__ . '/../lib',
 		__DIR__ . '/../ocs',

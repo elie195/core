@@ -9,19 +9,26 @@
 namespace Test\Files\Node;
 
 use OC\Files\FileInfo;
-use OCP\Files\NotPermittedException;
 use OC\Files\Mount\Manager;
+<<<<<<< HEAD
 use OC\User\NoUserException;
+=======
+use OCP\IUser;
+use Test\TestCase;
+use Test\Traits\UserTrait;
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 /**
  * @group DB
  */
-class RootTest extends \Test\TestCase {
+class RootTest extends TestCase {
+	use UserTrait;
+
 	private $user;
 
 	protected function setUp() {
 		parent::setUp();
-		$this->user = new \OC\User\User('', new \Test\Util\User\Dummy);
+		$this->user = $this->createMock(IUser::class);
 	}
 
 	protected function getFileInfo($data) {
@@ -103,6 +110,12 @@ class RootTest extends \Test\TestCase {
 		$root->get('/bar/foo');
 	}
 
+<<<<<<< HEAD
+=======
+	/**
+	 * @expectedException \OC\User\NoUserException
+	 */
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	public function testGetUserFolder() {
 		$this->logout();
 		$manager = new Manager();
@@ -113,6 +126,7 @@ class RootTest extends \Test\TestCase {
 
 		$user1 = $this->getUniqueID('user1_');
 		$user2 = $this->getUniqueID('user2_');
+<<<<<<< HEAD
 
 		\OC_User::clearBackends();
 		// needed for loginName2UserName mapping
@@ -135,6 +149,10 @@ class RootTest extends \Test\TestCase {
 				[strtoupper($user2), $user2],
 				[$user2, $user2],
 			]));
+=======
+		$this->createUser($user1);
+		$this->createUser($user2);
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 		$this->loginAsUser($user1);
 		$root = new \OC\Files\Node\Root($manager, $view, null);
@@ -149,6 +167,7 @@ class RootTest extends \Test\TestCase {
 		$folder = $root->getUserFolder(strtoupper($user2));
 		$this->assertEquals('/' . $user2 . '/files', $folder->getPath());
 
+<<<<<<< HEAD
 		$thrown = false;
 		try {
 			$folder = $root->getUserFolder($this->getUniqueID('unexist'));
@@ -156,5 +175,8 @@ class RootTest extends \Test\TestCase {
 			$thrown = true;
 		}
 		$this->assertTrue($thrown);
+=======
+		$root->getUserFolder($this->getUniqueID('unexist'));
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 }

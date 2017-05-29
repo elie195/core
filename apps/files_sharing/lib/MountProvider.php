@@ -1,11 +1,12 @@
 <?php
 /**
+ * @author Joas Schilling <coding@schilljs.com>
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -122,7 +123,7 @@ class MountProvider implements IMountProvider {
 		// sort by stime, the super share will be based on the least recent share
 		foreach ($tmp as &$tmp2) {
 			@usort($tmp2, function($a, $b) {
-				if ($a->getShareTime() < $b->getShareTime()) {
+				if ($a->getShareTime() <= $b->getShareTime()) {
 					return -1;
 				}
 				return 1;
@@ -169,7 +170,23 @@ class MountProvider implements IMountProvider {
 				if ($share->getTarget() !== $superShare->getTarget()) {
 					// adjust target, for database consistency
 					$share->setTarget($superShare->getTarget());
-					$this->shareManager->moveShare($share, $user->getUID());
+					try {
+						$this->shareManager->moveShare($share, $user->getUID());
+					} catch (\InvalidArgumentException $e) {
+						// ignore as it is not important and we don't want to
+						// block FS setup
+
+						// the subsequent code anyway only uses the target of the
+						// super share
+
+						// such issue can usually happen when dealing with
+						// null groups which usually appear with group backend
+						// caching inconsistencies
+						\OC::$server->getLogger()->debug(
+							'Could not adjust share target for share ' . $share->getId() . ' to make it consistent: ' . $e->getMessage(),
+							['app' => 'files_sharing']
+						);
+					}
 				}
 			}
 

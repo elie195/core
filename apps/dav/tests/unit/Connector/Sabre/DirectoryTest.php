@@ -5,7 +5,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -41,6 +41,9 @@ class DirectoryTest extends \Test\TestCase {
 
 		$this->view = $this->createMock('OC\Files\View', [], [], '', false);
 		$this->info = $this->createMock('OC\Files\FileInfo', [], [], '', false);
+		$this->info->expects($this->any())
+			->method('isReadable')
+			->will($this->returnValue(true));
 	}
 
 	private function getDir($path = '/') {
@@ -174,6 +177,36 @@ class DirectoryTest extends \Test\TestCase {
 		// calling a second time just returns the cached values,
 		// does not call getDirectoryContents again
 		$dir->getChildren();
+	}
+
+	/**
+	 * @expectedException \Sabre\DAV\Exception\Forbidden
+	 */
+	public function testGetChildrenNoPermission() {
+		$info = $this->getMockBuilder('OC\Files\FileInfo')
+			->disableOriginalConstructor()
+			->getMock();
+		$info->expects($this->any())
+			->method('isReadable')
+			->will($this->returnValue(false));
+
+		$dir = new \OCA\DAV\Connector\Sabre\Directory($this->view, $info);
+		$dir->getChildren();
+	}
+
+	/**
+	 * @expectedException \Sabre\DAV\Exception\NotFound
+	 */
+	public function testGetChildNoPermission() {
+		$info = $this->getMockBuilder('OC\Files\FileInfo')
+			->disableOriginalConstructor()
+			->getMock();
+		$info->expects($this->any())
+			->method('isReadable')
+			->will($this->returnValue(false));
+
+		$dir = new \OCA\DAV\Connector\Sabre\Directory($this->view, $info);
+		$dir->getChild('test');
 	}
 
 	/**

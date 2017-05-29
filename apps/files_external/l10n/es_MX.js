@@ -1,6 +1,10 @@
 OC.L10N.register(
     "files_external",
     {
+<<<<<<< HEAD
+=======
+    "Please provide a valid app key and secret." : "Por favor escriba una llave y secreto válidos para la aplicación.",
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Step 1 failed. Exception: %s" : "Paso 1 falló. Excepción: %s",
     "Step 2 failed. Exception: %s" : "Paso 2 falló. Excepción: %s",
     "External storage" : "Almacenamiento externo",
@@ -23,7 +27,10 @@ OC.L10N.register(
     "Couldn't get the list of external mount points: {type}" : "No se pudo obtener la lista de puntos de montaje externos: {type}",
     "There was an error with message: " : "Hubo un error con mensaje:",
     "External mount error" : "Error en montaje externo",
+<<<<<<< HEAD
     "external-storage" : "almacenamiento-externo",
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Couldn't get the list of Windows network drive mount points: empty response from the server" : "No se pudo obtener la lista de puntos de montaje de unidades de red de Windows: respuesta vacía del servidor",
     "Some of the configured external mount points are not connected. Please click on the red row(s) for more information" : "Algunos de los puntos configurados de montaje externos no están conectados. Por favor haga clic en la(s) fila(s) roja(s) para más información",
     "Please enter the credentials for the {mount} mount" : "Por favor ingrese las credenciales para el montaje {mount}",
@@ -42,7 +49,10 @@ OC.L10N.register(
     "%s" : "%s",
     "Access key" : "Clave de acceso",
     "Secret key" : "Clave secreta",
+<<<<<<< HEAD
     "None" : "Ninguno",
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "OAuth1" : "OAuth1",
     "App key" : "Clave de aplicación",
     "App secret" : "Clave secreta de aplicación",
@@ -50,7 +60,10 @@ OC.L10N.register(
     "Client ID" : "ID de Usuario",
     "Client secret" : "Clave secreta del cliente",
     "API key" : "clave API",
+<<<<<<< HEAD
     "Username and password" : "Nombre de usuario y contraseña",
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "RSA public key" : "Clave pública RSA",
     "Public key" : "Clave pública",
     "Bucket" : "Bucket",
@@ -75,7 +88,10 @@ OC.L10N.register(
     "Domain" : "Dominio",
     "SMB / CIFS using OC login" : "SMB / CIFS con inicio de sesión OC",
     "Service name" : "Nombre del servicio",
+<<<<<<< HEAD
     "You can add external storages in the personal settings" : "Usted puede agregar almacenamientos externos en la configuración personal",
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Name" : "Nombre",
     "Storage type" : "Tipo de almacenamiento",
     "Scope" : "Alcance",

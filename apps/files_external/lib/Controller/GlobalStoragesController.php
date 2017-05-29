@@ -1,12 +1,12 @@
 <?php
 /**
- * @author Joas Schilling <coding@schilljs.com>
  * @author Juan Pablo Villafáñez <jvillafanez@solidgear.es>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,12 +27,12 @@ namespace OCA\Files_External\Controller;
 
 
 use OCP\ILogger;
-use \OCP\IRequest;
-use \OCP\IL10N;
-use \OCP\AppFramework\Http\DataResponse;
-use \OCP\AppFramework\Http;
-use OCA\Files_External\Service\GlobalStoragesService;
-use OCA\Files_External\NotFoundException;
+use OCP\IRequest;
+use OCP\IL10N;
+use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\Http;
+use OCP\Files\External\Service\IGlobalStoragesService;
+use OCP\Files\External\NotFoundException;
 
 /**
  * Global storages controller
@@ -44,14 +44,14 @@ class GlobalStoragesController extends StoragesController {
 	 * @param string $AppName application name
 	 * @param IRequest $request request object
 	 * @param IL10N $l10n l10n service
-	 * @param GlobalStoragesService $globalStoragesService storage service
+	 * @param IGlobalStoragesService $globalStoragesService storage service
 	 * @param ILogger $logger
 	 */
 	public function __construct(
 		$AppName,
 		IRequest $request,
 		IL10N $l10n,
-		GlobalStoragesService $globalStoragesService,
+		IGlobalStoragesService $globalStoragesService,
 		ILogger $logger
 	) {
 		parent::__construct(

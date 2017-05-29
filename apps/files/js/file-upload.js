@@ -34,6 +34,9 @@
 OC.FileUpload = function(uploader, data) {
 	this.uploader = uploader;
 	this.data = data;
+	if (!data) {
+		throw 'Missing "data" argument in OC.FileUpload constructor';
+	}
 	var path = '';
 	if (this.uploader.fileList) {
 		path = OC.joinPaths(this.uploader.fileList.getCurrentDirectory(), this.getFile().name);
@@ -154,6 +157,12 @@ OC.FileUpload.prototype = {
 	 * @return {bool}
 	 */
 	isPending: function() {
+		if (!this.data || !this.data.state) {
+			// this should not be possible!
+			var stack = new Error().stack;
+			console.error(stack);
+			return false;
+		}
 		return this.data.state() === 'pending';
 	},
 
@@ -466,7 +475,7 @@ OC.Uploader.prototype = _.extend({
 						deferred.resolve();
 						return;
 					}
-					OC.Notification.showTemporary(t('files', 'Could not create folder "{dir}"', {dir: fullPath}));
+					OC.Notification.show(t('files', 'Could not create folder "{dir}"', {dir: fullPath}), {type: 'error'});
 					deferred.reject();
 				});
 			}, function() {
@@ -547,7 +556,7 @@ OC.Uploader.prototype = _.extend({
 	},
 
 	showUploadCancelMessage: _.debounce(function() {
-		OC.Notification.showTemporary(t('files', 'Upload cancelled.'), {timeout: 10});
+		OC.Notification.show(t('files', 'Upload cancelled.'), {timeout : 7, type: 'error'});
 	}, 500),
 	/**
 	 * Checks the currently known uploads.
@@ -924,19 +933,15 @@ OC.Uploader.prototype = _.extend({
 						self.showConflict(upload);
 					} else if (status === 404) {
 						// target folder does not exist any more
-						OC.Notification.showTemporary(
-							t('files', 'Target folder "{dir}" does not exist any more', {dir: upload.getFullPath()})
-						);
+						OC.Notification.show(t('files', 'Target folder "{dir}" does not exist any more', {dir: upload.getFullPath()} ), {type: 'error'});
 						self.cancelUploads();
 					} else if (status === 507) {
 						// not enough space
-						OC.Notification.showTemporary(
-							t('files', 'Not enough free space')
-						);
+						OC.Notification.show(t('files', 'Not enough free space'), {type: 'error'});
 						self.cancelUploads();
 					} else {
 						// HTTP connection problem or other error
-						OC.Notification.showTemporary(data.errorThrown, {timeout: 10});
+						OC.Notification.show(data.errorThrown, {type: 'error'});
 					}
 
 					if (upload) {
@@ -1028,43 +1033,9 @@ OC.Uploader.prototype = _.extend({
 						bufferIndex = (bufferIndex + 1) % bufferSize;
 					}
 					var smoothRemainingSeconds = (bufferTotal / bufferSize); //seconds
-					var date = new Date(smoothRemainingSeconds * 1000);
-					var timeStringDesktop = "";
-					var timeStringMobile = "";
-					if(date.getUTCHours() > 0){
-						timeStringDesktop = t('files', '{hours}:{minutes}:{seconds} hour{plural_s} left' , {
-							hours:date.getUTCHours(),
-							minutes: ('0' + date.getUTCMinutes()).slice(-2),
-							seconds: ('0' + date.getUTCSeconds()).slice(-2),
-							plural_s: ( smoothRemainingSeconds === 3600  ? "": "s") // 1 hour = 1*60m*60s = 3600s
-						});
-						timeStringMobile = t('files', '{hours}:{minutes}h' , {
-							hours:date.getUTCHours(),
-							minutes: ('0' + date.getUTCMinutes()).slice(-2),
-							seconds: ('0' + date.getUTCSeconds()).slice(-2)
-						});
-					} else if(date.getUTCMinutes() > 0){
-						timeStringDesktop = t('files', '{minutes}:{seconds} minute{plural_s} left' , {
-							minutes: date.getUTCMinutes(),
-							seconds: ('0' + date.getUTCSeconds()).slice(-2),
-							plural_s: (smoothRemainingSeconds === 60 ? "": "s") // 1 minute = 1*60s = 60s
-						});
-						timeStringMobile = t('files', '{minutes}:{seconds}m' , {
-							minutes: date.getUTCMinutes(),
-							seconds: ('0' + date.getUTCSeconds()).slice(-2)
-						});
-					} else if(date.getUTCSeconds() > 0){
-						timeStringDesktop = t('files', '{seconds} second{plural_s} left' , {
-							seconds: date.getUTCSeconds(),
-							plural_s: (smoothRemainingSeconds === 1 ? "": "s") // 1 second = 1s = 1s
-						});
-						timeStringMobile = t('files', '{seconds}s' , {seconds: date.getUTCSeconds()});
-					} else {
-						timeStringDesktop = t('files', 'Any moment now...');
-						timeStringMobile = t('files', 'Soon...');
-					}
-					$('#uploadprogressbar .label .mobile').text(timeStringMobile);
-					$('#uploadprogressbar .label .desktop').text(timeStringDesktop);
+					var h = moment.duration(smoothRemainingSeconds, "seconds").humanize();
+					$('#uploadprogressbar .label .mobile').text(h);
+					$('#uploadprogressbar .label .desktop').text(h);
 					$('#uploadprogressbar').attr('original-title',
 						t('files', '{loadedSize} of {totalSize} ({bitrate})' , {
 							loadedSize: humanFileSize(data.loaded),
@@ -1132,5 +1103,3 @@ OC.Uploader.prototype = _.extend({
 		return this.fileUploadParam;
 	}
 }, OC.Backbone.Events);
-
-

@@ -5,8 +5,13 @@
 	<description>ownCloud WebDAV endpoint</description>
 	<licence>AGPL</licence>
 	<author>owncloud.org</author>
+<<<<<<< HEAD
 	<version>0.2.7</version>
+=======
+	<version>0.2.8</version>
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	<default_enable/>
+	<use-migrations>true</use-migrations>
 	<types>
 		<filesystem/>
 	</types>
@@ -15,7 +20,7 @@
 		<webdav>appinfo/v1/publicwebdav.php</webdav>
 	</public>
 	<dependencies>
-		<owncloud min-version="9.2" max-version="9.2" />
+		<owncloud min-version="10.0" max-version="10.0" />
 	</dependencies>
 	<background-jobs>
 		<job>OCA\DAV\CardDAV\SyncJob</job>

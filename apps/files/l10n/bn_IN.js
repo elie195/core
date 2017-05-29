@@ -1,12 +1,13 @@
 OC.L10N.register(
     "files",
     {
-    "Files" : "ফাইলস",
+    "Saved" : "সংরক্ষিত",
     "Close" : "বন্ধ",
     "Uploading..." : "আপলোডইং ...",
     "Download" : "ডাউনলোড করুন",
     "Rename" : "পুনঃনামকরণ",
     "Delete" : "মুছে ফেলা",
+    "Files" : "ফাইলস",
     "Pending" : "মুলতুবি",
     "Invalid path" : "অবৈধ পথ",
     "Name" : "নাম",

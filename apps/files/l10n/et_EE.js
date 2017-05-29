@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "Vigane andmehoidla",
     "Unknown error" : "Tundmatu viga",
-    "Files" : "Failid",
     "All files" : "Kõik failid",
+    "Saved" : "Salvestatud",
     "Home" : "Kodu",
     "Close" : "Sulge",
     "Favorites" : "Lemmikud",
@@ -13,10 +13,13 @@ OC.L10N.register(
     "Not enough free space, you are uploading {size1} but only {size2} is left" : "Pole piisavalt vaba ruumi. Sa laadid üles {size1}, kuid ainult {size2} on saadaval.",
     "Uploading..." : "Üleslaadimine...",
     "..." : "...",
+<<<<<<< HEAD
     "{hours}:{minutes}h" : "{hours}:{minutes}h",
     "{minutes}:{seconds}m" : "{minutes}:{seconds}m",
     "{seconds}s" : "{seconds}s",
     "Soon..." : "Varsti...",
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "{loadedSize} of {totalSize} ({bitrate})" : "{loadedSize} / {totalSize} ({bitrate})",
     "File upload is in progress. Leaving the page now will cancel the upload." : "Faili üleslaadimine on töös. Lehelt lahkumine katkestab selle üleslaadimise.",
     "Actions" : "Tegevused",
@@ -25,6 +28,7 @@ OC.L10N.register(
     "Delete" : "Kustuta",
     "Disconnect storage" : "Ühenda andmehoidla lahti.",
     "Unshare" : "Lõpeta jagamine",
+    "Files" : "Failid",
     "Details" : "Üksikasjad",
     "Select" : "Vali",
     "Pending" : "Ootel",

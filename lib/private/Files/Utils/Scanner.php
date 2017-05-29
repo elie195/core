@@ -5,8 +5,9 @@
  * @author Olivier Paroz <github@oparoz.com>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -121,6 +122,12 @@ class Scanner extends PublicEmitter {
 			if (is_null($storage)) {
 				continue;
 			}
+
+			// don't bother scanning failed storages (shortcut for same result)
+			if ($storage->instanceOfStorage('OC\Files\Storage\FailedStorage')) {
+				continue;
+			}
+
 			// don't scan the root storage
 			if ($storage->instanceOfStorage('\OC\Files\Storage\Local') && $mount->getMountPoint() === '/') {
 				continue;
@@ -164,6 +171,15 @@ class Scanner extends PublicEmitter {
 			if (is_null($storage)) {
 				continue;
 			}
+<<<<<<< HEAD
+=======
+
+			// don't bother scanning failed storages (shortcut for same result)
+			if ($storage->instanceOfStorage('OC\Files\Storage\FailedStorage')) {
+				continue;
+			}
+
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			// if the home storage isn't writable then the scanner is run as the wrong user
 			if ($storage->instanceOfStorage('\OC\Files\Storage\Home') and
 				(!$storage->isCreatable('') or !$storage->isCreatable('files'))

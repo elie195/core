@@ -590,6 +590,56 @@ describe('Core base tests', function() {
 				}
 			});
 		});
+		describe('computerFileSize', function() {
+			it('correctly parses file sizes from a human readable formated string', function() {
+				var data = [
+					['125', 125],
+					['125.25', 125],
+					['125.25B', 125],
+					['125.25 B', 125],
+					['0 B', 0],
+					['99999999999999999999999999999999999999999999 B', 99999999999999999999999999999999999999999999],
+					['0 MB', 0],
+					['0 kB', 0],
+					['0kB', 0],
+					['125 B', 125],
+					['125b', 125],
+					['125 KB', 128000],
+					['125kb', 128000],
+					['122.1 MB', 128031130],
+					['122.1mb', 128031130],
+					['119.2 GB', 127990025421],
+					['119.2gb', 127990025421],
+					['116.4 TB', 127983153473126],
+					['116.4tb', 127983153473126],
+					['8776656778888777655.4tb', 9.650036181387265e+30],
+					[1234, null],
+					[-1234, null],
+					['-1234 B', null],
+					['B', null],
+					['40/0', null],
+					['40,30 kb', null],
+					[' 122.1 MB ', 128031130],
+					['122.1 MB ', 128031130],
+					[' 122.1 MB ', 128031130],
+					['	122.1 MB ', 128031130],
+					['122.1    MB ', 128031130],
+					[' 125', 125],
+					[' 125 ', 125],					
+				];
+				for (var i = 0; i < data.length; i++) {
+					expect(OC.Util.computerFileSize(data[i][0])).toEqual(data[i][1]);
+				}
+			});
+			it('returns null if the parameter is not a string', function() {
+				expect(OC.Util.computerFileSize(NaN)).toEqual(null);
+				expect(OC.Util.computerFileSize(125)).toEqual(null);
+			});
+			it('returns null if the string is unparsable', function() {
+				expect(OC.Util.computerFileSize('')).toEqual(null);
+				expect(OC.Util.computerFileSize('foobar')).toEqual(null);
+			});
+		});
 		describe('stripTime', function() {
 			it('strips time from dates', function() {
 				expect(OC.Util.stripTime(new Date(2014, 2, 24, 15, 4, 45, 24)))

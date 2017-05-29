@@ -26,6 +26,7 @@
 !/apps/systemtags
 !/apps/testing
 !/apps/updatenotification
+!/apps/example-theme
 /apps/files_external/3rdparty/irodsphp/PHPUnitTest
 /apps/files_external/3rdparty/irodsphp/web
 /apps/files_external/3rdparty/irodsphp/prods/test
@@ -124,3 +125,7 @@ Vagrantfile
 /config/config-autotest-backup.php
 /config/autoconfig.php
 clover.xml
+
+# Custom
+.travis.yml
+Jenkinsfile

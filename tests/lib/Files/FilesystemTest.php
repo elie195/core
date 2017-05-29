@@ -22,14 +22,19 @@
 
 namespace Test\Files;
 
+use OC\Files\Filesystem;
 use OC\Files\Mount\MountPoint;
 use OC\Files\Storage\Temporary;
+use OC\Files\View;
 use OC\User\NoUserException;
 use OCP\Files\Config\IMountProvider;
 use OCP\Files\Storage\IStorageFactory;
 use OCP\IUser;
+use Test\TestCase;
+use Test\Traits\UserTrait;
 
 class DummyMountProvider implements IMountProvider {
+
 	private $mounts = [];
 
 	/**
@@ -58,7 +63,9 @@ class DummyMountProvider implements IMountProvider {
  *
  * @package Test\Files
  */
-class FilesystemTest extends \Test\TestCase {
+class FilesystemTest extends TestCase {
+
+	use UserTrait;
 
 	const TEST_FILESYSTEM_USER1 = "test-filesystem-user1";
 	const TEST_FILESYSTEM_USER2 = "test-filesystem-user1";
@@ -79,11 +86,16 @@ class FilesystemTest extends \Test\TestCase {
 
 	protected function setUp() {
 		parent::setUp();
+<<<<<<< HEAD
 		\OC_User::clearBackends();
 		$userBackend = new \Test\Util\User\Dummy();
 		$userBackend->createUser(self::TEST_FILESYSTEM_USER1, self::TEST_FILESYSTEM_USER1);
 		$userBackend->createUser(self::TEST_FILESYSTEM_USER2, self::TEST_FILESYSTEM_USER2);
 		\OC::$server->getUserManager()->registerBackend($userBackend);
+=======
+		$this->createUser(self::TEST_FILESYSTEM_USER1, self::TEST_FILESYSTEM_USER1);
+		$this->createUser(self::TEST_FILESYSTEM_USER2, self::TEST_FILESYSTEM_USER2);
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		$this->loginAsUser();
 	}
 
@@ -99,20 +111,20 @@ class FilesystemTest extends \Test\TestCase {
 	}
 
 	public function testMount() {
-		\OC\Files\Filesystem::mount('\OC\Files\Storage\Local', self::getStorageData(), '/');
-		$this->assertEquals('/', \OC\Files\Filesystem::getMountPoint('/'));
-		$this->assertEquals('/', \OC\Files\Filesystem::getMountPoint('/some/folder'));
-		list(, $internalPath) = \OC\Files\Filesystem::resolvePath('/');
+		Filesystem::mount('\OC\Files\Storage\Local', self::getStorageData(), '/');
+		$this->assertEquals('/', Filesystem::getMountPoint('/'));
+		$this->assertEquals('/', Filesystem::getMountPoint('/some/folder'));
+		list(, $internalPath) = Filesystem::resolvePath('/');
 		$this->assertEquals('', $internalPath);
-		list(, $internalPath) = \OC\Files\Filesystem::resolvePath('/some/folder');
+		list(, $internalPath) = Filesystem::resolvePath('/some/folder');
 		$this->assertEquals('some/folder', $internalPath);
 
-		\OC\Files\Filesystem::mount('\OC\Files\Storage\Local', self::getStorageData(), '/some');
-		$this->assertEquals('/', \OC\Files\Filesystem::getMountPoint('/'));
-		$this->assertEquals('/some/', \OC\Files\Filesystem::getMountPoint('/some/folder'));
-		$this->assertEquals('/some/', \OC\Files\Filesystem::getMountPoint('/some/'));
-		$this->assertEquals('/some/', \OC\Files\Filesystem::getMountPoint('/some'));
-		list(, $internalPath) = \OC\Files\Filesystem::resolvePath('/some/folder');
+		Filesystem::mount('\OC\Files\Storage\Local', self::getStorageData(), '/some');
+		$this->assertEquals('/', Filesystem::getMountPoint('/'));
+		$this->assertEquals('/some/', Filesystem::getMountPoint('/some/folder'));
+		$this->assertEquals('/some/', Filesystem::getMountPoint('/some/'));
+		$this->assertEquals('/some/', Filesystem::getMountPoint('/some'));
+		list(, $internalPath) = Filesystem::resolvePath('/some/folder');
 		$this->assertEquals('folder', $internalPath);
 	}
 
@@ -190,7 +202,7 @@ class FilesystemTest extends \Test\TestCase {
 	 * @dataProvider normalizePathData
 	 */
 	public function testNormalizePath($expected, $path, $stripTrailingSlash = true) {
-		$this->assertEquals($expected, \OC\Files\Filesystem::normalizePath($path, $stripTrailingSlash));
+		$this->assertEquals($expected, Filesystem::normalizePath($path, $stripTrailingSlash));
 	}
 
 	public function normalizePathKeepUnicodeData() {
@@ -208,15 +220,15 @@ class FilesystemTest extends \Test\TestCase {
 	 * @dataProvider normalizePathKeepUnicodeData
 	 */
 	public function testNormalizePathKeepUnicode($expected, $path, $keepUnicode = false) {
-		$this->assertEquals($expected, \OC\Files\Filesystem::normalizePath($path, true, false, $keepUnicode));
+		$this->assertEquals($expected, Filesystem::normalizePath($path, true, false, $keepUnicode));
 	}
 
 	public function testNormalizePathKeepUnicodeCache() {
 		$nfdName = 'ümlaut';
 		$nfcName = 'ümlaut';
 		// call in succession due to cache
-		$this->assertEquals('/' . $nfcName, \OC\Files\Filesystem::normalizePath($nfdName, true, false, false));
-		$this->assertEquals('/' . $nfdName, \OC\Files\Filesystem::normalizePath($nfdName, true, false, true));
+		$this->assertEquals('/' . $nfcName, Filesystem::normalizePath($nfdName, true, false, false));
+		$this->assertEquals('/' . $nfdName, Filesystem::normalizePath($nfdName, true, false, true));
 	}
 
 	public function isValidPathData() {
@@ -249,7 +261,7 @@ class FilesystemTest extends \Test\TestCase {
 	 * @dataProvider isValidPathData
 	 */
 	public function testIsValidPath($path, $expected) {
-		$this->assertSame($expected, \OC\Files\Filesystem::isValidPath($path));
+		$this->assertSame($expected, Filesystem::isValidPath($path));
 	}
 
 	public function isFileBlacklistedData() {
@@ -271,7 +283,7 @@ class FilesystemTest extends \Test\TestCase {
 	 * @dataProvider isFileBlacklistedData
 	 */
 	public function testIsFileBlacklisted($path, $expected) {
-		$this->assertSame($expected, \OC\Files\Filesystem::isForbiddenFileOrDir($path));
+		$this->assertSame($expected, Filesystem::isForbiddenFileOrDir($path));
 	}
 
 	public function isExcludedData() {
@@ -294,7 +306,11 @@ class FilesystemTest extends \Test\TestCase {
 	 * @dataProvider isExcludedData
 	 */
 	public function testIsExcluded($path, $expected) {
+<<<<<<< HEAD
 		$this->assertSame($expected, \OC\Files\Filesystem::isForbiddenFileOrDir($path, ['.snapshot']));
+=======
+		$this->assertSame($expected, Filesystem::isForbiddenFileOrDir($path, ['.snapshot']));
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 
 	public function testNormalizePathUTF8() {
@@ -302,34 +318,32 @@ class FilesystemTest extends \Test\TestCase {
 			$this->markTestSkipped('UTF8 normalizer Patchwork was not found');
 		}
 
-		$this->assertEquals("/foo/bar\xC3\xBC", \OC\Files\Filesystem::normalizePath("/foo/baru\xCC\x88"));
-		$this->assertEquals("/foo/bar\xC3\xBC", \OC\Files\Filesystem::normalizePath("\\foo\\baru\xCC\x88"));
+		$this->assertEquals("/foo/bar\xC3\xBC", Filesystem::normalizePath("/foo/baru\xCC\x88"));
+		$this->assertEquals("/foo/bar\xC3\xBC", Filesystem::normalizePath("\\foo\\baru\xCC\x88"));
 	}
 
 	public function testHooks() {
-		if (\OC\Files\Filesystem::getView()) {
+		if (Filesystem::getView()) {
 			$user = \OC_User::getUser();
 		} else {
 			$user = self::TEST_FILESYSTEM_USER1;
-			$backend = new \Test\Util\User\Dummy();
-			\OC_User::useBackend($backend);
-			$backend->createUser($user, $user);
+			$this->createUser($user, $user);
 			$userObj = \OC::$server->getUserManager()->get($user);
 			\OC::$server->getUserSession()->setUser($userObj);
-			\OC\Files\Filesystem::init($user, '/' . $user . '/files');
+			Filesystem::init($user, '/' . $user . '/files');
 
 		}
 		\OC_Hook::clear('OC_Filesystem');
 		\OC_Hook::connect('OC_Filesystem', 'post_write', $this, 'dummyHook');
 
-		\OC\Files\Filesystem::mount('OC\Files\Storage\Temporary', [], '/');
+		Filesystem::mount('OC\Files\Storage\Temporary', [], '/');
 
-		$rootView = new \OC\Files\View('');
+		$rootView = new View('');
 		$rootView->mkdir('/' . $user);
 		$rootView->mkdir('/' . $user . '/files');
 
 //		\OC\Files\Filesystem::file_put_contents('/foo', 'foo');
-		\OC\Files\Filesystem::mkdir('/bar');
+		Filesystem::mkdir('/bar');
 //		\OC\Files\Filesystem::file_put_contents('/bar//foo', 'foo');
 
 		$tmpFile = \OC::$server->getTempManager()->getTemporaryFile();
@@ -346,25 +360,25 @@ class FilesystemTest extends \Test\TestCase {
 	public function testLocalMountWhenUserDoesNotExist() {
 		$userId = $this->getUniqueID('user_');
 
-		\OC\Files\Filesystem::initMountPoints($userId);
+		Filesystem::initMountPoints($userId);
 	}
 
 	/**
 	 * @expectedException \OC\User\NoUserException
 	 */
 	public function testNullUserThrows() {
-		\OC\Files\Filesystem::initMountPoints(null);
+		Filesystem::initMountPoints(null);
 	}
 
 	public function testNullUserThrowsTwice() {
 		$thrown = 0;
 		try {
-			\OC\Files\Filesystem::initMountPoints(null);
+			Filesystem::initMountPoints(null);
 		} catch (NoUserException $e) {
 			$thrown++;
 		}
 		try {
-			\OC\Files\Filesystem::initMountPoints(null);
+			Filesystem::initMountPoints(null);
 		} catch (NoUserException $e) {
 			$thrown++;
 		}
@@ -379,13 +393,13 @@ class FilesystemTest extends \Test\TestCase {
 		$userId = $this->getUniqueID('user_');
 
 		try {
-			\OC\Files\Filesystem::initMountPoints($userId);
+			Filesystem::initMountPoints($userId);
 		} catch (NoUserException $e) {
 			$thrown++;
 		}
 
 		try {
-			\OC\Files\Filesystem::initMountPoints($userId);
+			Filesystem::initMountPoints($userId);
 		} catch (NoUserException $e) {
 			$thrown++;
 		}
@@ -396,6 +410,7 @@ class FilesystemTest extends \Test\TestCase {
 	public function testUserNameCasing() {
 		$this->logout();
 		$userId = $this->getUniqueID('user_');
+<<<<<<< HEAD
 
 		\OC_User::clearBackends();
 		// needed for loginName2UserName mapping
@@ -415,6 +430,14 @@ class FilesystemTest extends \Test\TestCase {
 		$this->assertFalse($view->file_exists('/' . $userId));
 
 		\OC\Files\Filesystem::initMountPoints(strtoupper($userId));
+=======
+		$this->createUser($userId);
+
+		$view = new View();
+		$this->assertFalse($view->file_exists('/' . $userId));
+
+		Filesystem::initMountPoints(strtoupper($userId));
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 		list($storage1, $path1) = $view->resolvePath('/' . $userId);
 		list($storage2, $path2) = $view->resolvePath('/' . strtoupper($userId));
@@ -434,9 +457,9 @@ class FilesystemTest extends \Test\TestCase {
 
 		\OC::$server->getUserManager()->createUser($userId, $userId);
 
-		\OC\Files\Filesystem::initMountPoints($userId);
+		Filesystem::initMountPoints($userId);
 
-		$homeMount = \OC\Files\Filesystem::getStorage('/' . $userId . '/');
+		$homeMount = Filesystem::getStorage('/' . $userId . '/');
 
 		$this->assertTrue($homeMount->instanceOfStorage('\OCP\Files\IHomeStorage'));
 		if (getenv('RUN_OBJECTSTORE_TESTS')) {
@@ -451,40 +474,9 @@ class FilesystemTest extends \Test\TestCase {
 		if ($user !== null) { $user->delete(); }
 	}
 
-	/**
-	 * Tests that the home storage is used in legacy mode
-	 * for the user's mount point
-	 */
-	public function testLegacyHomeMount() {
-		if (getenv('RUN_OBJECTSTORE_TESTS')) {
-			$this->markTestSkipped('legacy storage unrelated to objectstore environments');
-		}
-		$datadir = \OC::$server->getConfig()->getSystemValue("datadirectory", \OC::$SERVERROOT . "/data");
-		$userId = $this->getUniqueID('user_');
-
-		// insert storage into DB by constructing it
-		// to make initMountsPoint find its existence
-		$localStorage = new \OC\Files\Storage\Local(['datadir' => $datadir . '/' . $userId . '/']);
-		// this will trigger the insert
-		$cache = $localStorage->getCache();
-
-		\OC::$server->getUserManager()->createUser($userId, $userId);
-		\OC\Files\Filesystem::initMountPoints($userId);
-
-		$homeMount = \OC\Files\Filesystem::getStorage('/' . $userId . '/');
-
-		$this->assertTrue($homeMount->instanceOfStorage('\OC\Files\Storage\Home'));
-		$this->assertEquals('local::' . $datadir . '/' . $userId . '/', $homeMount->getId());
-
-		$user = \OC::$server->getUserManager()->get($userId);
-		if ($user !== null) { $user->delete(); }
-		// delete storage entry
-		$cache->clear();
-	}
-
 	public function dummyHook($arguments) {
 		$path = $arguments['path'];
-		$this->assertEquals($path, \OC\Files\Filesystem::normalizePath($path)); //the path passed to the hook should already be normalized
+		$this->assertEquals($path, Filesystem::normalizePath($path)); //the path passed to the hook should already be normalized
 	}
 
 	/**
@@ -498,13 +490,13 @@ class FilesystemTest extends \Test\TestCase {
 		$config->setSystemValue('cache_path', '');
 
 		\OC::$server->getUserManager()->createUser($userId, $userId);
-		\OC\Files\Filesystem::initMountPoints($userId);
+		Filesystem::initMountPoints($userId);
 
 		$this->assertEquals(
 			'/' . $userId . '/',
-			\OC\Files\Filesystem::getMountPoint('/' . $userId . '/cache')
+			Filesystem::getMountPoint('/' . $userId . '/cache')
 		);
-		list($storage, $internalPath) = \OC\Files\Filesystem::resolvePath('/' . $userId . '/cache');
+		list($storage, $internalPath) = Filesystem::resolvePath('/' . $userId . '/cache');
 		$this->assertTrue($storage->instanceOfStorage('\OCP\Files\IHomeStorage'));
 		$this->assertEquals('cache', $internalPath);
 		$user = \OC::$server->getUserManager()->get($userId);
@@ -527,13 +519,13 @@ class FilesystemTest extends \Test\TestCase {
 		$config->setSystemValue('cache_path', $cachePath);
 
 		\OC::$server->getUserManager()->createUser($userId, $userId);
-		\OC\Files\Filesystem::initMountPoints($userId);
+		Filesystem::initMountPoints($userId);
 
 		$this->assertEquals(
 			'/' . $userId . '/cache/',
-			\OC\Files\Filesystem::getMountPoint('/' . $userId . '/cache')
+			Filesystem::getMountPoint('/' . $userId . '/cache')
 		);
-		list($storage, $internalPath) = \OC\Files\Filesystem::resolvePath('/' . $userId . '/cache');
+		list($storage, $internalPath) = Filesystem::resolvePath('/' . $userId . '/cache');
 		$this->assertTrue($storage->instanceOfStorage('\OC\Files\Storage\Local'));
 		$this->assertEquals('', $internalPath);
 		$user = \OC::$server->getUserManager()->get($userId);
@@ -543,11 +535,12 @@ class FilesystemTest extends \Test\TestCase {
 	}
 
 	public function testRegisterMountProviderAfterSetup() {
-		\OC\Files\Filesystem::initMountPoints(self::TEST_FILESYSTEM_USER2);
-		$this->assertEquals('/', \OC\Files\Filesystem::getMountPoint('/foo/bar'));
+		Filesystem::initMountPoints(self::TEST_FILESYSTEM_USER2);
+		$this->assertEquals('/', Filesystem::getMountPoint('/foo/bar'));
 		$mount = new MountPoint(new Temporary([]), '/foo/bar');
 		$mountProvider = new DummyMountProvider([self::TEST_FILESYSTEM_USER2 => [$mount]]);
+		$um = \OC::$server->getUserManager();
 		\OC::$server->getMountProviderCollection()->registerProvider($mountProvider);
-		$this->assertEquals('/foo/bar/', \OC\Files\Filesystem::getMountPoint('/foo/bar'));
+		$this->assertEquals('/foo/bar/', Filesystem::getMountPoint('/foo/bar'));
 	}
 }

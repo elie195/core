@@ -1,17 +1,23 @@
 OC.L10N.register(
     "files",
     {
+    "Storage is temporarily not available" : "Сховище тимчасове недоступне",
     "Storage invalid" : "Неправильне сховище",
     "Unknown error" : "Невідома помилка",
-    "Files" : "Файли",
     "All files" : "Усі файли",
+<<<<<<< HEAD
+=======
+    "Saved" : "Збережено",
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "File could not be found" : "Файл не знайдено",
     "Home" : "Домашня адреса",
     "Close" : "Закрити",
     "Favorites" : "Улюблені",
+    "Could not create folder \"{dir}\"" : "Неможливо створити теку \"{dir}\"",
     "Upload cancelled." : "Вивантаження скасовано.",
     "Unable to upload {filename} as it is a directory or has 0 bytes" : "Неможливо вивантажити {filename}, оскільки це каталог або файл має розмір 0 байт.",
     "Not enough free space, you are uploading {size1} but only {size2} is left" : "Недостатньо вільного місця, ви вивантажуєте {size1}, а залишилося лише {size2}",
+    "Not enough free space" : "Недостатньо вільного місця",
     "Uploading..." : "Вивантаження...",
     "..." : "...",
     "File upload is in progress. Leaving the page now will cancel the upload." : "Виконується вивантаження файлу. Закриття цієї сторінки приведе до скасування вивантаження.",
@@ -21,6 +27,7 @@ OC.L10N.register(
     "Delete" : "Видалити",
     "Disconnect storage" : "Від’єднати сховище",
     "Unshare" : "Закрити спільний доступ",
+    "Files" : "Файли",
     "Details" : "Деталі",
     "Select" : "Оберіть",
     "Pending" : "Очікування",
@@ -28,6 +35,8 @@ OC.L10N.register(
     "Invalid path" : "Невірний шлях",
     "This operation is forbidden" : "Ця операція заборонена",
     "This directory is unavailable, please check the logs or contact the administrator" : "Директорія недоступна, будь ласка, перевірте файл журналу або зверніться до адміністратора  ",
+    "Could not move \"{file}\", target exists" : "Не вдалося перемістити \"{file}\", такий файл вже існує",
+    "Could not move \"{file}\"" : "Не вдалося перемістити \"{file}\"",
     "No entries in this folder match '{filter}'" : "Нічого не знайдено в цій теці  '{filter}'",
     "Name" : "Ім'я",
     "Size" : "Розмір",

@@ -14,7 +14,7 @@
  * @author Thomas Tanghus <thomas@tanghus.net>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -453,6 +453,11 @@ class Request implements \ArrayAccess, \Countable, IRequest {
 	public function passesCSRFCheck() {
 		if($this->csrfTokenManager === null) {
 			return false;
+		}
+
+		// Is CSRF protection handled outside of ownCloud?
+		if ($this->config->getSystemValue('csrf.disabled', false)) {
+			return true;
 		}
 
 		if (isset($this->items['get']['requesttoken'])) {

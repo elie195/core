@@ -8,8 +8,9 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Tom Needham <tom@owncloud.com>
+ * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -32,7 +33,6 @@ use OC\OCS\Result;
 use \OC_Helper;
 use OCP\API;
 use OCP\Files\NotFoundException;
-use OCP\IConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\ILogger;
@@ -45,8 +45,6 @@ class Users {
 
 	/** @var IUserManager */
 	private $userManager;
-	/** @var IConfig */
-	private $config;
 	/** @var IGroupManager|\OC\Group\Manager */ // FIXME Requires a method that is not on the interface
 	private $groupManager;
 	/** @var IUserSession */
@@ -58,19 +56,16 @@ class Users {
 
 	/**
 	 * @param IUserManager $userManager
-	 * @param IConfig $config
 	 * @param IGroupManager $groupManager
 	 * @param IUserSession $userSession
 	 * @param ILogger $logger
 	 */
 	public function __construct(IUserManager $userManager,
-								IConfig $config,
 								IGroupManager $groupManager,
 								IUserSession $userSession,
 								ILogger $logger,
 								\OC\Authentication\TwoFactorAuth\Manager $twoFactorAuthManager ) {
 		$this->userManager = $userManager;
-		$this->config = $config;
 		$this->groupManager = $groupManager;
 		$this->userSession = $userSession;
 		$this->logger = $logger;
@@ -202,7 +197,7 @@ class Users {
 		// Admin? Or SubAdmin?
 		if($this->groupManager->isAdmin($currentLoggedInUser->getUID())
 			|| $this->groupManager->getSubAdmin()->isUserAccessible($currentLoggedInUser, $targetUserObject)) {
-			$data['enabled'] = $this->config->getUserValue($userId, 'core', 'enabled', 'true');
+			$data['enabled'] = $targetUserObject->isEnabled() ? 'true' : 'false';
 		} else {
 			// Check they are looking up themselves
 			if($currentLoggedInUser->getUID() !== $userId) {
@@ -214,6 +209,7 @@ class Users {
 		$data['quota'] = $this->fillStorageInfo($userId);
 		$data['email'] = $targetUserObject->getEMailAddress();
 		$data['displayname'] = $targetUserObject->getDisplayName();
+		$data['home'] = $targetUserObject->getHome();
 		$data['two_factor_auth_enabled'] = $this->twoFactorAuthManager->isTwoFactorAuthenticated($targetUserObject) ? 'true' : 'false';
 
 		return new Result($data);
@@ -414,7 +410,7 @@ class Users {
 		if($targetUser->getUID() === $loggedInUser->getUID() || $this->groupManager->isAdmin($loggedInUser->getUID())) {
 			// Self lookup or admin lookup
 			return new Result([
-				'groups' => $this->groupManager->getUserGroupIds($targetUser)
+				'groups' => $this->groupManager->getUserGroupIds($targetUser, 'management')
 			]);
 		} else {
 			$subAdminManager = $this->groupManager->getSubAdmin();

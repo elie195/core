@@ -5,8 +5,9 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -148,7 +149,7 @@ class CheckSetupController extends Controller {
 	private function isUsedTlsLibOutdated() {
 		// Appstore is disabled by default in EE
 		$appStoreDefault = false;
-		if (\OC_Util::getEditionString() === '') {
+		if (\OC_Util::getEditionString() === \OC_Util::EDITION_COMMUNITY) {
 			$appStoreDefault = true;
 		}
 
@@ -257,7 +258,7 @@ class CheckSetupController extends Controller {
 	public function rescanFailedIntegrityCheck() {
 		$this->checker->runInstanceVerification();
 		return new RedirectResponse(
-			$this->urlGenerator->linkToRoute('settings_admin')
+			$this->urlGenerator->linkToRoute('settings.SettingsPage.getAdmin')
 		);
 	}
 

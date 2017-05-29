@@ -1,9 +1,10 @@
 <?php
 /**
+ * @author Michael Jobst <mjobst+github@tecratech.de>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -144,12 +145,14 @@ class Share20OCS {
 			$result['share_with'] = $share->getSharedWith();
 			$result['share_with_displayname'] = $sharedWith !== null ? $sharedWith->getDisplayName() : $share->getSharedWith();
 		} else if ($share->getShareType() === \OCP\Share::SHARE_TYPE_GROUP) {
+			$group = $this->groupManager->get($share->getSharedWith());
 			$result['share_with'] = $share->getSharedWith();
-			$result['share_with_displayname'] = $share->getSharedWith();
+			$result['share_with_displayname'] = $group !== null ? $group->getDisplayName() : $share->getSharedWith();
 		} else if ($share->getShareType() === \OCP\Share::SHARE_TYPE_LINK) {
 
 			$result['share_with'] = $share->getPassword();
 			$result['share_with_displayname'] = $share->getPassword();
+			$result['name'] = $share->getName();
 
 			$result['token'] = $share->getToken();
 			$result['url'] = $this->urlGenerator->linkToRouteAbsolute('files_sharing.sharecontroller.showShare', ['token' => $share->getToken()]);
@@ -244,6 +247,8 @@ class Share20OCS {
 			return new \OC\OCS\Result(null, 404, $this->l->t('Share API is disabled'));
 		}
 
+		$name = $this->request->getParam('name', null);
+
 		// Verify path
 		$path = $this->request->getParam('path', null);
 		if ($path === null) {
@@ -325,6 +330,7 @@ class Share20OCS {
 			if (!$this->shareManager->shareApiAllowLinks()) {
 				$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
 				return new \OC\OCS\Result(null, 404, $this->l->t('Public link sharing is disabled by the administrator'));
+<<<<<<< HEAD
 			}
 
 			/*
@@ -335,6 +341,8 @@ class Share20OCS {
 			if (!empty($existingShares)) {
 				$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
 				return new \OC\OCS\Result($this->formatShare($existingShares[0]));
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			}
 
 			$publicUpload = $this->request->getParam('publicUpload', null);
@@ -360,6 +368,8 @@ class Share20OCS {
 			} else {
 				$share->setPermissions(\OCP\Constants::PERMISSION_READ);
 			}
+
+			$share->setName($name);
 
 			// Set password
 			$password = $this->request->getParam('password', '');
@@ -591,6 +601,7 @@ class Share20OCS {
 		$password = $this->request->getParam('password', null);
 		$publicUpload = $this->request->getParam('publicUpload', null);
 		$expireDate = $this->request->getParam('expireDate', null);
+		$name = $this->request->getParam('name', null);
 
 		/*
 		 * expirationdate, password and publicUpload only make sense for link shares
@@ -643,8 +654,11 @@ class Share20OCS {
 				$newPermissions = \OCP\Constants::PERMISSION_READ | \OCP\Constants::PERMISSION_CREATE | \OCP\Constants::PERMISSION_UPDATE | \OCP\Constants::PERMISSION_DELETE;
 			}
 
+			$share->setName($name);
+
 			if ($newPermissions !== null) {
 				$share->setPermissions($newPermissions);
+				$permissions = $newPermissions;
 			}
 
 			if ($expireDate === '') {
@@ -732,7 +746,7 @@ class Share20OCS {
 
 		if ($share->getShareType() === \OCP\Share::SHARE_TYPE_GROUP) {
 			$sharedWith = $this->groupManager->get($share->getSharedWith());
-			if ($sharedWith->inGroup($this->currentUser)) {
+			if (!is_null($sharedWith) && $sharedWith->inGroup($this->currentUser)) {
 				return true;
 			}
 		}

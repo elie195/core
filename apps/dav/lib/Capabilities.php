@@ -2,7 +2,11 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
+<<<<<<< HEAD:apps/dav/lib/Capabilities.php
  * @copyright Copyright (c) 2016, ownCloud GmbH
+=======
+ * @copyright Copyright (c) 2017, ownCloud GmbH
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e:apps/dav/lib/Capabilities.php
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify

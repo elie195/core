@@ -10,7 +10,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -36,7 +36,7 @@ use OCP\Files\StorageNotAvailableException;
 
 require_once __DIR__ . '/../../../3rdparty/Dropbox/autoload.php';
 
-class Dropbox extends \OC\Files\Storage\Common {
+class Dropbox extends \OCP\Files\Storage\StorageAdapter {
 
 	private $dropbox;
 	private $root;

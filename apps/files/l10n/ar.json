@@ -1,8 +1,8 @@
 { "translations": {
     "Storage invalid" : "وحدة تخزين غير صالحه ",
     "Unknown error" : "خطأ غير معروف. ",
-    "Files" : "الملفات",
     "All files" : "كل الملفات",
+    "Saved" : "تم الحفظ",
     "Home" : "البيت",
     "Close" : "إغلاق",
     "Favorites" : "المفضلة ",
@@ -18,6 +18,7 @@
     "Rename" : "إعادة التسمية",
     "Delete" : "حذف ",
     "Unshare" : "إلغاء المشاركة",
+    "Files" : "الملفات",
     "Details" : "تفاصيل",
     "Select" : "اختار",
     "Pending" : "قيد الانتظار",

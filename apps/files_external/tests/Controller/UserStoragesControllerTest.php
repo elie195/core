@@ -3,9 +3,10 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Robin McCorkell <robin@mccorkell.me.uk>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,10 +24,10 @@
  */
 namespace OCA\Files_External\Tests\Controller;
 
-use \OCA\Files_External\Controller\UserStoragesController;
-use OCA\Files_External\Lib\StorageConfig;
-use \OCP\AppFramework\Http;
-use \OCA\Files_External\Service\BackendService;
+use OCA\Files_External\Controller\UserStoragesController;
+use OC\Files\External\StorageConfig;
+use OCP\AppFramework\Http;
+use OCP\Files\External\IStoragesBackendService;
 
 class UserStoragesControllerTest extends StoragesControllerTest {
 
@@ -37,12 +38,10 @@ class UserStoragesControllerTest extends StoragesControllerTest {
 
 	public function setUp() {
 		parent::setUp();
-		$this->service = $this->getMockBuilder('\OCA\Files_External\Service\UserStoragesService')
-			->disableOriginalConstructor()
-			->getMock();
+		$this->service = $this->createMock('\OCP\Files\External\Service\IUserStoragesService');
 
 		$this->service->method('getVisibilityType')
-			->willReturn(BackendService::VISIBILITY_PERSONAL);
+			->willReturn(IStoragesBackendService::VISIBILITY_PERSONAL);
 
 		$this->controller = new UserStoragesController(
 			'files_external',
@@ -57,7 +56,7 @@ class UserStoragesControllerTest extends StoragesControllerTest {
 	public function testAddOrUpdateStorageDisallowedBackend() {
 		$backend = $this->getBackendMock();
 		$backend->method('isVisibleFor')
-			->with(BackendService::VISIBILITY_PERSONAL)
+			->with(IStoragesBackendService::VISIBILITY_PERSONAL)
 			->willReturn(false);
 		$authMech = $this->getAuthMechMock();
 

@@ -4,9 +4,10 @@
  * @author Björn Schießle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -378,10 +379,12 @@ class Manager implements IManager {
 			// The share is already shared with this user via a group share
 			if ($existingShare->getShareType() === \OCP\Share::SHARE_TYPE_GROUP) {
 				$group = $this->groupManager->get($existingShare->getSharedWith());
-				$user = $this->userManager->get($share->getSharedWith());
+				if (!is_null($group)) {
+					$user = $this->userManager->get($share->getSharedWith());
 
-				if ($group->inGroup($user) && $existingShare->getShareOwner() !== $share->getShareOwner()) {
-					throw new \Exception('Path already shared with this user');
+					if ($group->inGroup($user) && $existingShare->getShareOwner() !== $share->getShareOwner()) {
+						throw new \Exception('Path already shared with this user');
+					}
 				}
 			}
 		}
@@ -403,7 +406,7 @@ class Manager implements IManager {
 		if ($this->shareWithGroupMembersOnly()) {
 			$sharedBy = $this->userManager->get($share->getSharedBy());
 			$sharedWith = $this->groupManager->get($share->getSharedWith());
-			if (!$sharedWith->inGroup($sharedBy)) {
+			if (is_null($sharedWith) || !$sharedWith->inGroup($sharedBy)) {
 				throw new \Exception('Only sharing within your own groups is allowed');
 			}
 		}
@@ -858,6 +861,9 @@ class Manager implements IManager {
 
 		if ($share->getShareType() === \OCP\Share::SHARE_TYPE_GROUP) {
 			$sharedWith = $this->groupManager->get($share->getSharedWith());
+			if (is_null($sharedWith)) {
+				throw new \InvalidArgumentException('Group "' . $share->getSharedWith() . '" does not exist');
+			}
 			$recipient = $this->userManager->get($recipientId);
 			if (!$sharedWith->inGroup($recipient)) {
 				throw new \InvalidArgumentException('Invalid recipient');
@@ -868,6 +874,54 @@ class Manager implements IManager {
 		$provider = $this->factory->getProvider($providerId);
 
 		$provider->move($share, $recipientId);
+	}
+
+
+	/**
+	 * @inheritdoc
+	 */
+	public function getAllSharesBy($userId, $shareTypes, $nodeIDs, $reshares = false) {
+		// This function requires at least 1 node (parent folder)
+		if (empty($nodeIDs)) {
+			throw new \InvalidArgumentException('Array of nodeIDs empty');
+		}
+		// This will ensure that if there are multiple share providers for the same share type, we will execute it in batches
+		$shares = array();
+		$providerIdMap = array();
+		foreach ($shareTypes as $shareType) {
+			// Get provider and its ID, at this point provider is cached at IProviderFactory instance
+			$provider = $this->factory->getProviderForType($shareType);
+			$providerId = $provider->identifier();
+
+			// Create a key -> multi value map
+			if (!isset($providerIdMap[$providerId])) {
+				$providerIdMap[$providerId] = array();
+			}
+			array_push($providerIdMap[$providerId], $shareType);
+		}
+
+		$today = new \DateTime();
+		foreach ($providerIdMap as $providerId => $shareTypeArray) {
+			// Get provider from cache
+			$provider = $this->factory->getProvider($providerId);
+
+			$queriedShares = $provider->getAllSharesBy($userId, $shareTypeArray, $nodeIDs, $reshares);
+			foreach ($queriedShares as $queriedShare){
+				if ($queriedShare->getShareType() === \OCP\Share::SHARE_TYPE_LINK && $queriedShare->getExpirationDate() !== null &&
+					$queriedShare->getExpirationDate() <= $today
+				) {
+					try {
+						$this->deleteShare($queriedShare);
+					} catch (NotFoundException $e) {
+						//Ignore since this basically means the share is deleted
+					}
+					continue;
+				}
+				array_push($shares, $queriedShare);
+			}
+		}
+
+		return $shares;
 	}
 
 	/**
@@ -983,6 +1037,21 @@ class Manager implements IManager {
 	 * @return Share[]
 	 */
 	public function getSharesByPath(\OCP\Files\Node $path, $page=0, $perPage=50) {
+		$types = [\OCP\Share::SHARE_TYPE_USER, \OCP\Share::SHARE_TYPE_GROUP];
+		$providers = [];
+		$results = [];
+
+		foreach ($types as $type) {
+			$provider = $this->factory->getProviderForType($type);
+			// store this way to deduplicate entries by id
+			$providers[$provider->identifier()] = $provider;
+		}
+
+		foreach ($providers as $provider) {
+			$results = array_merge($results, $provider->getSharesByPath($path));
+		}
+
+		return $results;
 	}
 
 	/**

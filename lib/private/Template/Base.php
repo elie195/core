@@ -6,9 +6,12 @@
  * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Morris Jobke <hey@morrisjobke.de>
+ * @author Philipp Schaffrath <github@philippschaffrath.de>
+ * @author phisch <git@philippschaffrath.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Tom Needham <tom@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -30,27 +33,45 @@ namespace OC\Template;
 use OC\Theme\Theme;
 
 class Base {
-	private $template; // The template
-	private $vars; // Vars
+	/**
+	 * @var string
+	 */
+	private $template;
 
-	/** @var \OCP\IL10N */
+	/**
+	 * @var array
+	 */
+	private $vars;
+
+	/**
+	 * @var \OCP\IL10N
+	 */
 	private $l10n;
 
-	/** @var \OC_Defaults */
-	private $theme;
+	/**
+	 * @var Theme
+	 */
+	protected $theme;
+
+	/**
+	 * @var \OC_Defaults
+	 */
+	private $themeDefaults;
 
 	/**
 	 * @param string $template
 	 * @param string $requestToken
 	 * @param \OCP\IL10N $l10n
-	 * @param \OC_Defaults $theme
+	 * @param Theme $theme
+	 * @param \OC_Defaults $themeDefaults
 	 */
-	public function __construct($template, $requestToken, $l10n, $theme ) {
+	public function __construct($template, $requestToken, $l10n, $theme, $themeDefaults) {
 		$this->vars = [];
 		$this->vars['requesttoken'] = $requestToken;
 		$this->l10n = $l10n;
 		$this->template = $template;
 		$this->theme = $theme;
+		$this->themeDefaults = $themeDefaults;
 	}
 
 	/**
@@ -97,7 +118,7 @@ class Base {
 	 *
 	 * If the key existed before, it will be overwritten
 	 */
-	public function assign( $key, $value) {
+	public function assign($key, $value) {
 		$this->vars[$key] = $value;
 		return true;
 	}
@@ -112,8 +133,8 @@ class Base {
 	 * exists, the value will be appended. It can be accessed via
 	 * $_[$key][$position] in the template.
 	 */
-	public function append( $key, $value ) {
-		if( array_key_exists( $key, $this->vars )) {
+	public function append($key, $value) {
+		if( array_key_exists($key, $this->vars)) {
 			$this->vars[$key][] = $value;
 		}
 		else{
@@ -156,20 +177,20 @@ class Base {
 	 * @param string $file
 	 * @param array|null $additionalParams
 	 * @return string content
+	 * @throws \Exception
 	 *
 	 * Includes the template file, fetches its output
 	 */
 	protected function load($file, $additionalParams = null) {
-		// Register the variables
+		// This variables will be used inside templates, they are not unused!
 		$_ = $this->vars;
 		$l = $this->l10n;
-		$theme = $this->theme;
+		$theme = $this->themeDefaults;
 
 		if( !is_null($additionalParams)) {
 			$_ = array_merge( $additionalParams, $this->vars );
 		}
 
-		// Include
 		ob_start();
 		try {
 			include $file;
@@ -180,8 +201,6 @@ class Base {
 		}
 		@ob_end_clean();
 
-		// Return data
 		return $data;
 	}
-
 }

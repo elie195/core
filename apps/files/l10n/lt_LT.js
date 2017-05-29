@@ -1,10 +1,11 @@
 OC.L10N.register(
     "files",
     {
+    "Storage is temporarily not available" : "Saugykla yra laikinai neprieinama",
     "Storage invalid" : "Saugykla neteisinga",
     "Unknown error" : "Neatpažinta klaida",
-    "Files" : "Failai",
     "All files" : "Visi failai",
+    "Saved" : "Išsaugoti",
     "File could not be found" : "Nepavyko rasti failo",
     "Home" : "Namų",
     "Close" : "Užverti",
@@ -23,6 +24,7 @@ OC.L10N.register(
     "Delete" : "Ištrinti",
     "Disconnect storage" : "Atjungti saugyklą",
     "Unshare" : "Nebesidalinti",
+    "Files" : "Failai",
     "Details" : "Informacija",
     "Select" : "Pasirinkiti",
     "Pending" : "Laukiantis",

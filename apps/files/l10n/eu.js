@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "Biltegi bliogabea",
     "Unknown error" : "Errore ezezaguna",
-    "Files" : "Fitxategiak",
     "All files" : "Fitxategi guztiak",
+    "Saved" : "Gordeta",
     "Home" : "Etxekoa",
     "Close" : "Itxi",
     "Favorites" : "Gogokoak",
@@ -20,11 +20,16 @@ OC.L10N.register(
     "Delete" : "Ezabatu",
     "Disconnect storage" : "Deskonektatu biltegia",
     "Unshare" : "Ez elkarbanatu",
+    "Files" : "Fitxategiak",
     "Details" : "Xehetasunak",
     "Select" : "hautatu",
     "Pending" : "Zain",
     "Unable to determine date" : "Ezin izan da data zehaztu",
     "Invalid path" : "Baliogabeko bidea",
+<<<<<<< HEAD
+=======
+    "Could not move \"{file}\"" : "Ezin da mugitu \"{file}\"",
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "No entries in this folder match '{filter}'" : "Karpeta honetan ez dago sarrerarik '{filter}' iragazkiarekin bat egiten dutenak",
     "Name" : "Izena",
     "Size" : "Tamaina",

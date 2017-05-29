@@ -10,12 +10,17 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Owen Winkler <a_github@midnightcircus.com>
+ * @author Philipp Schaffrath <github@philipp.schaffrath.email>
+ * @author phisch <git@philippschaffrath.de>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
+ * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Timo Benk <benk@b1-systems.de>
  * @author Vincent Chan <plus.vincchan@gmail.com>
  * @author Vincent Petry <pvince81@owncloud.com>
+ * @author Felix Heidecke <felix@heidecke.me>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -65,7 +70,10 @@ $outgoingServer2serverShareEnabled = $config->getAppValue('files_sharing', 'outg
 $countOfDataLocation = 0;
 
 $value = $config->getAppValue('core', 'shareapi_enable_link_password_by_default', 'no');
+<<<<<<< HEAD
 $enableLinkPasswordByDefault = ($value === 'yes') ? true : false;
+=======
+>>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 $dataLocation = str_replace(OC::$SERVERROOT .'/', '', $config->getSystemValue('datadirectory', ''), $countOfDataLocation);
 if($countOfDataLocation !== 1 || !OC_User::isAdminUser(OC_User::getUser())){
@@ -149,15 +157,17 @@ $array = [
 		[
 			'session_lifetime'	=> min(\OCP\Config::getSystemValue('session_lifetime', OC::$server->getIniWrapper()->getNumeric('session.gc_maxlifetime')), OC::$server->getIniWrapper()->getNumeric('session.gc_maxlifetime')),
 			'session_keepalive'	=> \OCP\Config::getSystemValue('session_keepalive', true),
-			'version'			=> implode('.', \OCP\Util::getVersion()),
+			'version'		=> implode('.', \OCP\Util::getVersion()),
 			'versionstring'		=> OC_Util::getVersionString(),
 			'enable_avatars'	=> \OC::$server->getConfig()->getSystemValue('enable_avatars', true) === true,
-			'lost_password_link'=> \OC::$server->getConfig()->getSystemValue('lost_password_link', null),
+			'lost_password_link'	=> \OC::$server->getConfig()->getSystemValue('lost_password_link', null),
 			'modRewriteWorking'	=> (getenv('front_controller_active') === 'true'),
+			'blacklist_files_regex'	=> \OCP\Files\FileInfo::BLACKLIST_FILES_REGEX
 		]
 	),
 	"oc_appconfig" => json_encode(
-			["core" => [
+		[
+			"core" => [
 				'defaultExpireDateEnabled' => $defaultExpireDateEnabled,
 				'defaultExpireDate' => $defaultExpireDate,
 				'defaultExpireDateEnforced' => $enforceDefaultExpireDate,
@@ -167,9 +177,10 @@ $array = [
 				'resharingAllowed' => \OCP\Share::isResharingAllowed(),
 				'remoteShareAllowed' => $outgoingServer2serverShareEnabled,
 				'federatedCloudShareDoc' => \OC::$server->getURLGenerator()->linkToDocs('user-sharing-federated'),
-				'allowGroupSharing' => \OC::$server->getShareManager()->allowGroupSharing()
+				'allowGroupSharing' => \OC::$server->getShareManager()->allowGroupSharing(),
+				'previewsEnabled' => \OC::$server->getConfig()->getSystemValue('enable_previews', true) === true,
 			]
-			]
+		]
 	),
 	"oc_defaults" => json_encode(
 		[
@@ -184,7 +195,13 @@ $array = [
 			'logoClaim' => $defaults->getLogoClaim(),
 			'shortFooter' => $defaults->getShortFooter(),
 			'longFooter' => $defaults->getLongFooter(),
-			'folder' => OC_Util::getTheme(),
+			'folder' => OC_Util::getTheme()->getName()
+		]
+	),
+	'theme' => json_encode(
+		[
+			'name' => OC_Util::getTheme()->getName(),
+			'directory' => OC_Util::getTheme()->getDirectory()
 		]
 	)
 ];

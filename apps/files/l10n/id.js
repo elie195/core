@@ -3,8 +3,8 @@ OC.L10N.register(
     {
     "Storage invalid" : "Penyimpanan tidak sah",
     "Unknown error" : "Kesalahan tidak diketahui",
-    "Files" : "Berkas",
     "All files" : "Semua berkas",
+    "Saved" : "Disimpan",
     "Home" : "Rumah",
     "Close" : "Tutup",
     "Favorites" : "Favorit",
@@ -19,6 +19,7 @@ OC.L10N.register(
     "Delete" : "Hapus",
     "Disconnect storage" : "Memutuskan penyimpaan",
     "Unshare" : "Batalkan berbagi",
+    "Files" : "Berkas",
     "Details" : "Rincian",
     "Select" : "Pilih",
     "Pending" : "Tertunda",

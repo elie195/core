@@ -3,7 +3,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -268,6 +268,20 @@ class MountProviderTest extends \Test\TestCase {
 					['1', 100, 'user2', '/share2-renamed', 31],
 				],
 			],
+			// #9: share as outsider with "nullgroup" and "user1" where recipient renamed in between
+			[
+				[
+					[2, 100, 'user2', '/share2', 31], 
+				],
+				[
+					[1, 100, 'nullgroup', '/share2-renamed', 31], 
+				],
+				[
+					// use target of least recent share
+					['1', 100, 'nullgroup', '/share2-renamed', 31],
+				],
+				true
+			],
 		];
 	}
 
@@ -283,7 +297,7 @@ class MountProviderTest extends \Test\TestCase {
 	 * @param array $groupShares array of group share specs
 	 * @param array $expectedShares array of expected supershare specs
 	 */
-	public function testMergeShares($userShares, $groupShares, $expectedShares) {
+	public function testMergeShares($userShares, $groupShares, $expectedShares, $moveFails = false) {
 		$rootFolder = $this->createMock('\OCP\Files\IRootFolder');
 		$userManager = $this->createMock('\OCP\IUserManager');
 
@@ -311,6 +325,12 @@ class MountProviderTest extends \Test\TestCase {
 			->will($this->returnCallback(function() use ($rootFolder, $userManager) {
 				return new \OC\Share20\Share($rootFolder, $userManager);
 			}));
+
+		if ($moveFails) {
+			$this->shareManager->expects($this->any())
+				->method('moveShare')
+				->will($this->throwException(new \InvalidArgumentException()));
+		}
 
 		$mounts = $this->provider->getMountsForUser($this->user, $this->loader);
 

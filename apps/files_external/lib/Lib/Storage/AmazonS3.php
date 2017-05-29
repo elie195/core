@@ -16,7 +16,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@ use Aws\S3\S3Client;
 use Aws\S3\Exception\S3Exception;
 use Icewind\Streams\IteratorDirectory;
 
-class AmazonS3 extends \OC\Files\Storage\Common {
+class AmazonS3 extends \OCP\Files\Storage\StorageAdapter {
 
 	/**
 	 * @var \Aws\S3\S3Client

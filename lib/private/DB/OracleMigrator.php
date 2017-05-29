@@ -4,7 +4,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,10 +23,42 @@
 
 namespace OC\DB;
 
+use Doctrine\DBAL\Schema\Column;
 use Doctrine\DBAL\Schema\ColumnDiff;
+use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Schema;
+use Doctrine\DBAL\Schema\Table;
 
 class OracleMigrator extends NoCheckMigrator {
+
+	/**
+	 * Quote a column's name but changing the name requires recreating
+	 * the column instance and copying over all properties.
+	 *
+	 * @param Column $column old column
+	 * @param string $newName new name
+	 * @return Column new column instance with new name
+	 */
+	protected function quoteColumn($column) {
+		$newColumn = new Column(
+			$this->connection->quoteIdentifier($column->getName()),
+			$column->getType()
+		);
+		$newColumn->setAutoincrement($column->getAutoincrement());
+		$newColumn->setColumnDefinition($column->getColumnDefinition());
+		$newColumn->setComment($column->getComment());
+		$newColumn->setDefault($column->getDefault());
+		$newColumn->setFixed($column->getFixed());
+		$newColumn->setLength($column->getLength());
+		$newColumn->setNotnull($column->getNotnull());
+		$newColumn->setPrecision($column->getPrecision());
+		$newColumn->setScale($column->getScale());
+		$newColumn->setUnsigned($column->getUnsigned());
+		$newColumn->setPlatformOptions($column->getPlatformOptions());
+		$newColumn->setCustomSchemaOptions($column->getPlatformOptions());
+		return $newColumn;
+	}
+
 	/**
 	 * @param Schema $targetSchema
 	 * @param \Doctrine\DBAL\Connection $connection
@@ -36,6 +68,41 @@ class OracleMigrator extends NoCheckMigrator {
 		$schemaDiff = parent::getDiff($targetSchema, $connection);
 
 		// oracle forces us to quote the identifiers
+		$schemaDiff->newTables = array_map(function(Table $table) {
+			return new Table(
+				$this->connection->quoteIdentifier($table->getName()),
+				array_map(function(Column $column) {
+					return $this->quoteColumn($column); 
+				}, $table->getColumns()),
+				array_map(function(Index $index) {
+					return new Index(
+						$this->connection->quoteIdentifier($index->getName()),
+						array_map(function($columnName) {
+							return $this->connection->quoteIdentifier($columnName);
+						}, $index->getColumns()),
+						$index->isUnique(),
+						$index->isPrimary(),
+						$index->getFlags(),
+						$index->getOptions()
+					);
+				}, $table->getIndexes()),
+				$table->getForeignKeys(),
+				0,
+				$table->getOptions()
+			);
+		}, $schemaDiff->newTables);
+
+		$schemaDiff->removedTables = array_map(function(Table $table) {
+			return new Table(
+				$this->connection->quoteIdentifier($table->getName()),
+				$table->getColumns(),
+				$table->getIndexes(),
+				$table->getForeignKeys(),
+				0,
+				$table->getOptions()
+			);
+		}, $schemaDiff->removedTables);
+
 		foreach ($schemaDiff->changedTables as $tableDiff) {
 			$tableDiff->name = $this->connection->quoteIdentifier($tableDiff->name);
 			foreach ($tableDiff->changedColumns as $column) {
@@ -46,6 +113,9 @@ class OracleMigrator extends NoCheckMigrator {
 			$tableDiff->changedColumns = array_filter($tableDiff->changedColumns, function (ColumnDiff $column) {
 				return count($column->changedProperties) > 0;
 			});
+			$tableDiff->addedColumns = array_map(function(Column $column) {
+				return $this->quoteColumn($column);
+			}, $tableDiff->addedColumns);
 		}
 
 		return $schemaDiff;

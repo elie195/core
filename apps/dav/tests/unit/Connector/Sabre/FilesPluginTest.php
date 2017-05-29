@@ -1,12 +1,13 @@
 <?php
 /**
  * @author Joas Schilling <coding@schilljs.com>
+ * @author Markus Goetz <markus@woboq.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Stefan Weil <sw@weilnetz.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2016, ownCloud GmbH.
+ * @copyright Copyright (c) 2017, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -31,6 +32,7 @@ use Sabre\DAV\PropPatch;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
 use Test\TestCase;
+use OCP\Files\FileInfo;
 
 /**
  * Copyright (c) 2015 Vincent Petry <pvince81@owncloud.com>
@@ -128,6 +130,15 @@ class FilesPluginTest extends TestCase {
 			->method('getDavPermissions')
 			->will($this->returnValue('DWCKMSR'));
 
+		$fileInfo = $this->createMock(FileInfo::class);
+		$fileInfo->expects($this->any())
+			->method('isReadable')
+			->willReturn(true);
+
+		$node->expects($this->any())
+			->method('getFileInfo')
+			->willReturn($fileInfo);
+
 		return $node;
 	}
 
@@ -168,8 +179,6 @@ class FilesPluginTest extends TestCase {
 		$node->expects($this->exactly(2))
 			->method('getOwner')
 			->will($this->returnValue($user));
-		$node->expects($this->never())
-			->method('getSize');
 
 		$this->plugin->handleGetProperties(
 			$propFind,
@@ -284,6 +293,15 @@ class FilesPluginTest extends TestCase {
 			->getMock();
 		$node->expects($this->any())->method('getPath')->willReturn('/');
 
+		$fileInfo = $this->createMock(FileInfo::class);
+		$fileInfo->expects($this->any())
+			->method('isReadable')
+			->willReturn(true);
+
+		$node->expects($this->any())
+			->method('getFileInfo')
+			->willReturn($fileInfo);
+
 		$propFind = new PropFind(
 			'/',
 			[
@@ -298,6 +316,39 @@ class FilesPluginTest extends TestCase {
 		);
 
 		$this->assertEquals('my_fingerprint', $propFind->get(self::DATA_FINGERPRINT_PROPERTYNAME));
+	}
+
+	/**
+	 * @expectedException \Sabre\DAV\Exception\NotFound
+	 */
+	public function testGetPropertiesWhenNoPermission() {
+		/** @var \OCA\DAV\Connector\Sabre\Directory | \PHPUnit_Framework_MockObject_MockObject $node */
+		$node = $this->getMockBuilder('\OCA\DAV\Connector\Sabre\Directory')
+			->disableOriginalConstructor()
+			->getMock();
+		$node->expects($this->any())->method('getPath')->willReturn('/');
+
+		$fileInfo = $this->createMock(FileInfo::class);
+		$fileInfo->expects($this->any())
+			->method('isReadable')
+			->willReturn(false);
+
+		$node->expects($this->any())
+			->method('getFileInfo')
+			->willReturn($fileInfo);
+
+		$propFind = new PropFind(
+			'/test',
+			[
+				self::DATA_FINGERPRINT_PROPERTYNAME,
+			],
+			0
+		);
+
+		$this->plugin->handleGetProperties(
+			$propFind,
+			$node
+		);
 	}
 
 	public function testUpdateProps() {

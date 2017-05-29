@@ -1,8 +1,8 @@
 { "translations": {
     "Storage invalid" : "সংরক্ষণাগার বৈধ নয়",
     "Unknown error" : "অজানা জটিলতা",
-    "Files" : "ফাইল",
     "All files" : "সব ফাইল",
+    "Saved" : "সংরক্ষণ করা হলো",
     "Home" : "নিবাস",
     "Close" : "বন্ধ",
     "Favorites" : "প্রিয়জন",
@@ -14,6 +14,7 @@
     "Rename" : "পূনঃনামকরণ",
     "Delete" : "মুছে",
     "Unshare" : "ভাগাভাগি বাতিল ",
+    "Files" : "ফাইল",
     "Details" : "বিস্তারিত",
     "Pending" : "মুলতুবি",
     "Invalid path" : "পথটি সঠিক নয়",

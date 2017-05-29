@@ -68,7 +68,7 @@ describe('OCA.Files.FileList tests', function() {
 			useHTTPS: false
 		});
 		redirectStub = sinon.stub(OC, 'redirect');
-		notificationStub = sinon.stub(OC.Notification, 'showTemporary');
+		notificationStub = sinon.stub(OC.Notification, 'show');
 		// prevent resize algo to mess up breadcrumb order while
 		// testing
 		bcResizeStub = sinon.stub(OCA.Files.BreadCrumb.prototype, '_resize');
@@ -1611,7 +1611,7 @@ describe('OCA.Files.FileList tests', function() {
 		});
 		it('returns correct download URL for multiple files', function() {
 			expect(fileList.getDownloadUrl(['a b c.txt', 'd e f.txt']))
-				.toEqual(OC.webroot + '/index.php/apps/files/ajax/download.php?dir=%2Fsubdir&files=%5B%22a%20b%20c.txt%22%2C%22d%20e%20f.txt%22%5D');
+				.toEqual(OC.webroot + '/index.php/apps/files/ajax/download.php?dir=%2Fsubdir&files[]=a%20b%20c.txt&files[]=d%20e%20f.txt');
 		});
 		it('returns the correct ajax URL', function() {
 			expect(fileList.getAjaxUrl('test', {a:1, b:'x y'}))
@@ -1987,7 +1987,8 @@ describe('OCA.Files.FileList tests', function() {
 				it('Opens download URL when clicking "Download"', function() {
 					$('.selectedActions .download').click();
 					expect(redirectStub.calledOnce).toEqual(true);
-					expect(redirectStub.getCall(0).args[0]).toContain(OC.webroot + '/index.php/apps/files/ajax/download.php?dir=%2Fsubdir&files=%5B%22One.txt%22%2C%22Three.pdf%22%2C%22somedir%22%5D');
+					expect(redirectStub.getCall(0).args[0]).toContain(OC.webroot + '/index.php/apps/files/ajax/download.php?' +
+						'dir=%2Fsubdir&files[]=One.txt&files[]=Three.pdf&files[]=somedir');
 					redirectStub.restore();
 				});
 				it('Downloads root folder when all selected in root folder', function() {
@@ -2258,7 +2259,7 @@ describe('OCA.Files.FileList tests', function() {
 			var actionStub = sinon.stub();
 			var readyHandler = sinon.stub();
 			var clock = sinon.useFakeTimers();
-			var debounceStub = sinon.stub(_, 'debounce', function(callback) {
+			var debounceStub = sinon.stub(_, 'debounce').callsFake(function(callback) {
 				return function() {
 					// defer instead of debounce, to make it work with clock
 					_.defer(callback);
@@ -2988,6 +2989,24 @@ describe('OCA.Files.FileList tests', function() {
 			testMountType(123, null, 'external', 'external-root');
 			testMountType(123, 'external', 'external', 'external');
 			testMountType(123, 'external-root', 'external', 'external');
+		});
+	});
+	describe('file list should not refresh if url does not change', function() {
+		var fileListStub;
+
+		beforeEach(function() {
+			fileListStub = sinon.stub(OCA.Files.FileList.prototype, 'changeDirectory');
+		});
+		afterEach(function() {
+			fileListStub.restore();
+		});
+		it('File list must not be refreshed', function() {
+			$('#app-content-files').trigger(new $.Event('urlChanged', {dir: '/subdir'}));
+			expect(fileListStub.notCalled).toEqual(true);
+		});
+		it('File list must be refreshed', function() {
+			$('#app-content-files').trigger(new $.Event('urlChanged', {dir: '/'}));
+			expect(fileListStub.notCalled).toEqual(false);
 		});
 	});
 });
