@@ -111,6 +111,17 @@ interface IUserManager {
 	public function search($pattern, $limit = null, $offset = null);
 
 	/**
+	 * find a user account by checking user_id, display name and email fields
+	 *
+	 * @param string $pattern
+	 * @param int $limit
+	 * @param int $offset
+	 * @return \OCP\IUser[]
+	 * @since 10.0.1
+	 */
+	public function find($pattern, $limit = null, $offset = null);
+
+	/**
 	 * search by displayName
 	 *
 	 * @param string $pattern
@@ -174,4 +185,13 @@ interface IUserManager {
 	 * @since 9.1.0
 	 */
 	public function getByEmail($email);
+
+	/**
+	 * @param string $uid
+	 * @param string $password
+	 * @param UserInterface $backend
+	 * @return IUser | null
+	 * @since 10.0
+	 */
+	public function createUserFromBackend($uid, $password, $backend);
 }

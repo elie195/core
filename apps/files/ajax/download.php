@@ -34,11 +34,15 @@ OCP\User::checkLoggedIn();
 
 // files can be an array with multiple "files[]=one.txt&files[]=two.txt" or a single file with "files=filename.txt"
 $files_list = isset($_GET['files']) ? $_GET['files'] : '';
-$dir = isset($_GET['dir']) ? (string)$_GET['dir'] : '';
+$dir = isset($_GET['dir']) ? $_GET['dir']: '';
 
 // in case we get only a single file
 if (!is_array($files_list)) {
-	$files_list = [(string)$files_list];
+	$files_list = [$files_list];
+} else {
+	$files_list = array_map(function($file) {
+		return $file;
+	}, $files_list);
 }
 
 /**

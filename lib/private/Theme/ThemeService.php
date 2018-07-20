@@ -1,7 +1,4 @@
 <?php
-<<<<<<< HEAD
-
-=======
 /**
  * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Philipp Schaffrath <github@philipp.schaffrath.email>
@@ -22,7 +19,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  *
  */
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 namespace OC\Theme;
 
 class ThemeService {
@@ -104,12 +100,11 @@ class ThemeService {
 	public function setAppTheme($appName = '') {
 		if ($appName !== '') {
 			$this->theme->setDirectory(
-				ltrim(\OC_App::getAppWebPath($appName), '/') . '/'
+				substr(\OC_App::getAppPath($appName), strlen(\OC::$SERVERROOT) + 1)
 			);
-<<<<<<< HEAD
-=======
+			$appWebPath = \OC_App::getAppWebPath($appName);
+			$this->theme->setWebPath($appWebPath ? $appWebPath : '');
 			$this->theme->setName($appName);
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		}
 	}
 }

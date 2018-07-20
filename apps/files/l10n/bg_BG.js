@@ -18,10 +18,7 @@ OC.L10N.register(
     "Not enough free space" : "Няма достатъчно свободно пространство",
     "Uploading..." : "Качване...",
     "..." : "...",
-<<<<<<< HEAD
-=======
     "{loadedSize} of {totalSize} ({bitrate})" : "{loadedSize} от {totalSize} ({bitrate})",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "File upload is in progress. Leaving the page now will cancel the upload." : "Извършва се качване на файлове. Затварянето на тази страница ще прекъсне качването.",
     "Actions" : "Действия",
     "Download" : "Изтегли",
@@ -36,8 +33,6 @@ OC.L10N.register(
     "Pending" : "Чакащо",
     "Unable to determine date" : "Неуспешно установяване на дата",
     "Invalid path" : "Невалиден път",
-<<<<<<< HEAD
-=======
     "This operation is forbidden" : "Операцията е забранена",
     "This directory is unavailable, please check the logs or contact the administrator" : "Директорията липсва, моля, проверете докладите или се свържете с администратора",
     "Could not move \"{file}\", target exists" : "Неуспешно преместване на  \"{file}\", крайната местоположение вече съществува",
@@ -50,8 +45,6 @@ OC.L10N.register(
     "Could not create file \"{file}\" because it already exists" : "Неуспешно създаване на \"{file}\", защото вече съществува",
     "Could not create folder \"{dir}\" because it already exists" : "Неуспешно създаване на папка \"{dir}\", защото вече съществува",
     "Error deleting file \"{fileName}\"." : "Грешка при изтриването на \"{fileName}\".",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
-    "No entries in this folder match '{filter}'" : "Нищо в тази папка не отговаря на '{filter}'",
     "Name" : "Име",
     "Size" : "Размер",
     "Modified" : "Променен на",
@@ -73,7 +66,6 @@ OC.L10N.register(
     "_%n byte_::_%n bytes_" : ["%n байт","%n байта"],
     "Favorited" : "Отбелязано в любими",
     "Favorite" : "Любими",
-    "Local link" : "Локална връзка",
     "Folder" : "Папка",
     "New folder" : "Нова папка",
     "{newname} already exists" : "{newname} вече съществува",

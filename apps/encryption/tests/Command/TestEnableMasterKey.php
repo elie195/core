@@ -24,7 +24,7 @@
 namespace OCA\Encryption\Tests\Command;
 
 
-use OCA\Encryption\Command\EnableMasterKey;
+use OCA\Encryption\Command\SelectEncryptionType;
 use OCA\Encryption\Util;
 use Test\TestCase;
 
@@ -62,7 +62,7 @@ class TestEnableMasterKey extends TestCase {
 		$this->input = $this->getMockBuilder('Symfony\Component\Console\Input\InputInterface')
 			->disableOriginalConstructor()->getMock();
 
-		$this->enableMasterKey = new EnableMasterKey($this->util, $this->config, $this->questionHelper);
+		$this->enableMasterKey = new SelectEncryptionType($this->util, $this->config, $this->questionHelper);
 	}
 
 	/**
@@ -73,6 +73,16 @@ class TestEnableMasterKey extends TestCase {
 	 */
 	public function testExecute($isAlreadyEnabled, $answer) {
 
+		$this->config->expects($this->at(0))
+			->method('getAppValue')
+			->with('core', 'encryption_enabled', 'no')
+			->willReturn("yes");
+
+		$this->config->expects($this->at(1))
+			->method('getAppValue')
+			->with('encryption','userSpecificKey', '')
+			->willReturn("");
+
 		$this->util->expects($this->once())->method('isMasterKeyEnabled')
 			->willReturn($isAlreadyEnabled);
 
@@ -81,15 +91,27 @@ class TestEnableMasterKey extends TestCase {
 				->with('Master key already enabled');
 		} else {
 			if ($answer === 'y') {
-				$this->questionHelper->expects($this->once())->method('ask')->willReturn(true);
+				$this->input->expects($this->once())->method('getOption')
+					->with('yes')
+					->willReturn(true);
+
 				$this->config->expects($this->once())->method('setAppValue')
 					->with('encryption', 'useMasterKey', '1');
 			} else {
+				$this->input->expects($this->once())->method('getOption')
+					->with('yes')
+					->willReturn(false);
+
 				$this->questionHelper->expects($this->once())->method('ask')->willReturn(false);
 				$this->config->expects($this->never())->method('setAppValue');
 
 			}
 		}
+
+		$this->input->expects($this->once())->method('getArgument')
+			->with('encryption-type')
+			->willReturn("masterkey");
+
 
 		$this->invokePrivate($this->enableMasterKey, 'execute', [$this->input, $this->output]);
 	}

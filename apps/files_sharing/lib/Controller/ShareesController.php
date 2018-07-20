@@ -3,8 +3,8 @@
  * @author Björn Schießle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
- * @author Roeland Jago Douma <rullzer@users.noreply.github.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
  * @copyright Copyright (c) 2017, ownCloud GmbH
@@ -76,6 +76,9 @@ class ShareesController extends OCSController  {
 	/** @var bool */
 	protected $shareeEnumeration = true;
 
+	/** @var bool */
+	protected $shareeEnumerationGroupMembers = false;
+
 	/** @var int */
 	protected $offset = 0;
 
@@ -137,21 +140,21 @@ class ShareesController extends OCSController  {
 		$this->result['users'] = $this->result['exact']['users'] = $users = [];
 
 		$userGroups = [];
-		if ($this->shareWithGroupOnly) {
+		if ($this->shareWithGroupOnly || $this->shareeEnumerationGroupMembers) {
 			// Search in all the groups this user is part of
 			$userGroups = $this->groupManager->getUserGroupIds($this->userSession->getUser());
 			foreach ($userGroups as $userGroup) {
-				$usersTmp = $this->groupManager->displayNamesInGroup($userGroup, $search, $this->limit, $this->offset);
-				foreach ($usersTmp as $uid => $userDisplayName) {
-					$users[$uid] = $userDisplayName;
+				$usersTmp = $this->groupManager->findUsersInGroup($userGroup, $search, $this->limit, $this->offset);
+				foreach ($usersTmp as $uid => $user) {
+					$users[$uid] = $user;
 				}
 			}
 		} else {
 			// Search in all users
-			$usersTmp = $this->userManager->searchDisplayName($search, $this->limit, $this->offset);
+			$usersTmp = $this->userManager->find($search, $this->limit, $this->offset);
 
 			foreach ($usersTmp as $user) {
-				$users[$user->getUID()] = $user->getDisplayName();
+				$users[$user->getUID()] = $user;
 			}
 		}
 
@@ -161,13 +164,14 @@ class ShareesController extends OCSController  {
 
 		$foundUserById = false;
 		$lowerSearch = strtolower($search);
-		foreach ($users as $uid => $userDisplayName) {
-			if (strtolower($uid) === $lowerSearch || strtolower($userDisplayName) === $lowerSearch) {
+		foreach ($users as $uid => $user) {
+			/* @var $user IUser */
+			if (strtolower($uid) === $lowerSearch || strtolower($user->getDisplayName()) === $lowerSearch || strtolower($user->getEMailAddress()) === $lowerSearch) {
 				if (strtolower($uid) === $lowerSearch) {
 					$foundUserById = true;
 				}
 				$this->result['exact']['users'][] = [
-					'label' => $userDisplayName,
+					'label' => $user->getDisplayName(),
 					'value' => [
 						'shareType' => Share::SHARE_TYPE_USER,
 						'shareWith' => $uid,
@@ -175,7 +179,7 @@ class ShareesController extends OCSController  {
 				];
 			} else {
 				$this->result['users'][] = [
-					'label' => $userDisplayName,
+					'label' => $user->getDisplayName(),
 					'value' => [
 						'shareType' => Share::SHARE_TYPE_USER,
 						'shareWith' => $uid,
@@ -228,7 +232,7 @@ class ShareesController extends OCSController  {
 		}
 
 		$userGroups =  [];
-		if (!empty($groups) && $this->shareWithGroupOnly) {
+		if (!empty($groups) && ($this->shareWithGroupOnly || $this->shareeEnumerationGroupMembers)) {
 			// Intersect all the groups that match with the groups this user is a member of
 			$userGroups = $this->groupManager->getUserGroups($this->userSession->getUser(), 'sharing');
 			$userGroups = array_map(function (IGroup $group) { return $group->getGID(); }, $userGroups);
@@ -469,6 +473,11 @@ class ShareesController extends OCSController  {
 
 		$this->shareWithGroupOnly = $this->config->getAppValue('core', 'shareapi_only_share_with_group_members', 'no') === 'yes';
 		$this->shareeEnumeration = $this->config->getAppValue('core', 'shareapi_allow_share_dialog_user_enumeration', 'yes') === 'yes';
+		if ($this->shareeEnumeration) {
+			$this->shareeEnumerationGroupMembers = $this->config->getAppValue('core', 'shareapi_share_dialog_user_enumeration_group_members', 'no') === 'yes';
+		} else {
+			$this->shareeEnumerationGroupMembers = false;
+		}
 		$this->limit = (int) $perPage;
 		$this->offset = $perPage * ($page - 1);
 

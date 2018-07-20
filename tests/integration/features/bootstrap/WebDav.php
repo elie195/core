@@ -19,6 +19,8 @@ trait WebDav {
 	private $response;
 	/** @var map with user as key and another map as value, which has path as key and etag as value */
 	private $storedETAG = NULL;
+	/** @var integer */
+	private $storedFileID = NULL;
 
 	/**
 	 * @Given /^using dav path "([^"]*)"$/
@@ -51,14 +53,24 @@ trait WebDav {
 		}
 	}
 
-	public function makeDavRequest($user, $method, $path, $headers, $body = null, $type = "files"){
+	public function makeDavRequest($user,
+								   $method,
+								   $path,
+								   $headers,
+								   $body = null,
+								   $type = "files",
+								   $requestBody = null){
 		if ( $type === "files" ){
 			$fullUrl = substr($this->baseUrl, 0, -4) . $this->getDavFilesPath($user) . "$path";
 		} else if ( $type === "uploads" ){
 			$fullUrl = substr($this->baseUrl, 0, -4) . $this->davPath . "$path";
 		} 
 		$client = new GClient();
+
 		$options = [];
+		if (!is_null($requestBody)){
+			$options['body'] = $requestBody;
+		}
 		if ($user === 'admin') {
 			$options['auth'] = $this->adminUser;
 		} else {
@@ -269,7 +281,54 @@ trait WebDav {
 		}
 		$this->response = $this->listFolder($user, $path, 0, $properties);
 	}
-
+	
+	/**
+	 * @Given as :arg1 gets a custom property :arg2 of file :arg3
+	 * @param string $user
+	 * @param string $propertyName
+	 * @param string $path
+	 */
+	 public function asGetsPropertiesOfFile($user, $propertyName, $path){
+		$client = $this->getSabreClient($user);
+		 $properties = [
+				$propertyName
+		 ];
+		$response = $client->propfind($this->makeSabrePath($user, $path), $properties);
+		$this->response = $response;
+	 }
+	
+	/**
+	 * @Given /^"([^"]*)" sets property "([^"]*)" of (file|folder|entry) "([^"]*)" to "([^"]*)"$/
+	 * @param string $user
+	 * @param string $propertyName
+	 * @param string $elementType
+	 * @param string $path
+	 * @param string $propertyValue
+	 */
+	public function asSetsPropertiesOfFolderWith($user, $propertyName, $elementType, $path, $propertyValue) {
+		$client = $this->getSabreClient($user);
+		$properties = [
+				$propertyName => $propertyValue
+		];
+		$client->proppatch($this->makeSabrePath($user, $path), $properties);
+	}
+	
+	/**
+	 * @Then /^the response should contain a custom "([^"]*)" property with "([^"]*)"$/
+	 * @param string $propertyName
+	 * @param string $propertyValue
+	 */
+	public function theResponseShouldContainACustomPropertyWithValue($propertyName, $propertyValue, $table=null)
+	{
+		$keys = $this->response;
+		if (!array_key_exists($propertyName, $keys)) {
+			throw new \Exception("Cannot find property \"$propertyName\"");
+		}
+		if ($keys[$propertyName] !== $propertyValue) {
+			throw new \Exception("\"$propertyName\" has a value \"${keys[$propertyName]}\" but \"$propertyValue\" expected");
+		}
+	}
+	
 	/**
 	 * @Then /^as "([^"]*)" the (file|folder|entry) "([^"]*)" does not exist$/
 	 * @param string $user
@@ -317,6 +376,15 @@ trait WebDav {
 				$value = $value[0];
 			}
 		}
+
+		if ($expectedValue === "a_comment_url"){
+			if (preg_match("#^/remote.php/dav/comments/files/([0-9]+)$#", $value)) {
+				return 0;
+			} else {
+				throw new \Exception("Property \"$key\" found with value \"$value\", expected \"$expectedValue\"");
+			}
+		}
+
 		if ($value != $expectedValue) {
 			throw new \Exception("Property \"$key\" found with value \"$value\", expected \"$expectedValue\"");
 		}
@@ -425,8 +493,33 @@ trait WebDav {
 		return $parsedResponse;
 	}
 
+	/* Returns the elements of a report command special for comments
+	 * @param string $user
+	 * @param string $path
+	 * @param string $properties properties which needs to be included in the report
+	 * @param string $filterRules filter-rules to choose what needs to appear in the report
+	 */
+	public function reportElementComments($user, $path, $properties){
+		$client = $this->getSabreClient($user);
+
+		$body = '<?xml version="1.0" encoding="utf-8" ?>
+							 <oc:filter-comments xmlns:a="DAV:" xmlns:oc="http://owncloud.org/ns" >
+									' . $properties . '
+							 </oc:filter-comments>';
+
+
+		$response = $client->request('REPORT', $this->makeSabrePathNotForFiles($path), $body);
+
+		$parsedResponse = $client->parseMultistatus($response['body']);
+		return $parsedResponse;
+	}
+
 	public function makeSabrePath($user, $path) {
 		return $this->encodePath($this->getDavFilesPath($user) . $path);
+	}
+
+	public function makeSabrePathNotForFiles($path) {
+		return $this->encodePath($this->davPath . $path);
 	}
 
 	public function getSabreClient($user) {
@@ -477,7 +570,7 @@ trait WebDav {
 		$file = \GuzzleHttp\Stream\Stream::factory(fopen($source, 'r'));
 		try {
 			$this->response = $this->makeDavRequest($user, "PUT", $destination, [], $file);
-		} catch (\GuzzleHttp\Exception\ServerException $e) {
+		} catch (\GuzzleHttp\Exception\BadResponseException $e) {
 			// 4xx and 5xx responses cause an exception
 			$this->response = $e->getResponse();
 		}
@@ -721,10 +814,6 @@ trait WebDav {
 		$this->asGetsPropertiesOfFolderWith($user, NULL, $path, $propertiesTable);
 		$pathETAG[$path] = $this->response['{DAV:}getetag'];
 		$this->storedETAG[$user]= $pathETAG;
-<<<<<<< HEAD:build/integration/features/bootstrap/WebDav.php
-		print_r($this->storedETAG[$user][$path]);
-=======
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e:tests/integration/features/bootstrap/WebDav.php
 	}
 
 	/**
@@ -745,8 +834,6 @@ trait WebDav {
 		PHPUnit_Framework_Assert::assertNotEquals($this->response['{DAV:}getetag'], $this->storedETAG[$user][$path]);
 	}
 
-<<<<<<< HEAD:build/integration/features/bootstrap/WebDav.php
-=======
 	/**
 	 * @When Connecting to dav endpoint
 	 */
@@ -824,6 +911,37 @@ trait WebDav {
 		}
 	}
 
+	/**
+	 * @param string $user
+	 * @param string $path
+	 * @return int
+	 */
+	private function getFileIdForPath($user, $path) {
+		$propertiesTable = new \Behat\Gherkin\Node\TableNode([["{http://owncloud.org/ns}fileid"]]);
+		$this->asGetsPropertiesOfFolderWith($user, 'file', $path, $propertiesTable);
+		return (int) $this->response['{http://owncloud.org/ns}fileid'];
+	}
 
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e:tests/integration/features/bootstrap/WebDav.php
+	/**
+	 * @Given /^User "([^"]*)" stores id of file "([^"]*)"$/
+	 * @param string $user
+	 * @param string $path
+	 * @param string $fileid
+	 * @return int
+	 */
+	public function userStoresFileIdForPath($user, $path) {
+		$this->storedFileID = $this->getFileIdForPath($user, $path);
+	}
+
+	/**
+	 * @Given /^User "([^"]*)" checks id of file "([^"]*)"$/
+	 * @param string $user
+	 * @param string $path
+	 * @param string $fileid
+	 * @return int
+	 */
+	public function userChecksFileIdForPath($user, $path) {
+		$currentFileID = $this->getFileIdForPath($user, $path);
+		PHPUnit_Framework_Assert::assertEquals($currentFileID, $this->storedFileID);
+	}
 }

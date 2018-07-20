@@ -84,14 +84,9 @@ use OC\Session\Memory;
 use OC\Settings\Panels\Helper;
 use OC\Settings\SettingsManager;
 use OC\Tagging\TagMapper;
-<<<<<<< HEAD
-use OC\URLGenerator;
-use OC\Theme\ThemeService;
-use OCP\IDateTimeFormatter;
-=======
 use OC\Theme\ThemeService;
 use OC\User\AccountMapper;
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+use OC\User\AccountTermMapper;
 use OCP\IL10N;
 use OCP\IServerContainer;
 use OCP\ISession;
@@ -125,7 +120,7 @@ class Server extends ServerContainer implements IServerContainer {
 
 		$this->registerService('SettingsManager', function(Server $c) {
 			return new SettingsManager(
-				$c->getL10N('core'),
+				$c->getL10N('lib'),
 				$c->getAppManager(),
 				$c->getUserSession(),
 				$c->getLogger(),
@@ -226,10 +221,13 @@ class Server extends ServerContainer implements IServerContainer {
 				return $c->getRootFolder();
 			});
 		});
+		$this->registerService('AccountMapper', function(Server $c) {
+			return new AccountMapper($c->getDatabaseConnection(), new AccountTermMapper($c->getDatabaseConnection()));
+		});
 		$this->registerService('UserManager', function (Server $c) {
 			$config = $c->getConfig();
-			$accountMapper = new AccountMapper($c->getDatabaseConnection());
-			return new \OC\User\Manager($config, $accountMapper);
+			$logger = $c->getLogger();
+			return new \OC\User\Manager($config, $logger, $c->getAccountMapper());
 		});
 		$this->registerService('GroupManager', function (Server $c) {
 			$groupManager = new \OC\Group\Manager($this->getUserManager());
@@ -486,18 +484,20 @@ class Server extends ServerContainer implements IServerContainer {
 			);
 		});
 		$this->registerService('EventLogger', function (Server $c) {
+			$eventLogger = new EventLogger();
 			if ($c->getSystemConfig()->getValue('debug', false)) {
-				return new EventLogger();
-			} else {
-				return new NullEventLogger();
+				// In debug mode, module is being activated by default
+				$eventLogger->activate();
 			}
+			return $eventLogger;
 		});
 		$this->registerService('QueryLogger', function (Server $c) {
+			$queryLogger = new QueryLogger();
 			if ($c->getSystemConfig()->getValue('debug', false)) {
-				return new QueryLogger();
-			} else {
-				return new NullQueryLogger();
+				// In debug mode, module is being activated by default
+				$queryLogger->activate();
 			}
+			return $queryLogger;
 		});
 		$this->registerService('TempManager', function (Server $c) {
 			return new TempManager(
@@ -801,11 +801,8 @@ class Server extends ServerContainer implements IServerContainer {
 		$this->registerService('ThemeService', function ($c) {
 			return new ThemeService($this->getSystemConfig()->getValue('theme'));
 		});
-<<<<<<< HEAD
-=======
 		$this->registerAlias('OCP\IUserSession', 'UserSession');
 		$this->registerAlias('OCP\Security\ICrypto', 'Crypto');
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 
 	/**
@@ -957,6 +954,13 @@ class Server extends ServerContainer implements IServerContainer {
 	 */
 	public function getUserManager() {
 		return $this->query('UserManager');
+	}
+
+	/**
+	 * @return \OC\User\AccountMapper
+	 */
+	public function getAccountMapper() {
+		return $this->query('AccountMapper');
 	}
 
 	/**

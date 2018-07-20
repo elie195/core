@@ -20,8 +20,8 @@
 		'<li class="link-entry" data-id="{{id}}">' +
 			'<span class="link-entry--icon icon-public-white"></span>' +
 			'<span class="link-entry--title">{{linkTitle}}</span>' +
-			'<div class="minify"><input id="linkText-{{cid}}" class="linkText" type="text" readonly="readonly" value="{{link}}" /></div>' +
-			'<div class="link-entry--icon-button clipboardButton" data-clipboard-target="#linkText-{{cid}}">' +
+			'<div class="minify"><input id="linkText-{{../cid}}-{{id}}" class="linkText" type="text" readonly="readonly" value="{{link}}" /></div>' +
+			'<div class="link-entry--icon-button clipboardButton" data-clipboard-target="#linkText-{{../cid}}-{{id}}">' +
 			'	<span class="icon icon-clippy-dark"></span>' +
 			'	<span class="hidden">{{../copyToClipboardText}}</span>' +
 			'</div>' +
@@ -50,7 +50,8 @@
 		'{{/if}}' +
 		'<div class="clear-both">' +
 		'	<button class="addLink">{{addLinkText}}</button>' +
-		'</div>';
+		'</div>' +
+		'<div class="privacyWarningMessage">{{privacyWarningMessage}}</div>';
 
 	/**
 	 * @class OCA.Share.ShareDialogLinkListView
@@ -245,6 +246,7 @@
 				socialShareEnabled: this.configModel.isSocialShareEnabled(),
 				noShares: !this.collection.length,
 				noSharesMessage: t('core', 'There are currently no link shares, you can create one'),
+				privacyWarningMessage: t('core', 'Anyone with the link has access to the file/folder'),
 				shares: this.collection.map(_.bind(this._formatItem, this))
 			}));
 

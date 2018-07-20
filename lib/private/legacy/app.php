@@ -49,6 +49,7 @@ use OC\App\InfoParser;
 use OC\App\Platform;
 use OC\Installer;
 use OC\Repair;
+use OC\HintException;
 
 /**
  * This class manages the apps. It allows them to register and integrate in the
@@ -132,6 +133,7 @@ class OC_App {
 			}
 		}
 
+		\OC_Hook::emit('OC_App', 'loadedApps');
 		return true;
 	}
 
@@ -217,8 +219,10 @@ class OC_App {
 			\OC::$server->getLogger()->logException($ex);
 			$blacklist = \OC::$server->getAppManager()->getAlwaysEnabledApps();
 			if (!in_array($app, $blacklist)) {
+				\OC::$server->getLogger()->warning('Could not load app "' . $app . '", it will be disabled', array('app' => 'core'));
 				self::disable($app);
 			}
+			throw $ex;
 		}
 	}
 
@@ -567,7 +571,7 @@ class OC_App {
 		} else {
 			$versionToLoad = [];
 			foreach ($possibleApps as $possibleApp) {
-				$version = self::getAppVersionByPath($possibleApp['path']);
+				$version = self::getAppVersionByPath($possibleApp['path'] . '/' . $appId);
 				if (empty($versionToLoad) || version_compare($version, $versionToLoad['version'], '>')) {
 					$versionToLoad = [
 						'dir' => $possibleApp,
@@ -651,6 +655,23 @@ class OC_App {
 		return isset($appData['version']) ? $appData['version'] : '';
 	}
 
+	/**
+	 * @return false|string
+	 */
+	public static function getDefaultEnabledAppTheme() {
+		$apps = self::getAllApps();
+		$parser = new InfoParser();
+		foreach ($apps as $app) {
+			$info = $parser->parse(self::getAppPath($app) . '/appinfo/info.xml');
+			if (is_array($info)) {
+				$info = OC_App::parseAppInfo($info);
+			}
+			if (isset($info['default_enable']) && in_array('theme', $info['types'])) {
+				return $app;
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Read all app metadata from the info.xml file
@@ -1148,7 +1169,7 @@ class OC_App {
 		}
 		self::executeRepairSteps($appId, $appData['repair-steps']['post-migration']);
 		self::setupLiveMigrations($appId, $appData['repair-steps']['live-migration']);
-		unset(self::$appVersion[$appId]);
+		self::clearAppCache($appId);
 		// run upgrade code
 		if (file_exists($appPath . '/appinfo/update.php')) {
 			self::loadApp($appId, false);
@@ -1307,5 +1328,13 @@ class OC_App {
 				)
 			);
 		}
+	}
+
+	/**
+	 * @param $appId
+	 */
+	public static function clearAppCache($appId) {
+		unset(self::$appVersion[$appId]);
+		unset(self::$appInfo[$appId]);
 	}
 }

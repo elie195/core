@@ -195,14 +195,15 @@ class SettingsManager implements ISettingsManager {
 	private function getBuiltInSections($type) {
 		if($type === 'admin') {
 			return [
+				new Section('apps', $this->l->t('Apps'), 105, 'list'),
 				new Section('general', $this->l->t('General'), 100),
 				new Section('storage', $this->l->t('Storage'), 95, 'folder'),
 				new Section('security', $this->l->t('Security'), 90, 'password'),
-				new Section('authentication', $this->l->t('Authentication'), 87, 'user'),
+				new Section('authentication', $this->l->t('User Authentication'), 87, 'user'),
 				new Section('encryption', $this->l->t('Encryption'), 85, 'password'),
+				new Section('workflow', $this->l->t('Workflows & Tags'), 85, 'workflows'),
 				new Section('sharing', $this->l->t('Sharing'), 80, 'share'),
-				new Section('monitoring', $this->l->t('Monitoring'), 75, 'search'),
-				new Section('apps', $this->l->t('Apps'), 70, 'list'),
+				new Section('search', $this->l->t('Search'), 75, 'search'),
 				new Section('updates', $this->l->t('Updates'), 20, 'update'),
 				new Section('help', $this->l->t('Help & Tips'), -5, 'info'),
 				new Section('additional', $this->l->t('Additional'), -10, 'more'),
@@ -213,26 +214,19 @@ class SettingsManager implements ISettingsManager {
 				new Section('storage', $this->l->t('Storage'), 50, 'folder'),
 				new Section('security', $this->l->t('Security'), 30, 'password'),
 				new Section('encryption', $this->l->t('Encryption'), 20),
-				new Section('additional', $this->l->t('Additional'), 5, 'more'),
+				new Section('additional', $this->l->t('Additional'), -10, 'more'),
 			];
 		}
 	}
 
 	/**
 	 * Returns an array of classnames for built in settings panels
+	 * @param string $type the type of panels to load
 	 * @return array of strings
 	 */
-	private function getBuiltInPanels() {
-		return [
-			'personal' => [
-				Profile::class,
-				Clients::class,
-				LegacyPersonal::class,
-				Version::class,
-				Tokens::class,
-				Quota::class,
-			],
-			'admin' => [
+	private function getBuiltInPanels($type) {
+		if($type === 'admin') {
+			return [
 				LegacyAdmin::class,
 				BackgroundJobs::class,
 				Logging::class,
@@ -244,8 +238,17 @@ class SettingsManager implements ISettingsManager {
 				Certificates::class,
 				Apps::class,
 				Status::class
-			]
-		];
+			];
+		} else if($type === 'personal') {
+			return [
+				Profile::class,
+				Clients::class,
+				LegacyPersonal::class,
+				Version::class,
+				Tokens::class,
+				Quota::class
+			];
+		}
 	}
 
 	/**
@@ -295,30 +298,57 @@ class SettingsManager implements ISettingsManager {
 
 	/**
 	 * Gets all the panels for ownCloud
-	 * @param string $type the type of sections to return
+	 * @param string $type the type of panels to return
 	 * @return array of strings
 	 */
 	public function getPanelsList($type) {
-		$registered = isset($this->findRegisteredPanels()[$type]) ? $this->findRegisteredPanels()[$type] : [];
-		$builtIn = isset($this->getBuiltInPanels()[$type]) ? $this->getBuiltInPanels()[$type] : [];
-		return array_merge($registered, $builtIn);
+		return array_merge($this->findRegisteredPanels($type), $this->getBuiltInPanels($type));
 	}
 
 
 	/**
 	 * Searches through the currently enabled apps and returns the panels registered
-	 * @return array of strings
+	 * @param string $type the type of panels to return
+	 * @return array of strings with panel class names
 	 */
-	protected function findRegisteredPanels() {
+	protected function findRegisteredPanels($type) {
 		$panels = [];
 		foreach($this->appManager->getEnabledAppsForUser($this->userSession->getUser()) as $app) {
 			if(isset($this->appManager->getAppInfo($app)['settings'])) {
-				foreach($this->appManager->getAppInfo($app)['settings'] as $type => $panel) {
-					$panels[$type][] = (string) $panel;
+				foreach($this->appManager->getAppInfo($app)['settings'] as $t => $detected) {
+					if($t === $type)
+					{
+						// Allow app to register multiple panels of the same type
+						$detected = is_array($detected) ? $detected : [$detected];
+						$panels = array_merge($panels, $detected);
+					}
 				}
 			}
 		}
 		return $panels;
+	}
+
+	/**
+	 * Searches through the currently enabled apps and returns the sections registered
+	 * @param string $type the type of sections to return
+	 * @return ISection[]
+	 */
+	protected function findRegisteredSections($type) {
+		$sections = [];
+		foreach($this->appManager->getEnabledAppsForUser($this->userSession->getUser()) as $app) {
+			if(isset($this->appManager->getAppInfo($app)['settings-sections'])) {
+				foreach($this->appManager->getAppInfo($app)['settings-sections'] as $t => $section) {
+					if($t === $type) {
+						try {
+							$sections[] = \OC::$server->query($section);
+						} catch (QueryException $e) {
+							$this->logger->error('Settings section not found: '.$section);
+						}
+					}
+				}
+			}
+		}
+		return $sections;
 	}
 
 	/**
@@ -375,7 +405,7 @@ class SettingsManager implements ISettingsManager {
 				$this->sections[$type][$section->getID()] = $section;
 				// Now try and initialise the ISection from the panel
 			} catch (QueryException $e) {
-				// Just skip this panel, either its section of panel could not be loaded
+				// Just skip this panel, either its section or panel could not be loaded
 			}
 		}
 		// Return the panel array sorted
@@ -395,16 +425,23 @@ class SettingsManager implements ISettingsManager {
 	 * @return ISection
 	 */
 	protected function loadSection($type, $sectionID) {
-		// Load sections from default list
+		// Load built in sections
 		foreach($this->getBuiltInSections($type) as $section) {
 			if($section->getID() === $sectionID) {
 				return $section;
 			}
 		}
-		$this->log->error(
-			'Failed to load section with id: {id}',
-			['id' => $sectionID]);
-		return new Section($sectionID, ucfirst($sectionID), -9);
+
+		// Load sections from registered list
+		foreach($this->findRegisteredSections($type) as $section) {
+			if($section->getID() === $sectionID) {
+				return $section;
+			}
+		}
+
+		$this->log->error('Section id not found: "'.$sectionID.'". Apps should register settings sections in info.xml');
+		throw new QueryException();
+
 	}
 
 	/**

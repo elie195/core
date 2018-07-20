@@ -314,6 +314,9 @@ class Session implements IUserSession, Emitter {
 	 */
 	public function logClientIn($user, $password, IRequest $request) {
 		$isTokenPassword = $this->isTokenPassword($password);
+		if ($user === null || trim($user) === '') {
+			throw new \InvalidArgumentException('$user cannot be empty');
+		}
 		if (!$isTokenPassword && $this->isTokenAuthEnforced()) {
 			throw new PasswordLoginForbiddenException();
 		}
@@ -386,7 +389,12 @@ class Session implements IUserSession, Emitter {
 		}
 	}
 
-	protected function prepareUserLogin($firstTimeLogin = false) {
+	/**
+	 * Unintentional public
+	 *
+	 * @param bool $firstTimeLogin
+	 */
+	public function prepareUserLogin($firstTimeLogin = false) {
 		// TODO: mock/inject/use non-static
 		// Refresh the token
 		\OC::$server->getCsrfTokenManager()->refreshToken();

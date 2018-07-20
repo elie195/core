@@ -16,10 +16,12 @@
 	var TEMPLATE_BASE =
 		'<div class="resharerInfoView subView"></div>' +
 		'{{#if isSharingAllowed}}' +
+		'{{#if isLinkSharingAllowed}}' +
 		'<ul class="subTabHeaders">' +
 		'    <li class="subTabHeader selected subtab-localshare">{{localSharesLabel}}</li>' +
 		'    <li class="subTabHeader subtab-publicshare">{{publicSharesLabel}}</li>' +
 		'</ul>' +
+		'{{/if}}' +
 		'<div class="tabsContainer">' +
 		// TODO: this really should be a separate view class
 		'    <div class="localShareView tab" style="padding-left:0;padding-right:0;">' +
@@ -298,11 +300,14 @@
 				}
 			}
 			var insert = $("<div class='share-autocomplete-item'/>");
-			var avatar = $("<div class='avatardiv'></div>").appendTo(insert);
-			if (item.value.shareType === OC.Share.SHARE_TYPE_USER) {
-				avatar.avatar(item.value.shareWith, 32, undefined, undefined, undefined, item.label);
-			} else {
-				avatar.imageplaceholder(text, undefined, 32);
+
+			if(this.configModel.areAvatarsEnabled()) {
+				var avatar = $("<div class='avatardiv'></div>").appendTo(insert);
+				if (item.value.shareType === OC.Share.SHARE_TYPE_USER) {
+					avatar.avatar(item.value.shareWith, 32, undefined, undefined, undefined, item.label);
+				} else {
+					avatar.imageplaceholder(text, undefined, 32);
+				}
 			}
 
 			$("<div class='autocomplete-item-text'></div>")
@@ -341,7 +346,8 @@
 
 		_toggleLoading: function(state) {
 			this._loading = state;
-			this.$el.find('.localShareView, .loading, .noSharingPlaceholder').toggleClass('hidden', state);
+			this.$el.find('.localShareView, .noSharingPlaceholder').toggleClass('hidden', state);
+			this.$el.find('.loading').toggleClass('hidden', !state);
 		},
 
 		_onRequest: function() {
@@ -374,6 +380,7 @@
 				sharePlaceholder: this._renderSharePlaceholderPart(),
 				remoteShareInfo: this._renderRemoteShareInfoPart(),
 				isSharingAllowed: this.model.sharePermissionPossible(),
+				isLinkSharingAllowed: this.configModel.isShareWithLinkAllowed(),
 				localSharesLabel: t('core', 'User and Groups'),
 				publicSharesLabel: t('core', 'Public Links'),
 				noSharingPlaceholder: t('core', 'Resharing is not allowed')
@@ -389,7 +396,7 @@
 					},
 					source: this.autocompleteHandler,
 					select: this._onSelectRecipient
-				}).data('ui-autocomplete')._renderItem = this.autocompleteRenderItem;
+				}).data('ui-autocomplete')._renderItem = _.bind(this.autocompleteRenderItem, this);
 			}
 
 			this.resharerInfoView.$el = this.$el.find('.resharerInfoView');

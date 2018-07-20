@@ -18,14 +18,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  *
  */
-
-
 namespace OC\User;
-
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IConfig;
 use OCP\ILogger;
+use OCP\User\IProvidesExtendedSearchBackend;
 use OCP\UserInterface;
 
 /**
@@ -45,6 +43,8 @@ class SyncService {
 	private $mapper;
 	/** @var IConfig */
 	private $config;
+	/** @var ILogger */
+	private $logger;
 	/** @var string */
 	private $backendClass;
 
@@ -74,7 +74,7 @@ class SyncService {
 	public function getNoLongerExistingUsers(\Closure $callback) {
 		// detect no longer existing users
 		$toBeDeleted = [];
-		$this->mapper->callForAllUsers(function (Account $a) use ($toBeDeleted, $callback) {
+		$this->mapper->callForAllUsers(function (Account $a) use (&$toBeDeleted, $callback) {
 			if ($a->getBackend() == $this->backendClass) {
 				if (!$this->backend->userExists($a->getUserId())) {
 					$toBeDeleted[] = $a->getUserId();
@@ -100,17 +100,23 @@ class SyncService {
 				try {
 					$a = $this->mapper->getByUid($uid);
 					if ($a->getBackend() !== $this->backendClass) {
-						$this->logger->debug("User <$uid> already provided by another backend({$a->getBackend()} != {$this->backendClass})");
+						$this->logger->warning(
+							"User <$uid> already provided by another backend({$a->getBackend()} != {$this->backendClass}), skipping.",
+							['app' => self::class]
+						);
 						continue;
 					}
 					$a = $this->setupAccount($a, $uid);
 					$this->mapper->update($a);
-					// clean the user's preferences
-					$this->cleanPreferences($uid);
 				} catch(DoesNotExistException $ex) {
 					$a = $this->createNewAccount($uid);
+					$this->setupAccount($a, $uid);
 					$this->mapper->insert($a);
 				}
+				// clean the user's preferences
+				$this->cleanPreferences($uid);
+
+				// call the callback
 				$callback($uid);
 			}
 			$offset += $limit;
@@ -122,7 +128,7 @@ class SyncService {
 	 * @param string $uid
 	 * @return Account
 	 */
-	private function setupAccount(Account $a, $uid) {
+	public function setupAccount(Account $a, $uid) {
 		list($hasKey, $value) = $this->readUserConfig($uid, 'core', 'enabled');
 		if ($hasKey) {
 			$a->setState(($value === 'true') ? Account::STATE_ENABLED : Account::STATE_DISABLED);
@@ -140,10 +146,22 @@ class SyncService {
 			$a->setQuota($value);
 		}
 		if ($this->backend->implementsActions(\OC_User_Backend::GET_HOME)) {
-			$a->setHome($this->backend->getHome($uid));
+			$home = $this->backend->getHome($uid);
+			if (!is_string($home) || substr($home, 0, 1) !== '/') {
+				$home = $this->config->getSystemValue('datadirectory', \OC::$SERVERROOT . '/data') . "/$uid";
+				$this->logger->warning(
+					"User backend {$this->backendClass} provided no home for <$uid>, using <$home>.",
+					['app' => self::class]
+				);
+			}
+			$a->setHome($home);
 		}
 		if ($this->backend->implementsActions(\OC_User_Backend::GET_DISPLAYNAME)) {
 			$a->setDisplayName($this->backend->getDisplayName($uid));
+		}
+		// Check if backend supplies an additional search string
+		if ($this->backend instanceof IProvidesExtendedSearchBackend) {
+			$a->setSearchTerms($this->backend->getSearchTerms($uid));
 		}
 		return $a;
 	}
@@ -153,13 +171,6 @@ class SyncService {
 		$a->setUserId($uid);
 		$a->setState(Account::STATE_ENABLED);
 		$a->setBackend(get_class($this->backend));
-		if ($this->backend->implementsActions(\OC_User_Backend::GET_HOME)) {
-			$a->setHome($this->backend->getHome($uid));
-		}
-		if ($this->backend->implementsActions(\OC_User_Backend::GET_DISPLAYNAME)) {
-			$a->setDisplayName($this->backend->getDisplayName($uid));
-		}
-
 		return $a;
 	}
 
@@ -171,7 +182,7 @@ class SyncService {
 	 */
 	private function readUserConfig($uid, $app, $key) {
 		$keys = $this->config->getUserKeys($uid, $app);
-		if (isset($keys[$key])) {
+		if (in_array($key, $keys)) {
 			$enabled = $this->config->getUserValue($uid, $app, $key);
 			return [true, $enabled];
 		}

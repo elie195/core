@@ -15,11 +15,8 @@ OC.L10N.register(
     "Upload cancelled." : "アップロードはキャンセルされました。",
     "Unable to upload {filename} as it is a directory or has 0 bytes" : "ディレクトリもしくは0バイトのため {filename} をアップロードできません",
     "Not enough free space, you are uploading {size1} but only {size2} is left" : "空き容量が十分でなく、 {size1} をアップロードしていますが、 {size2} しか残っていません。",
-<<<<<<< HEAD
-    "Target folder \"{dir}\" does not exist any more" : "ターゲットフォルダ \"{dir}\" はもう存在しません",
-=======
     "Target folder \"{dir}\" does not exist any more" : "ターゲットフォルダー \"{dir}\" はもう存在しません",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+    "Target folder does not exist any more" : "ターゲットフォルダー はもう存在しません",
     "Not enough free space" : "空き容量が不足しています",
     "Uploading..." : "アップロード中...",
     "..." : "…",
@@ -50,7 +47,7 @@ OC.L10N.register(
     "Could not create file \"{file}\" because it already exists" : "ファイル \"{file}\"はすでに存在するため作成できませんでした",
     "Could not create folder \"{dir}\" because it already exists" : "フォルダー \"{dir}\" はすでに存在するため作成できませんでした",
     "Error deleting file \"{fileName}\"." : "ファイル\"{fileName}\"の削除エラー。",
-    "No entries in this folder match '{filter}'" : "このフォルダー内で '{filter}' にマッチするものはありません",
+    "No entries in this folder match {filter}" : "このフォルダー内で {filter}にマッチするものはありません",
     "Name" : "名前",
     "Size" : "サイズ",
     "Modified" : "更新日時",
@@ -72,7 +69,7 @@ OC.L10N.register(
     "_%n byte_::_%n bytes_" : ["%n バイト"],
     "Favorited" : "お気に入り済",
     "Favorite" : "お気に入り",
-    "Local link" : "ローカルリンク",
+    "Private link:  Only people who have access to the file/folder can use it. Use it as a permanent link for yourself or to point others to files within shares" : "プライベートリンク: ファイルやフォルダーにアクセスできる権限のあるユーザーのみ利用できます。自分用のパーマネントリンクや、共有している他のユーザーにピンポイントに指定することができます。",
     "Folder" : "フォルダー",
     "New folder" : "新しいフォルダー",
     "{newname} already exists" : "{newname} はすでに存在します",

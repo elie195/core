@@ -241,7 +241,7 @@ class UsersController extends Controller {
 		}
 
 		$splittedToken = explode(':', $this->config->getUserValue($userId, 'owncloud', 'changeMail', null));
-		if(count($splittedToken) !== 2) {
+		if(count($splittedToken) !== 3) {
 			$this->config->deleteUserValue($userId, 'owncloud', 'changeMail');
 			throw new \Exception($this->l10n->t('Couldn\'t change the email address because the token is invalid'));
 		}
@@ -263,7 +263,7 @@ class UsersController extends Controller {
 	 * @param int $offset
 	 * @param int $limit
 	 * @param string $gid GID to filter for
-	 * @param string $pattern Pattern to search for in the username
+	 * @param string $pattern Pattern to find in the account table (userid, displayname, email, additional search terms)
 	 * @param string $backend Backend to filter for (class-name)
 	 * @return DataResponse
 	 *
@@ -293,7 +293,7 @@ class UsersController extends Controller {
 			if($gid !== '') {
 				$batch = $this->getUsersForUID($this->groupManager->displayNamesInGroup($gid, $pattern, $limit, $offset));
 			} else {
-				$batch = $this->userManager->search($pattern, $limit, $offset);
+				$batch = $this->userManager->find($pattern, $limit, $offset);
 			}
 
 			foreach ($batch as $user) {
@@ -599,7 +599,8 @@ class UsersController extends Controller {
 			);
 		}
 
-		if ($mailAddress === '') {
+		// admins can set email without verification
+		if ($mailAddress === '' || $this->isAdmin) {
 			$this->setEmailAddress($userId, $mailAddress);
 			return new DataResponse(
 				[
@@ -613,18 +614,32 @@ class UsersController extends Controller {
 		}
 
 		try {
-			$this->sendEmail($userId, $mailAddress);
-			return new DataResponse(
-				[
-					'status' => 'success',
-					'data' => [
-						'username' => $id,
-						'mailAddress' => $mailAddress,
-						'message' => (string) $this->l10n->t('An email has been sent to this address for confirmation')
-					]
-				],
-				Http::STATUS_OK
-			);
+			if ($this->sendEmail($userId, $mailAddress)) {
+				return new DataResponse(
+					[
+						'status' => 'success',
+						'data' => [
+							'username' => $id,
+							'mailAddress' => $mailAddress,
+							'message' => (string) $this->l10n->t('An email has been sent to this address for confirmation')
+						]
+					],
+					Http::STATUS_OK
+				);
+			} else {
+				return new DataResponse(
+					[
+						'status' => 'error',
+						'data' => [
+							'username' => $id,
+							'mailAddress' => $mailAddress,
+							'message' => (string) $this->l10n->t('No email was sent because you already sent one recently. Please try again later.')
+						]
+					],
+					Http::STATUS_OK
+				);
+			}
+
 		} catch (\Exception $e){
 			return new DataResponse(
 				[
@@ -740,7 +755,7 @@ class UsersController extends Controller {
 		$token = $this->config->getUserValue($userId, 'owncloud', 'changeMail');
 		if ($token !== '') {
 			$splittedToken = explode(':', $token);
-			if ((count($splittedToken)) === 2 && $splittedToken[0] > ($this->timeFactory->getTime() - 60 * 5)) {
+			if ((count($splittedToken)) === 3 && $splittedToken[0] > ($this->timeFactory->getTime() - 60 * 5)) {
 				$this->log->alert('The email is not sent because an email change confirmation mail was sent recently.');
 				return false;
 			}
@@ -750,9 +765,9 @@ class UsersController extends Controller {
 			ISecureRandom::CHAR_DIGITS .
 			ISecureRandom::CHAR_LOWER .
 			ISecureRandom::CHAR_UPPER);
-		$this->config->setUserValue($userId, 'owncloud', 'changeMail', $this->timeFactory->getTime() . ':' . $token);
+		$this->config->setUserValue($userId, 'owncloud', 'changeMail', $this->timeFactory->getTime() . ':' . $token . ':' . $mailAddress);
 
-		$link = $this->urlGenerator->linkToRouteAbsolute('settings.Users.changeMail', ['userId' => $userId, 'token' => $token, 'mailAddress' => $mailAddress]);
+		$link = $this->urlGenerator->linkToRouteAbsolute('settings.Users.changeMail', ['userId' => $userId, 'token' => $token]);
 
 		$tmpl = new \OC_Template('settings', 'changemail/email');
 		$tmpl->assign('link', $link);
@@ -793,11 +808,10 @@ class UsersController extends Controller {
 	 *
 	 * @param $token
 	 * @param $userId
-	 * @param $mailAddress
 	 * @return RedirectResponse
 	 * @throws \Exception
 	 */
-	public function changeMail($token, $userId, $mailAddress) {
+	public function changeMail($token, $userId) {
 		$user = $this->userManager->get($userId);
 		$sessionUser = $this->userSession->getUser();
 
@@ -815,9 +829,12 @@ class UsersController extends Controller {
 
 		$oldEmailAddress = $user->getEMailAddress();
 
+		$splittedToken = explode(':', $this->config->getUserValue($userId, 'owncloud', 'changeMail', null));
+		$mailAddress = $splittedToken[2];
+
 		$this->setEmailAddress($userId, $mailAddress);
 
-		if ($oldEmailAddress !== null) {
+		if ($oldEmailAddress !== null && $oldEmailAddress !== '') {
 			$tmpl = new \OC_Template('settings', 'changemail/notify');
 			$tmpl->assign('mailAddress', $mailAddress);
 			$msg = $tmpl->fetchPage();

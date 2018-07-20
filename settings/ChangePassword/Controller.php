@@ -11,6 +11,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Sam Tuke <mail@samtuke.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Ujjwal Bhardwaj <ujjwalb1996@gmail.com>
  * @author Yarno Boelens <yarnoboelens@gmail.com>
  *
  * @copyright Copyright (c) 2017, ownCloud GmbH
@@ -51,11 +52,18 @@ class Controller {
 			\OC_JSON::error(["data" => ["message" => $l->t("The new password can not be the same as the previous one")]]);
 			exit();
 	        }
-		if (!is_null($password) && \OC_User::setPassword($username, $password)) {
-			\OC::$server->getUserSession()->updateSessionTokenPassword($password);
-			\OC_JSON::success();
-		} else {
-			\OC_JSON::error();
+		try {
+			if (!is_null($password) && \OC_User::setPassword($username, $password)) {
+				\OC::$server->getUserSession()->updateSessionTokenPassword($password);
+
+				self::sendNotificationMail($username);
+
+				\OC_JSON::success();
+			} else {
+				\OC_JSON::error();
+			}
+		} catch (\Exception $e) {
+			\OC_JSON::error(['data' => ['message' => $e->getMessage()]]);
 		}
 	}
 
@@ -151,15 +159,48 @@ class Controller {
 				} elseif (!$result && !$recoveryEnabledForUser) {
 					\OC_JSON::error(["data" => ["message" => $l->t("Unable to change password" )]]);
 				} else {
+					self::sendNotificationMail($username);
 					\OC_JSON::success(["data" => ["username" => $username]]);
 				}
 
 			}
 		} else { // if encryption is disabled, proceed
-			if (!is_null($password) && \OC_User::setPassword($username, $password)) {
-				\OC_JSON::success(['data' => ['username' => $username]]);
-			} else {
-				\OC_JSON::error(['data' => ['message' => $l->t('Unable to change password')]]);
+			try {
+				if (!is_null($password) && \OC_User::setPassword($username, $password)) {
+					self::sendNotificationMail($username);
+					\OC_JSON::success(['data' => ['username' => $username]]);
+				} else {
+					\OC_JSON::error(['data' => ['message' => $l->t('Unable to change password')]]);
+				}
+			} catch (\Exception $e) {
+				\OC_JSON::error(['data' => ['message' => $e->getMessage()]]);
+			}
+		}
+	}
+
+	private static function sendNotificationMail($username) {
+		$userObject = \OC::$server->getUserManager()->get($username);
+		$email = $userObject->getEMailAddress();
+		$defaults = new \OC_Defaults();
+		$from = \OCP\Util::getDefaultEmailAddress('lostpassword-noreply');
+		$mailer = \OC::$server->getMailer();
+		$lion = \OC::$server->getL10N('lib');
+
+		if ($email !== null && $email !== '') {
+			$tmpl = new \OC_Template('core', 'lostpassword/notify');
+			$msg = $tmpl->fetchPage();
+
+			try {
+				$message = $mailer->createMessage();
+				$message->setTo([$email => $username]);
+				$message->setSubject($lion->t('%s password changed successfully', [$defaults->getName()]));
+				$message->setPlainBody($msg);
+				$message->setFrom([$from => $defaults->getName()]);
+				$mailer->send($message);
+			} catch (\Exception $e) {
+				throw new \Exception($lion->t(
+					'Couldn\'t send reset email. Please contact your administrator.'
+				));
 			}
 		}
 	}

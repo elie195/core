@@ -98,6 +98,7 @@ OC.L10N.register(
     "Filename" : "Dosiernomo",
     "Password" : "Pasvorto",
     "Name" : "Nomo",
+    "Allow editing" : "Permesi redakton",
     "Save" : "Konservi",
     "Error while sending notification" : "Eraris sendo de sciigo",
     "Sending ..." : "Sendante...",
@@ -166,7 +167,6 @@ OC.L10N.register(
     "Message: %s" : "Mesaĝo: %s",
     "File: %s" : "Dosiero: %s",
     "Line: %s" : "Linio: %s",
-    "Security warning" : "Sekureca averto",
     "Create an <strong>admin account</strong>" : "Krei <strong>administran konton</strong>",
     "Username" : "Uzantonomo",
     "Storage & database" : "Memoro kaj datumbazo",
@@ -199,7 +199,6 @@ OC.L10N.register(
     "Thank you for your patience." : "Dankon pro via pacienco.",
     "%s will be updated to version %s" : "%s ĝisdatiĝos al eldono %s",
     "These apps will be updated:" : "Ĉi tiuj aplikaĵoj ĝisdatiĝos:",
-    "These incompatible apps will be disabled:" : "Ĉi tiuj malkongruaj aplikaĵoj malkapabliĝos:",
     "Start update" : "Ekĝisdatigi"
 },
 "nplurals=2; plural=(n != 1);");

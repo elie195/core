@@ -24,11 +24,7 @@
     "Pending" : "Zain",
     "Unable to determine date" : "Ezin izan da data zehaztu",
     "Invalid path" : "Baliogabeko bidea",
-<<<<<<< HEAD
-=======
     "Could not move \"{file}\"" : "Ezin da mugitu \"{file}\"",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
-    "No entries in this folder match '{filter}'" : "Karpeta honetan ez dago sarrerarik '{filter}' iragazkiarekin bat egiten dutenak",
     "Name" : "Izena",
     "Size" : "Tamaina",
     "Modified" : "Aldatuta",

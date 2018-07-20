@@ -44,6 +44,7 @@ use OC\App\CodeChecker\PrivateCheck;
 use OC_App;
 use OC_DB;
 use OC_Helper;
+use OCP\App\AppAlreadyInstalledException;
 
 /**
  * This class provides the functionality needed to install, update and remove plugins/apps
@@ -103,6 +104,7 @@ class Installer {
 		if(!empty($data['pretent'])) {
 			return false;
 		}
+		OC_App::clearAppCache($info['id']);
 
 		//copy the app to the correct place
 		if(@!mkdir($basedir)) {
@@ -124,7 +126,7 @@ class Installer {
 		OC_Helper::rmdirr($extractDir);
 
 		//install the database
-		if (isset($appData['use-migrations']) && $appData['use-migrations'] === 'true') {
+		if (isset($info['use-migrations']) && $info['use-migrations'] === 'true') {
 			$ms = new \OC\DB\MigrationService($appId, \OC::$server->getDatabaseConnection());
 			$ms->migrate();
 		} else {
@@ -220,6 +222,9 @@ class Installer {
 
 		if($currentDir !== false && is_writable($currentDir)) {
 			$basedir = $currentDir;
+		}
+		if(is_dir("$basedir/.git")) {
+			throw new AppAlreadyInstalledException("App <{$info['id']}> is a git clone - it will not be updated.");
 		}
 		if(is_dir($basedir)) {
 			OC_Helper::rmdirr($basedir);
@@ -333,7 +338,7 @@ class Installer {
 		// We can't trust the parsed info.xml file as it may have been tampered
 		// with by an attacker and thus we need to use the local data to check
 		// whether the application needs to be signed.
-		$appId = OC_App::cleanAppId($data['appdata']['id']);
+		$appId = OC_App::cleanAppId(isset($data['appdata']['id']) ? $data['appdata']['id'] : '');
 		$appBelongingToId = OC_App::getInternalAppIdByOcs($appId);
 		if(is_string($appBelongingToId)) {
 			$previouslySigned = \OC::$server->getConfig()->getAppValue($appBelongingToId, 'signed', 'false');

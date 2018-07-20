@@ -361,16 +361,23 @@ class OC_Util {
 	/**
 	 * Get the quota of a user
 	 *
-	 * @param string $userId
+	 * @param string|IUser $userId
 	 * @return int Quota bytes
 	 */
 	public static function getUserQuota($userId) {
-		$user = \OC::$server->getUserManager()->get($userId);
+		if ($userId instanceof IUser) {
+			$user = $userId;
+		} else {
+			$user = \OC::$server->getUserManager()->get($userId);
+		}
 		if (is_null($user)) {
 			return \OCP\Files\FileInfo::SPACE_UNLIMITED;
 		}
 		$userQuota = $user->getQuota();
-		if($userQuota === 'none') {
+		if ($userQuota === null || $userQuota === 'default') {
+			$userQuota = \OC::$server->getConfig()->getAppValue('files', 'default_quota', 'none');
+		}
+		if ($userQuota === null || $userQuota === 'none') {
 			return \OCP\Files\FileInfo::SPACE_UNLIMITED;
 		}
 		return OC_Helper::computerFileSize($userQuota);
@@ -1190,6 +1197,9 @@ class OC_Util {
 		if (php_sapi_name() === 'cli-server') {
 			return false;
 		}
+		if (\OC::$CLI) {
+			return false;
+		}
 
 		// testdata
 		$fileName = '/htaccesstest.txt';
@@ -1210,45 +1220,6 @@ class OC_Util {
 		}
 		fwrite($fp, $testContent);
 		fclose($fp);
-	}
-
-	/**
-	 * Check if the .htaccess file is working
-	 * @param \OCP\IConfig $config
-	 * @return bool
-	 * @throws Exception
-	 * @throws \OC\HintException If the test file can't get written.
-	 */
-	public function isHtaccessWorking(\OCP\IConfig $config) {
-
-		if (\OC::$CLI || !$config->getSystemValue('check_for_working_htaccess', true)) {
-			return true;
-		}
-
-		$testContent = $this->createHtaccessTestFile($config);
-		if ($testContent === false) {
-			return false;
-		}
-
-		$fileName = '/htaccesstest.txt';
-		$testFile = $config->getSystemValue('datadirectory', OC::$SERVERROOT . '/data') . '/' . $fileName;
-
-		// accessing the file via http
-		$url = \OC::$server->getURLGenerator()->getAbsoluteURL(OC::$WEBROOT . '/data' . $fileName);
-		try {
-			$content = \OC::$server->getHTTPClientService()->newClient()->get($url)->getBody();
-		} catch (\Exception $e) {
-			$content = false;
-		}
-
-		// cleanup
-		@unlink($testFile);
-
-		/*
-		 * If the content is not equal to test content our .htaccess
-		 * is working as required
-		 */
-		return $content !== $testContent;
 	}
 
 	/**
@@ -1442,6 +1413,12 @@ class OC_Util {
 		if (\OC\Files\Filesystem::isIgnoredDir($trimmed)) {
 			return false;
 		}
+
+		// detect part files
+		if (preg_match('/' . \OCP\Files\FileInfo::BLACKLIST_FILES_REGEX . '/', $trimmed) !== 0) {
+			return false;
+		}
+
 		foreach (str_split($trimmed) as $char) {
 			if (strpos(\OCP\Constants::FILENAME_INVALID_CHARS, $char) !== false) {
 				return false;

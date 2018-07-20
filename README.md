@@ -22,7 +22,7 @@ A personal cloud which runs on your own server.**
 * ...
 
 ## Installation instructions
-https://doc.owncloud.org/server/9.1/developer_manual/app/index.html
+https://doc.owncloud.org/server/10.0/developer_manual/app/index.html
 
 ## Contribution Guidelines
 https://owncloud.org/contribute/
@@ -34,7 +34,7 @@ Learn about the different ways you can get support for ownCloud: https://ownclou
 * :clipboard: [Forum](https://central.owncloud.org)
 * :envelope: [Mailing list](https://mailman.owncloud.org/mailman/listinfo)
 * :hash: [IRC channel](https://webchat.freenode.net/?channels=owncloud)
-* :busts_in_silhouette: [Facebook] (https://facebook.com/ownclouders)
+* :busts_in_silhouette: [Facebook](https://facebook.com/ownclouders)
 * :hatching_chick: [Twitter](https://twitter.com/ownClouders)
 
 ## Important notice on translations
@@ -42,4 +42,4 @@ Please submit translations via Transifex:
 https://www.transifex.com/projects/p/owncloud/
 
 For more detailed information about translations:
-http://doc.owncloud.org/server/9.1/developer_manual/core/translation.html
+https://doc.owncloud.org/server/10.0/developer_manual/core/translation.html

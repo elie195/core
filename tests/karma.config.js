@@ -56,7 +56,8 @@ module.exports = function(config) {
 					'apps/files_sharing/js/share.js',
 					'apps/files_sharing/js/external.js',
 					'apps/files_sharing/js/public.js',
-					'apps/files_sharing/js/sharetabview.js'
+					'apps/files_sharing/js/sharetabview.js',
+					'apps/files_sharing/js/PublicUploadView.js'
 				],
 				testFiles: ['apps/files_sharing/tests/js/*.js']
 			},
@@ -287,6 +288,9 @@ module.exports = function(config) {
 		browsers: ['PhantomJS'],
 
 		// If browser does not capture in given timeout [ms], kill it
+		captureTimeout: 60000,
+		browserNoActivityTimeout: 60000,
+		browserDisconnectTimeout: 30000,
 		captureTimeout: 60000,
 
 		// Continuous Integration mode

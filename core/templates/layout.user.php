@@ -49,15 +49,9 @@
 
 			<a href="#" class="header-appname-container menutoggle" tabindex="2">
 				<h1 class="header-appname">
-					<?php
-						if(OC_Util::getEditionString() === OC_Util::EDITION_COMMUNITY) {
-							p(!empty($_['application'])?$_['application']: $l->t('Apps'));
-						} else {
-							print_unescaped($theme->getHTMLName());
-						}
-					?>
+					<?php p(!empty($_['application']) ? $_['application'] : $l->t('Apps')); ?>
 				</h1>
-				<img alt="" class="caret" src="<?php print_unescaped(image_path('', 'actions/caret.svg')); ?>">
+				<div class="icon-caret"></div>
 			</a>
 
 			<div id="logo-claim" style="display:none;"><?php p($theme->getLogoClaim()); ?></div>
@@ -74,7 +68,8 @@
 					</div>
 					<?php endif; ?>
 					<span id="expandDisplayName"><?php  p(trim($_['user_displayname']) != '' ? $_['user_displayname'] : $_['user_uid']) ?></span>
-					<img alt="" src="<?php print_unescaped(image_path('', 'actions/caret.svg')); ?>">
+
+					<div class="icon-caret"></div>
 				</div>
 				<div id="expanddiv">
 				<ul>

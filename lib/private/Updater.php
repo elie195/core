@@ -58,9 +58,6 @@ class Updater extends BasicEmitter {
 	/** @var Checker */
 	private $checker;
 
-	/** @var bool */
-	private $skip3rdPartyAppsDisable;
-
 	private $logLevelNames = [
 		0 => 'Debug',
 		1 => 'Info',
@@ -80,16 +77,6 @@ class Updater extends BasicEmitter {
 		$this->log = $log;
 		$this->config = $config;
 		$this->checker = $checker;
-	}
-
-	/**
-	 * Sets whether the update disables 3rd party apps.
-	 * This can be set to true to skip the disable.
-	 *
-	 * @param bool $flag false to not disable, true otherwise
-	 */
-	public function setSkip3rdPartyAppsDisable($flag) {
-		$this->skip3rdPartyAppsDisable = $flag;
 	}
 
 	/**
@@ -142,15 +129,22 @@ class Updater extends BasicEmitter {
 	}
 
 	/**
-	 * Return version from which this version is allowed to upgrade from
+	 * Return versions from which this version is allowed to upgrade from
 	 *
-	 * @return string allowed previous version
+	 * @return string[] allowed previous versions
 	 */
-	private function getAllowedPreviousVersion() {
+	private function getAllowedPreviousVersions() {
 		// this should really be a JSON file
 		require \OC::$SERVERROOT . '/version.php';
+
+		$allowedPreviousVersions = [];
+
 		/** @var array $OC_VersionCanBeUpgradedFrom */
-		return implode('.', $OC_VersionCanBeUpgradedFrom);
+		foreach ($OC_VersionCanBeUpgradedFrom as $version) {
+			$allowedPreviousVersions[] = implode('.', $version);
+		}
+
+		return $allowedPreviousVersions;
 	}
 
 	/**
@@ -169,15 +163,17 @@ class Updater extends BasicEmitter {
 	 * Whether an upgrade to a specified version is possible
 	 * @param string $oldVersion
 	 * @param string $newVersion
-	 * @param string $allowedPreviousVersion
+	 * @param string[] $allowedPreviousVersions
 	 * @return bool
 	 */
-	public function isUpgradePossible($oldVersion, $newVersion, $allowedPreviousVersion) {
-		$allowedUpgrade =  (version_compare($allowedPreviousVersion, $oldVersion, '<=')
-			&& (version_compare($oldVersion, $newVersion, '<=') || $this->config->getSystemValue('debug', false)));
-
-		if ($allowedUpgrade) {
-			return $allowedUpgrade;
+	public function isUpgradePossible($oldVersion, $newVersion, $allowedPreviousVersions) {
+		// TODO: write tests for this, since i just wrapped it to get started with migrations and this might fail in some cases
+		foreach ($allowedPreviousVersions as $allowedPreviousVersion) {
+			$allowedUpgrade =  (version_compare($allowedPreviousVersion, $oldVersion, '<=')
+				&& (version_compare($oldVersion, $newVersion, '<=') || $this->config->getSystemValue('debug', false)));
+			if ($allowedUpgrade) {
+				return $allowedUpgrade;
+			}
 		}
 
 		// Upgrade not allowed, someone switching vendor?
@@ -202,8 +198,8 @@ class Updater extends BasicEmitter {
 	 */
 	private function doUpgrade($currentVersion, $installedVersion) {
 		// Stop update if the update is over several major versions
-		$allowedPreviousVersion = $this->getAllowedPreviousVersion();
-		if (!self::isUpgradePossible($installedVersion, $currentVersion, $allowedPreviousVersion)) {
+		$allowedPreviousVersions = $this->getAllowedPreviousVersions();
+		if (!self::isUpgradePossible($installedVersion, $currentVersion, $allowedPreviousVersions)) {
 			throw new \Exception('Updates between multiple major versions and downgrades are unsupported.');
 		}
 
@@ -344,7 +340,9 @@ class Updater extends BasicEmitter {
 			$info = OC_App::getAppInfo($app);
 			if(!OC_App::isAppCompatible($version, $info)) {
 				OC_App::disable($app);
+				$disabledApps[]= $app;
 				$this->emit('\OC\Updater', 'incompatibleAppDisabled', [$app]);
+				continue;
 			}
 			// no need to disable any app in case this is a non-core upgrade
 			if (!$isCoreUpgrade) {
@@ -358,13 +356,6 @@ class Updater extends BasicEmitter {
 			if (OC_App::isType($app, ['session', 'authentication'])) {
 				continue;
 			}
-
-			// disable any other 3rd party apps if not overriden
-			if(!$this->skip3rdPartyAppsDisable) {
-				\OC_App::disable($app);
-				$disabledApps[]= $app;
-				$this->emit('\OC\Updater', 'thirdPartyAppDisabled', [$app]);
-			};
 		}
 		return $disabledApps;
 	}
@@ -386,23 +377,18 @@ class Updater extends BasicEmitter {
 	 * @throws \Exception
 	 */
 	private function upgradeAppStoreApps(array $disabledApps) {
-
-		//
-		// TODO: integrate market app in here
-		//
-
-//		foreach($disabledApps as $app) {
-//			try {
-//				if (Installer::isUpdateAvailable($app)) {
-//					$ocsId = \OC::$server->getConfig()->getAppValue($app, 'ocsid', '');
-//
-//					$this->emit('\OC\Updater', 'upgradeAppStoreApp', [$app]);
-//					Installer::updateAppByOCSId($ocsId);
-//				}
-//			} catch (\Exception $ex) {
-//				$this->log->logException($ex, ['app' => 'core']);
-//			}
-//		}
+		$dispatcher = \OC::$server->getEventDispatcher();
+		foreach($disabledApps as $app) {
+			try {
+				$this->emit('\OC\Updater', 'upgradeAppStoreApp', [$app]);
+				$dispatcher->dispatch(
+					self::class . '::upgradeAppStoreApps',
+					new GenericEvent($app)
+				);
+			} catch (\Exception $ex) {
+				$this->log->logException($ex, ['app' => 'core']);
+			}
+		}
 	}
 
 	/**

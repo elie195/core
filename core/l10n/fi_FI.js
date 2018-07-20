@@ -151,6 +151,7 @@ OC.L10N.register(
     "Send" : "Lähetä",
 =======
     "Name" : "Nimi",
+    "Allow editing" : "Salli muokkaus",
     "Save" : "Tallenna",
 >>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Share to Twitter. Opens in a new window." : "Jaa Twitteriin. Avautuu uuteen ikkunaan.",
@@ -251,9 +252,6 @@ OC.L10N.register(
     "File: %s" : "Tiedosto: %s",
     "Line: %s" : "Rivi: %s",
     "Trace" : "Jälki",
-    "Security warning" : "Turvallisuusvaroitus",
-    "Your data directory and files are probably accessible from the internet because the .htaccess file does not work." : "Datakansiosi ja tiedostosi ovat mitä luultavimmin muiden saavutettavissa internetistä, koska .htaccess-tiedosto ei toimi.",
-    "For information how to properly configure your server, please see the <a href=\"%s\" target=\"_blank\" rel=\"noreferrer\">documentation</a>." : "Lisätietoja palvelimen oikeaoppiseen määritykseen on saatavilla <a href=\"%s\" target=\"_blank\" rel=\"noreferrer\">dokumentaatiossa</a>.",
     "Create an <strong>admin account</strong>" : "Luo <strong>ylläpitäjän tunnus</strong>",
     "Username" : "Käyttäjätunnus",
     "Storage & database" : "Tallennus ja tietokanta",
@@ -309,7 +307,6 @@ OC.L10N.register(
     "App update required" : "Sovelluksen päivittäminen vaaditaan",
     "%s will be updated to version %s" : "%s päivitetään versioon %s",
     "These apps will be updated:" : "Nämä sovellukset päivitetään:",
-    "These incompatible apps will be disabled:" : "Nämä yhteensopimattomat sovellukset poistetaan käytöstä:",
     "The theme %s has been disabled." : "Teema %s on poistettu käytöstä.",
     "Please make sure that the database, the config folder and the data folder have been backed up before proceeding." : "Varmista ennen jatkamista, että tietokanta, asetuskansio ja datakansio on varmuuskopioitu.",
     "Start update" : "Käynnistä päivitys",

@@ -42,36 +42,20 @@ class JSResourceLocator extends ResourceLocator {
 			// For language files we try to load them all, so themes can overwrite
 			// single l10n strings without having to translate all of them.
 			$found = 0;
-<<<<<<< HEAD
-			$found += $this->appendIfExist($this->serverroot, 'core/'.$script.'.js');
-			$found += $this->appendIfExist($this->serverroot, $themeDirectory.'core/'.$script.'.js');
-			$found += $this->appendIfExist($this->serverroot, $script.'.js');
-			$found += $this->appendIfExist($this->serverroot, $themeDirectory.$script.'.js');
-			$found += $this->appendIfExist($this->serverroot, $themeDirectory.'apps/'.$script.'.js');
-=======
 			$found += $this->appendOnceIfExist($this->serverroot, 'core/'.$script.'.js');
-			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.'core/'.$script.'.js');
+			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.'/core/'.$script.'.js');
 			$found += $this->appendOnceIfExist($this->serverroot, $script.'.js');
-			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.$script.'.js');
-			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.'apps/'.$script.'.js');
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.'/'.$script.'.js');
+			$found += $this->appendOnceIfExist($this->serverroot, $themeDirectory.'/apps/'.$script.'.js');
 
 			if ($found) {
 				return;
 			}
-<<<<<<< HEAD
-		} else if ($this->appendIfExist($this->serverroot, $themeDirectory.'apps/'.$script.'.js')
-			|| $this->appendIfExist($this->serverroot, $themeDirectory.$script.'.js')
-			|| $this->appendIfExist($this->serverroot, $script.'.js')
-			|| $this->appendIfExist($this->serverroot, $themeDirectory.'core/'.$script.'.js')
-			|| $this->appendIfExist($this->serverroot, 'core/'.$script.'.js')
-=======
-		} else if ($this->appendOnceIfExist($this->serverroot, $themeDirectory.'apps/'.$script.'.js')
-			|| $this->appendOnceIfExist($this->serverroot, $themeDirectory.$script.'.js')
+		} else if ($this->appendOnceIfExist($this->serverroot, $themeDirectory.'/apps/'.$script.'.js')
+			|| $this->appendOnceIfExist($this->serverroot, $themeDirectory.'/'.$script.'.js')
 			|| $this->appendOnceIfExist($this->serverroot, $script.'.js')
-			|| $this->appendOnceIfExist($this->serverroot, $themeDirectory.'core/'.$script.'.js')
+			|| $this->appendOnceIfExist($this->serverroot, $themeDirectory.'/core/'.$script.'.js')
 			|| $this->appendOnceIfExist($this->serverroot, 'core/'.$script.'.js')
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		) {
 			return;
 		}

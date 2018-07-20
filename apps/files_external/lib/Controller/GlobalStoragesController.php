@@ -87,6 +87,15 @@ class GlobalStoragesController extends StoragesController {
 		$applicableGroups,
 		$priority
 	) {
+		$canCreateNewLocalStorage = \OC::$server->getConfig()->getSystemValue('files_external_allow_create_new_local', false);
+
+		if ($backend === 'local' && $canCreateNewLocalStorage === false) {
+			return new DataResponse(
+				null,
+				Http::STATUS_FORBIDDEN
+			);
+		}
+
 		$newStorage = $this->createStorage(
 			$mountPoint,
 			$backend,
@@ -181,7 +190,6 @@ class GlobalStoragesController extends StoragesController {
 			$storage,
 			Http::STATUS_OK
 		);
-
 	}
 
 

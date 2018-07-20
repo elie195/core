@@ -17,8 +17,6 @@ OC.L10N.register(
     "Details" : "Մանրամասներ",
     "Select" : "Նշել",
     "Invalid path" : "Անվավեր ուղի",
-<<<<<<< HEAD
-=======
     "This operation is forbidden" : "Այս գործողությունը արգելված է",
     "This directory is unavailable, please check the logs or contact the administrator" : "Այս պանակը անհասանելի է, ստուգիր լոգերը կամ կապվիր ադմինի հետ",
     "{newName} already exists" : "{newName} արդեն գոյություն ունի",
@@ -28,8 +26,6 @@ OC.L10N.register(
     "Could not create file \"{file}\" because it already exists" : "Չկարողացա ստեղծել «{file}» ֆայլը, քանի որ այն գոյություն ունի",
     "Could not create folder \"{dir}\" because it already exists" : "Չկարողացա ստեղծել «{dir}» պանակը, քանի որ այն գոյություն ունի",
     "Error deleting file \"{fileName}\"." : "Չկարողացա ջնջել «{fileName}» ֆայլը",
-    "No entries in this folder match '{filter}'" : "'{filter}' համապասխանող ոչինչ չգտնվեց պանակում",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Name" : "Անուն",
     "Size" : "Չափս",
     "Modified" : "Փոփոխված",

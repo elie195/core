@@ -5,11 +5,7 @@
 	<description>ownCloud WebDAV endpoint</description>
 	<licence>AGPL</licence>
 	<author>owncloud.org</author>
-<<<<<<< HEAD
-	<version>0.2.7</version>
-=======
-	<version>0.2.8</version>
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+	<version>0.2.9</version>
 	<default_enable/>
 	<use-migrations>true</use-migrations>
 	<types>

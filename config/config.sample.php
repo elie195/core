@@ -80,6 +80,12 @@ $CONFIG = array(
 'version' => '',
 
 /**
+ * While hardening an ownCloud instance hiding the version information in status.php
+ * can be a legitimate step. Please consult the documentation before enabling this.
+ */
+'version.hide' => false,
+
+/**
  * Identifies the database used with this installation. See also config option
  * ``supportedDatabases``
  *
@@ -203,6 +209,15 @@ $CONFIG = array(
 'token_auth_enforced' => false,
 
 /**
+ * Allows to specify additional login buttons on the logon screen for e.g. SSO integration
+ *  'login.alternatives' => [
+ *    ['href' => 'https://www.testshib.org/Shibboleth.sso/ProtectNetwork?target=https%3A%2F%2Fmy.owncloud.tld%2Flogin%2Fsso-saml%2F', 'name' => 'ProtectNetwork', 'img' => '/img/PN_sign-in.gif'],
+ *    ['href' => 'https://www.testshib.org/Shibboleth.sso/OpenIdP.org?target=https%3A%2F%2Fmy.owncloud.tld%2Flogin%2Fsso-saml%2F', 'name' => 'OpenIdP.org', 'img' => '/img/openidp.png'],
+ *  ]
+ */
+'login.alternatives' => [],
+
+/**
  * Disable ownCloud's built-in CSRF protection mechanism.
  *
  * In some specific setups CSRF protection is handled in the environment, e.g.,
@@ -233,12 +248,20 @@ $CONFIG = array(
 ),
 
 /**
- * If your user backend does not allow to reset the password (e.g. when it's a
+ * If your user backend does not allow password resets (e.g. when it's a
  * read-only user backend like LDAP), you can specify a custom link, where the
  * user is redirected to, when clicking the "reset password" link after a failed
  * login-attempt.
+ * In case you do not want to provide any link, replace the url with 'disabled'
  */
 'lost_password_link' => 'https://example.org/link/to/password/reset',
+
+/**
+ * Allow medial search on account properties like display name, user id, email,
+ * and other search terms. Allows finding 'Alice' when searching for 'lic'.
+ * May slow down user search.
+ */
+'accounts.enable_medial_search' => false,
 
 /**
  * Mail Parameters
@@ -393,12 +416,12 @@ $CONFIG = array(
  * the correct value would most likely be "/owncloud". If ownCloud is running
  * under "https://mycloud.org/" then it would be "/".
  *
- * Note that above rule is not valid in every case, there are some rare setup
+ * Note that the above rule is not valid in every case, as there are some rare setup
  * cases where this may not apply. However, to avoid any update problems this
  * configuration value is explicitly opt-in.
  *
- * After setting this value run `occ maintenance:update:htaccess` and when following
- * conditions are met ownCloud uses URLs without index.php in it:
+ * After setting this value run `occ maintenance:update:htaccess`. Now, when the
+ * following conditions are met ownCloud URLs won't contain `index.php`:
  *
  * - `mod_rewrite` is installed
  * - `mod_env` is installed
@@ -602,13 +625,25 @@ $CONFIG = array(
  *                this condition is met
  *  - ``apps``:   if the log message is invoked by one of the specified apps,
  *                this condition is met
+ *  - ``logfile``: the log message invoked by the specified apps get redirected to
+ *		   this logfile, this condition is met
+ *		   Note: Not applicable when using syslog.
  *
  * Defaults to an empty array.
  */
-'log.condition' => [
-	'shared_secret' => '57b58edb6637fe3059b3595cf9c41b9',
-	'users' => ['sample-user'],
-	'apps' => ['files'],
+'log.conditions' => [
+        [
+		'shared_secret' => '57b58edb6637fe3059b3595cf9c41b9',
+		'users' => ['user1'],
+		'apps' => ['files_texteditor'],
+		'logfile' => '/tmp/test.log'
+        ],
+        [
+		'shared_secret' => '57b58edb6637fe3059b3595cf9c41b9',
+		'users' => ['user1'],
+		'apps' => ['gallery'],
+		'logfile' => '/tmp/gallery.log'
+        ],
 ],
 
 /**
@@ -851,7 +886,7 @@ $CONFIG = array(
 /**
  * Replaces the default System Tags Manager Factory. This can be utilized if an
  * own or 3rdParty SystemTagsManager should be used that – for instance – uses the
- * filesystem instead of the database to keep the comments.
+ * filesystem instead of the database to keep the tags.
  */
 'systemtags.managerFactory' => '\OC\SystemTag\ManagerFactory',
 
@@ -1045,7 +1080,7 @@ $CONFIG = array(
 'objectstore' => [
 	'class' => 'OC\\Files\\ObjectStore\\Swift',
 	'arguments' => [
-		// trystack will user your facebook id as the user name
+		// trystack will use your facebook id as the user name
 		'username' => 'facebook100000123456789',
 		// in the trystack dashboard go to user -> settings -> API Password to
 		// generate a password
@@ -1079,7 +1114,7 @@ $CONFIG = array(
 
 /**
  * Replaces the default Share Provider Factory. This can be utilized if
- * own or 3rdParty Share Providers be used that – for instance – uses the
+ * own or 3rdParty Share Providers are used that – for instance – use the
  * filesystem instead of the database to keep the share information.
  */
 'sharing.managerFactory' => '\OC\Share20\ProviderFactory',
@@ -1110,7 +1145,7 @@ $CONFIG = array(
  * and MySQL can handle 4 byte characters instead of 3 byte characters.
  *
  * If you want to convert an existing 3-byte setup into a 4-byte setup please 
- * set the parameters in MySQL as mentioned below run the migration command:
+ * set the parameters in MySQL as mentioned below and run the migration command:
  *  ./occ db:convert-mysql-charset
  * The config setting will be set automatically after a successful run.
  * 
@@ -1249,22 +1284,6 @@ $CONFIG = array(
 'part_file_in_storage' => true,
 
 /**
- * All css and js files will be served by the Web server statically in one js
- * file and one css file if this is set to ``true``. This improves performance.
- */
-'asset-pipeline.enabled' => false,
-
-/**
- * The parent of the directory where css and js assets will be stored if
- * pipelining is enabled; this defaults to the ownCloud directory. The assets
- * will be stored in a subdirectory of this directory named 'assets'. The
- * server *must* be configured to serve that directory as $WEBROOT/assets.
- * You will only likely need to change this if the main ownCloud directory
- * is not writeable by the Web server in your configuration.
- */
-'assetdirectory' => '/var/www/owncloud',
-
-/**
  * Where ``mount.json`` file should be stored, defaults to ``data/mount.json``
  * in the ownCloud directory.
  */
@@ -1325,7 +1344,7 @@ $CONFIG = array(
 'filelocking.enabled' => true,
 
 /**
- * Set the time-to-live for locks in secconds.
+ * Set the lock's time-to-live in seconds.
  *
  * Any lock older than this will be automatically cleaned up.
  *
@@ -1368,13 +1387,6 @@ $CONFIG = array(
 'data-fingerprint' => '',
 
 /**
- * Set this property to false if you want to disable the files_external local mount Option.
- * Default: true
- *
- */
-'files_external_allow_local' => true,
-
-/**
  * This entry is just here to show a warning in case somebody copied the sample
  * configuration. DO NOT ADD THIS SWITCH TO YOUR CONFIGURATION!
  *
@@ -1382,5 +1394,12 @@ $CONFIG = array(
  * modify *ANY* settings in this file without reading the documentation.
  */
 'copied_sample_config' => true,
+
+/**
+ * Set this property to true if you want to enable the files_external local mount Option.
+ * Default: false
+ *
+ */
+'files_external_allow_create_new_local' => false,
 
 );

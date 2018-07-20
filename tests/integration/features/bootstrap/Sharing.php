@@ -2,6 +2,7 @@
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Message\ResponseInterface;
+use GuzzleHttp\Exception\ClientException;
 
 require __DIR__ . '/../../../../lib/composer/autoload.php';
 
@@ -9,6 +10,7 @@ require __DIR__ . '/../../../../lib/composer/autoload.php';
 
 trait Sharing {
 	use Provisioning;
+	use AppConfiguration;
 
 	/** @var int */
 	private $sharingApiVersion = 1;
@@ -61,11 +63,34 @@ trait Sharing {
 	}
 
 	/**
+	 * @When /^Public shared file "([^"]*)" cannot be downloaded$/
+	 * @param string $fileName
+	 */
+	public function publicSharedFileCannotDownload($path){
+		$token = $this->getLastShareToken();
+		$fullUrl = substr($this->baseUrl, 0, -4) . "public.php/webdav/" . rawurlencode(ltrim($path, '/'));
+
+		$client = new Client();
+		$options = [];
+		$options['auth'] = [$token, ""];
+
+		$request = $client->createRequest('GET', $fullUrl, $options);
+
+		try {
+			$this->response = $client->send($request);
+			PHPUnit_Framework_Assert::fail('download must fail');
+		} catch (ClientException $e) {
+			// expected
+			PHPUnit_Framework_Assert::assertGreaterThanOrEqual(400, $e->getCode());
+			PHPUnit_Framework_Assert::assertLessThanOrEqual(499, $e->getCode());
+			$this->response = $e->getResponse();
+		}
+	}
+
+	/**
 	 * @Then /^Public shared file "([^"]*)" can be downloaded$/
 	 */
 	public function checkPublicSharedFile($filename) {
-		$client = new Client();
-		$options = [];
 		if (count($this->lastShareData->data->element) > 0){
 			$url = $this->lastShareData->data[0]->url;
 		}
@@ -80,14 +105,7 @@ trait Sharing {
 	 * @Then /^Public shared file "([^"]*)" with password "([^"]*)" can be downloaded$/
 	 */
 	public function checkPublicSharedFileWithPassword($filename, $password) {
-		$options = [];
-		if (count($this->lastShareData->data->element) > 0){
-			$token = $this->lastShareData->data[0]->token;
-		}
-		else{
-			$token = $this->lastShareData->data->token;
-		}
-
+		$token = $this->getLastShareToken();
 		$fullUrl = substr($this->baseUrl, 0, -4) . "public.php/webdav";
 		$this->checkDownload($fullUrl, [$token, $password], 'text/plain');
 	}
@@ -114,6 +132,65 @@ trait Sharing {
 			$finfo = new finfo;
 			PHPUnit_Framework_Assert::assertEquals($mimeType, $finfo->buffer($buf, FILEINFO_MIME_TYPE));
 		}
+	}
+
+	/**
+	 * @When publicly uploading file ":filename" with content ":body"
+	 * @param string $filename target file name
+	 * @param string $body content to upload
+	 */
+	public function publiclyUploadingContent($filename, $body = 'test') {
+		$this->publicUploadContent($filename, '', $body);
+	}
+
+	/**
+	 * @When publicly uploading file ":filename" with password ":password" and content ":body"
+	 * @param string $filename target file name
+	 * @param string $body content to upload
+	 */
+	public function publiclyUploadingContentWithPassword($filename, $password = '', $body = 'test') {
+		$this->publicUploadContent($filename, $password, $body);
+	}
+
+	/**
+	 * @When publicly uploading file ":filename" with content ":body" with autorename mode
+	 * @param string $filename target file name
+	 * @param string $body content to upload
+	 */
+	public function publiclyUploadingContentAutorename($filename, $body = 'test') {
+		$this->publicUploadContent($filename, '', $body, true);
+	}
+
+	/**
+	 * @When publicly uploading a file does not work
+	 */
+	public function publiclyUploadingDoesNotWork() {
+		try {
+			$this->publicUploadContent('whateverfilefortesting.txt', '', 'test');
+			PHPUnit_Framework_Assert::fail('Publicly uploading must fail');
+		} catch (ClientException $e) {
+			// expected
+			PHPUnit_Framework_Assert::assertGreaterThanOrEqual(400, $e->getCode());
+			PHPUnit_Framework_Assert::assertLessThanOrEqual(499, $e->getCode());
+			$this->response = $e->getResponse();
+		}
+	}
+
+	private function publicUploadContent($filename, $password = '', $body = 'test', $autorename = false) {
+		$url = substr($this->baseUrl, 0, -4) . "public.php/webdav/";
+		$url .= rawurlencode(ltrim($filename, '/'));
+		$token = $this->getLastShareToken();
+		$options['auth'] = [$token, $password];
+		$options['stream'] = true;
+		$options['body'] = $body;
+
+		if ($autorename) {
+			$options['headers']['OC-Autorename'] = 1;
+		}
+
+		$client = new Client();
+		$this->response = $client->send($client->createRequest('PUT', $url, $options));
+		PHPUnit_Framework_Assert::assertEquals(201, $this->response->getStatusCode());
 	}
 
 	/**
@@ -174,7 +251,8 @@ trait Sharing {
 								$shareWith = null,
 								$publicUpload = null,
 								$password = null,
-								$permissions = null){
+								$permissions = null,
+								$linkName = null) {
 		$fullUrl = $this->baseUrl . "v{$this->apiVersion}.php/apps/files_sharing/api/v{$this->sharingApiVersion}/shares";
 		$client = new Client();
 		$options = [];
@@ -202,6 +280,9 @@ trait Sharing {
 		}
 		if (!is_null($permissions)){
 			$fd['permissions'] = $permissions;
+		}
+		if (!is_null($linkName)){
+			$fd['name'] = $linkName;
 		}
 
 		$options['body'] = $fd;
@@ -506,6 +587,94 @@ trait Sharing {
 		if ($this->savedShareId !== $this->lastShareData['data']['id']) {
 			throw new \Exception('Expected the same link share to be returned');
 		}
+	}
+
+	/* Returns shares of a file or folders as an array of elements */
+	public function getShares($user, $path) {
+		$fullUrl = $this->baseUrl . "v{$this->apiVersion}.php/apps/files_sharing/api/v{$this->sharingApiVersion}/shares";
+		$fullUrl = $fullUrl . '?path=' . $path;
+
+		$client = new Client();
+		$options = [];
+
+		if ($user === 'admin') {
+			$options['auth'] = $this->adminUser;
+		} else {
+			$options['auth'] = [$user, $this->regularUser];
+		}
+
+		$this->response = $client->send($client->createRequest("GET", $fullUrl, $options));
+		return $this->response->xml()->data->element;
+	}
+
+	/**
+	 * @When /^user "([^"]*)" checks public shares of (file|folder) "([^"]*)"$/
+	 * @param string $user
+	 * @param string $type
+	 * @param string $path
+	 * @param \Behat\Gherkin\Node\TableNode|null $body
+	 */
+	public function checkPublicShares($user, $type, $path, $TableNode){
+		$dataResponded = $this->getShares($user, $path);
+
+		if ($TableNode instanceof \Behat\Gherkin\Node\TableNode) {
+			$elementRows = $TableNode->getRows();
+
+			if ($elementRows[0][0] === '') {
+				//It shouldn't have public shares
+				PHPUnit_Framework_Assert::assertEquals(count($dataResponded), 0);
+				return 0;
+			}
+
+			foreach($elementRows as $expectedElementsArray) {
+				//0 path, 1 permissions, 2 name
+				$nameFound = false;
+				foreach ($dataResponded as $elementResponded) {
+					if ((string)$elementResponded->name[0] === $expectedElementsArray[2]) {
+						PHPUnit_Framework_Assert::assertEquals($expectedElementsArray[0], (string)$elementResponded->path[0]);
+						PHPUnit_Framework_Assert::assertEquals($expectedElementsArray[1], (string)$elementResponded->permissions[0]);
+						$nameFound = true;
+						break;
+					}
+				}
+				PHPUnit_Framework_Assert::assertTrue($nameFound, "Shared link name " . $expectedElementsArray[2] . " not found");
+			}
+		}
+	}
+
+	public function getPublicShareIDByName($user, $path, $name) {
+		$dataResponded = $this->getShares($user, $path);
+		foreach ($dataResponded as $elementResponded) {
+			if ((string)$elementResponded->name[0] === $name){
+				return (int)$elementResponded->id[0];
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @When /^user "([^"]*)" deletes public share named "([^"]*)" in (file|folder) "([^"]*)"$/
+	 * @param string $user
+	 * @param string $name
+	 * @param string $type
+	 * @param string $path
+	 */
+	public function deletingPublicShareNamed($user, $name, $type, $path){
+		$share_id = $this->getPublicShareIDByName($user, $path, $name);
+		$url = "/apps/files_sharing/api/v{$this->sharingApiVersion}/shares/$share_id";
+		$this->sendingToWith("DELETE", $url, null);
+	}
+
+	private function getLastShareToken() {
+		if (count($this->lastShareData->data->element) > 0){
+			return $this->lastShareData->data[0]->token;
+		}
+
+		return $this->lastShareData->data->token;
+	}
+
+	protected function resetAppConfigs() {
+		$this->modifyServerConfig('core', 'shareapi_allow_public_upload', 'yes');
 	}
 }
 

@@ -201,7 +201,7 @@ class OC_Template extends \OC\Template\Base {
 	 */
 	protected function findTemplate($theme, $app, $name) {
 		// Check if it is a app template or not.
-		if( $app !== '' ) {
+		if( $app !== '' && $app !== 'core' ) {
 			$dirs = $this->getAppTemplateDirs($theme, $app, OC::$SERVERROOT, OC_App::getAppPath($app));
 		} else {
 			$dirs = $this->getCoreTemplateDirs($theme, OC::$SERVERROOT);
@@ -230,7 +230,9 @@ class OC_Template extends \OC\Template\Base {
 
 	/**
 	 * Process the template
-	 * @return boolean|string
+	 *
+	 * @param array|null $additionalParams
+	 * @return bool|string This function process the template. If $this->renderAs is set, it
 	 *
 	 * This function process the template. If $this->renderAs is set, it
 	 * will produce a full page.
@@ -337,7 +339,7 @@ class OC_Template extends \OC\Template\Base {
 
 		try {
 			$content = new \OC_Template( '', 'error', 'error', false );
-			$errors = [['error' => $error_msg, 'hint' => $hint]];
+			$errors = [['error' => \OCP\Util::sanitizeHTML($error_msg), 'hint' => \OCP\Util::sanitizeHTML($hint)]];
 			$content->assign( 'errors', $errors );
 			$content->printPage();
 		} catch (\Exception $e) {
@@ -410,46 +412,5 @@ class OC_Template extends \OC\Template\Base {
 			return $claimedProtocol;
 		}
 		return 'HTTP/1.1';
-	}
-
-	/**
-	 * @return bool
-	 */
-	public static function isAssetPipelineEnabled() {
-		try {
-			if (\OCP\Util::needUpgrade()) {
-				// Don't use the compiled asset when we need to do an update
-				return false;
-			}
-		} catch (\Exception $e) {
-			// Catch any exception, because this code is also called when displaying
-			// an exception error page.
-			return false;
-		}
-
-		// asset management enabled?
-		$config = \OC::$server->getConfig();
-		$useAssetPipeline = $config->getSystemValue('asset-pipeline.enabled', false);
-		if (!$useAssetPipeline) {
-			return false;
-		}
-
-		// assets folder exists?
-		$assetDir = $config->getSystemValue('assetdirectory', \OC::$SERVERROOT) . '/assets';
-		if (!is_dir($assetDir)) {
-			if (!mkdir($assetDir)) {
-				\OCP\Util::writeLog('assets',
-					"Folder <$assetDir> does not exist and/or could not be generated.", \OCP\Util::ERROR);
-				return false;
-			}
-		}
-
-		// assets folder can be accessed?
-		if (!touch($assetDir."/.oc")) {
-			\OCP\Util::writeLog('assets',
-				"Folder <$assetDir> could not be accessed.", \OCP\Util::ERROR);
-			return false;
-		}
-		return $useAssetPipeline;
 	}
 }

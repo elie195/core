@@ -1,23 +1,23 @@
 /**
-* ownCloud
-*
-* @author Vincent Petry
-* @copyright 2017 Vincent Petry <pvince81@owncloud.com>
-*
-* This library is free software; you can redistribute it and/or
-* modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
-* License as published by the Free Software Foundation; either
-* version 3 of the License, or any later version.
-*
-* This library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU AFFERO GENERAL PUBLIC LICENSE for more details.
-*
-* You should have received a copy of the GNU Affero General Public
-* License along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*
-*/
+ * ownCloud
+ *
+ * @author Vincent Petry
+ * @copyright 2017 Vincent Petry <pvince81@owncloud.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU AFFERO GENERAL PUBLIC LICENSE for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 
 describe('OC.Share.ShareDialogLinkShareView', function() {
 	var itemModel;
@@ -26,6 +26,9 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 	var tooltipStub;
 	var model;
 	var view;
+
+	var PASSWORD_PLACEHOLDER_STARS = '**********';
+	var PASSWORD_PLACEHOLDER_MESSAGE = 'Choose a password for the public link';
 
 	beforeEach(function() {
 		configModel = new OC.Share.ShareConfigModel();
@@ -56,7 +59,7 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			shareType: OC.Share.SHARE_TYPE_LINK,
 			itemType: 'folder',
 			stime: 1489657516,
-			permissions: OC.PERMISSION_READ,
+			permissions: OC.PERMISSION_READ
 		});
 
 		view = new OC.Share.ShareDialogLinkShareView({
@@ -64,9 +67,13 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			itemModel: itemModel
 		});
 		view.render();
+
+		// attach to DOM because some events would not fire otherwise...
+		$('#testArea').append(view.$el);
 	});
-	afterEach(function() { 
-		tooltipStub.restore(); 
+
+	afterEach(function() {
+		tooltipStub.restore();
 		view.remove();
 	});
 
@@ -84,11 +91,11 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			// this trigger view rendering that injects itself into the generic dialog
 			popupDeferred.resolve();
 		});
-		afterEach(function() { 
-			popupStub.restore(); 
+		afterEach(function() {
+			popupStub.restore();
 			$dialog.remove();
 		});
-	
+
 		it('appears as popup when calling show()', function() {
 			view.show();
 			expect(popupStub.calledOnce).toEqual(true);
@@ -104,6 +111,15 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			view.show();
 			expect(popupStub.getCall(0).args[1]).toContain('Create');
 		});
+		it('shows remove-password-button if password is present', function() {
+			model.set({ encryptedPassword: 'set'});
+			view.show();
+			expect(JSON.stringify(popupStub.getCall(0).args[3])).toContain('Remove password');
+		});
+		it('doesn\'t show remove-password-button if password is absent', function() {
+			view.show();
+			expect(JSON.stringify(popupStub.getCall(0).args[3])).not.toContain('Remove password');
+		});
 	});
 
 	describe('rendering', function() {
@@ -112,8 +128,8 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 		beforeEach(function() {
 			publicUploadConfigStub = sinon.stub(configModel, 'isPublicUploadEnabled');
 		});
-		afterEach(function() { 
-			publicUploadConfigStub.restore(); 
+		afterEach(function() {
+			publicUploadConfigStub.restore();
 		});
 		it('renders fields populated with model values', function() {
 			publicUploadConfigStub.returns(true);
@@ -139,7 +155,7 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			beforeEach(function() {
 				isMailEnabledStub = sinon.stub(configModel, 'isMailPublicNotificationEnabled');
 			});
-			afterEach(function() { 
+			afterEach(function() {
 				isMailEnabledStub.restore();
 			});
 			it('renders email field for new shares', function() {
@@ -166,6 +182,7 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 				itemModel.set('itemType', 'file');
 				view.render();
 				expect(view.$('.publicUploadCheckbox').length).toEqual(0);
+				expect(view.$('.showListingCheckbox').length).toEqual(0);
 			});
 			it('does not render public upload checkbox when permission missing', function() {
 				publicUploadConfigStub.returns(true);
@@ -174,6 +191,7 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 				});
 				view.render();
 				expect(view.$('.publicUploadCheckbox').length).toEqual(0);
+				expect(view.$('.showListingCheckbox').length).toEqual(0);
 			});
 			it('does not render public upload checkbox when disabled globally', function() {
 				publicUploadConfigStub.returns(false);
@@ -182,20 +200,57 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 				});
 				view.render();
 				expect(view.$('.publicUploadCheckbox').length).toEqual(0);
+				expect(view.$('.showListingCheckbox').length).toEqual(0);
+			});
+			it('renders listing checkbox when public upload is allowed globally', function() {
+				publicUploadConfigStub.returns(true);
+				model.set({
+					permissions: OC.PERMISSION_READ | OC.PERMISSION_CREATE
+				});
+				view.render();
+				expect(view.$('.showListingCheckbox').length).toEqual(1);
+				expect(view.$('.showListingCheckbox').is(':checked')).toEqual(true);
+				expect(view.$('.showListingCheckbox').is(':disabled')).toEqual(false);
+			});
+			it('renders listing checkbox disabled when public upload is disallowed by user', function() {
+				publicUploadConfigStub.returns(true);
+				model.set({
+					permissions: OC.PERMISSION_READ
+				});
+				view.render();
+				expect(view.$('.showListingCheckbox').length).toEqual(1);
+				expect(view.$('.showListingCheckbox').is(':checked')).toEqual(true);
+				expect(view.$('.showListingCheckbox').is(':disabled')).toEqual(true);
+			});
+			it('disables listing checkbox when ticking public upload', function() {
+				publicUploadConfigStub.returns(true);
+				model.set({
+					permissions: OC.PERMISSION_CREATE
+				});
+				view.render();
+
+				expect(view.$('.showListingCheckbox').length).toEqual(1);
+				expect(view.$('.showListingCheckbox').is(':checked')).toEqual(false);
+				expect(view.$('.showListingCheckbox').is(':disabled')).toEqual(false);
+
+				expect(view.$('.publicUploadCheckbox').length).toEqual(1);
+				expect(view.$('.publicUploadCheckbox').is(':checked')).toEqual(true);
+				view.$('.publicUploadCheckbox').trigger(new $.Event('click'));
+				expect(view.$('.publicUploadCheckbox').is(':checked')).toEqual(false);
+				expect(view.$('.showListingCheckbox').is(':checked')).toEqual(true);
+				expect(view.$('.showListingCheckbox').is(':disabled')).toEqual(true);
 			});
 		});
 		describe('password logic', function() {
 			it('renders empty field if no password set', function() {
 				expect(view.$('.linkPassText').val()).toEqual('');
-				expect(view.$('.linkPassText').attr('placeholder')).toEqual('Choose a password for the public link');
+				expect(view.$('.linkPassText').attr('placeholder')).toEqual(PASSWORD_PLACEHOLDER_MESSAGE);
 			});
 			it('renders empty field with star placeholder if password set', function() {
-				model.set({
-					encryptedPassword: 'set'
-				});
+				model.set('encryptedPassword', 'foo');
 				view.render();
 				expect(view.$('.linkPassText').val()).toEqual('');
-				expect(view.$('.linkPassText').attr('placeholder')).toEqual('**********');
+				expect(view.$('.linkPassText').attr('placeholder')).toEqual(PASSWORD_PLACEHOLDER_STARS);
 			});
 			it('renders required indicator when password is enforced', function() {
 				configModel.set('enforcePasswordForPublicLink', true);
@@ -222,13 +277,14 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			sendMailStub = sinon.stub(OC.Share.ShareDialogMailView.prototype, 'sendEmails').returns(sendMailDeferred);
 			isMailEnabledStub = sinon.stub(configModel, 'isMailPublicNotificationEnabled').returns(true);
 		});
-		afterEach(function() { 
-			saveStub.restore(); 
+
+		afterEach(function() {
+			saveStub.restore();
 			sendMailStub.restore();
 			isMailEnabledStub.restore();
 			sendMailDeferred = null;
 		});
-	
+
 		it('reads values from the fields and saves', function() {
 			view.$('.linkPassText').val('newpassword');
 			view._save();
@@ -326,6 +382,53 @@ describe('OC.Share.ShareDialogLinkShareView', function() {
 			expect(handler.notCalled).toEqual(true);
 
 			expect(view.$('.linkPassText').next('.error-message').hasClass('hidden')).toEqual(false);
+		});
+		describe('permissions', function() {
+			var publicUploadConfigStub;
+
+			beforeEach(function() {
+				publicUploadConfigStub = sinon.stub(configModel, 'isPublicUploadEnabled');
+			});
+			afterEach(function() { 
+				publicUploadConfigStub.restore(); 
+			});
+
+			var dataProvider = [
+				// globally enabled
+				[true, true, true, OC.PERMISSION_READ | OC.PERMISSION_CREATE | OC.PERMISSION_UPDATE | OC.PERMISSION_DELETE],
+				[true, true, false, OC.PERMISSION_CREATE],
+				[true, false, true, OC.PERMISSION_READ],
+				[true, false, false, OC.PERMISSION_READ],
+
+				// globally disabled, permission stays regardless
+				[false, false, false, OC.PERMISSION_READ],
+				[false, true, false, OC.PERMISSION_READ],
+				[false, true, false, OC.PERMISSION_READ],
+				[false, true, true, OC.PERMISSION_READ],
+			];
+
+			function testPermissions(globalEnabled, uploadChecked, listingChecked, expectedPerms) {
+				it('sets permissions to ' + expectedPerms +
+					' if global enabled is ' + globalEnabled +
+					' and public upload checkbox is ' + uploadChecked +
+					' and listing checkbox is ' + listingChecked, function() {
+
+					publicUploadConfigStub.returns(globalEnabled);
+					view.render();
+
+					view.$('.publicUploadCheckbox').prop('checked', uploadChecked);
+					view.$('.showListingCheckbox').prop('checked', listingChecked);
+
+					view._save();
+
+					expect(saveStub.getCall(0).args[0].permissions)
+						.toEqual(expectedPerms);
+				});
+			}
+
+			_.each(dataProvider, function(testCase) {
+				testPermissions.apply(null, testCase);
+			});
 		});
 	});
 });

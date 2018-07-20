@@ -242,7 +242,7 @@ class SMB extends \OCP\Files\Storage\StorageAdapter {
 	}
 
 	/**
-	 * Rename the files
+	 * Rename the files. If the source or the target is the root, the rename won't happen.
 	 *
 	 * @param string $source the old name of the path
 	 * @param string $target the new name of the path
@@ -250,6 +250,12 @@ class SMB extends \OCP\Files\Storage\StorageAdapter {
 	 */
 	public function rename($source, $target) {
 		$this->log("enter: rename('$source', '$target')", Util::DEBUG);
+
+		if ($this->isRootDir($source) || $this->isRootDir($target)) {
+			$this->log("refusing to rename \"$source\" to \"$target\"");
+			return $this->leave(__FUNCTION__, false);
+		}
+
 		try {
 			$result = $this->share->rename($this->root . $source, $this->root . $target);
 			$this->removeFromCache($this->root . $source);
@@ -280,7 +286,12 @@ class SMB extends \OCP\Files\Storage\StorageAdapter {
 	 */
 	public function stat($path) {
 		$this->log('enter: '.__FUNCTION__."($path)");
-		$result = $this->formatInfo($this->getFileInfo($path));
+		try {
+			$result = $this->formatInfo($this->getFileInfo($path));
+		} catch (NotFoundException $e) {
+			$this->swallow(__FUNCTION__, $e);
+			$result = false;
+		}
 		return $this->leave(__FUNCTION__, $result);
 	}
 
@@ -330,6 +341,12 @@ class SMB extends \OCP\Files\Storage\StorageAdapter {
 	 */
 	public function unlink($path) {
 		$this->log('enter: '.__FUNCTION__."($path)");
+
+		if ($this->isRootDir($path)) {
+			$this->log("refusing to unlink \"$path\"");
+			return $this->leave(__FUNCTION__, false);
+		}
+
 		$result = false;
 		try {
 			if ($this->is_dir($path)) {
@@ -442,6 +459,12 @@ class SMB extends \OCP\Files\Storage\StorageAdapter {
 
 	public function rmdir($path) {
 		$this->log('enter: '.__FUNCTION__."($path)");
+
+		if ($this->isRootDir($path)) {
+			$this->log("refusing to delete \"$path\"");
+			return $this->leave(__FUNCTION__, false);
+		}
+
 		$result = false;
 		try {
 			$this->removeFromCache($path);

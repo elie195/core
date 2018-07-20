@@ -18,7 +18,12 @@
 		/** @var Backend $backend */
 		$scripts = $backend->getCustomJs();
 		foreach ($scripts as $script) {
-			script('files_external', $script);
+			if (is_array($script)) {
+				list($appName, $script) = $script;
+			} else {
+				$appName = 'files_external';
+			}
+			script($appName, $script);
 		}
 	}
 	foreach ($_['authMechanisms'] as $authMechanism) {
@@ -88,8 +93,12 @@
 								return strcasecmp($a->getText(), $b->getText());
 							});
 						?>
+						<?php
+							$canCreateNewLocalStorage = \OC::$server->getConfig()->getSystemValue('files_external_allow_create_new_local', false);
+						?>
 						<?php foreach ($sortedBackends as $backend): ?>
 							<?php if ($backend->getDeprecateTo()) continue; // ignore deprecated backends ?>
+							<?php if (!$canCreateNewLocalStorage && $backend->getIdentifier() == "local") continue; // if the "files_external_allow_create_new_local" config param isn't set to to true ?>
 							<option value="<?php p($backend->getIdentifier()); ?>"><?php p($backend->getText()); ?></option>
 						<?php endforeach; ?>
 					</select>

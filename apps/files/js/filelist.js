@@ -322,6 +322,7 @@
 			this.$fileList.on('click','td.filename>a.name, td.filesize, td.date', _.bind(this._onClickFile, this));
 
 			this.$fileList.on('change', 'td.filename>.selectCheckBox', _.bind(this._onClickFileCheckbox, this));
+			this.$el.on('show', _.bind(this._onShow, this));
 			this.$el.on('urlChanged', _.bind(this._onUrlChanged, this));
 			this.$el.find('.select-all').click(_.bind(this._onClickSelectAll, this));
 			this.$el.find('.download').click(_.bind(this._onClickDownloadSelected, this));
@@ -542,6 +543,13 @@
 			this.breadcrumb.setMaxWidth(containerWidth - actionsWidth - 10);
 
 			this.$table.find('>thead').width($('#app-content').width() - OC.Util.getScrollBarWidth());
+		},
+
+		/**
+		 * Event handler when leaving previously hidden state
+		 */
+		_onShow: function(e) {
+			this.reload();
 		},
 
 		/**
@@ -1538,7 +1546,7 @@
 				}
 			}
 
-			if (persist) {
+			if (persist && OC.getCurrentUser().uid !== null) {
 				$.post(OC.generateUrl('/apps/files/api/v1/sorting'), {
 					mode: sort,
 					direction: direction
@@ -1740,6 +1748,9 @@
 			var mime = options.mime;
 			var ready = options.callback;
 			var etag = options.etag;
+			var enabledPreviewProviders = oc_appconfig.core.enabledPreviewProviders || [];
+			// We join all supported mimes into a single regex
+			var allMimesPattern = new RegExp(enabledPreviewProviders.join('|'));
 
 			// get mime icon url
 			var iconURL = OC.MimeType.getIconUrl(mime);
@@ -1749,7 +1760,7 @@
 
 			var img = new Image();
 
-			if (oc_appconfig.core.previewsEnabled) {
+			if (oc_appconfig.core.previewsEnabled && allMimesPattern.test(mime)) {
 				urlSpec.file = OCA.Files.Files.fixPath(path);
 				if (options.x) {
 					urlSpec.x = options.x;
@@ -2113,6 +2124,7 @@
 				} catch (error) {
 					input.attr('title', error);
 					input.tooltip({placement: 'right', trigger: 'manual'});
+					input.tooltip('fixTitle');
 					input.tooltip('show');
 					input.addClass('error');
 				}
@@ -2535,7 +2547,7 @@
 				$('#searchresults .emptycontent').addClass('emptycontent-search');
 				if ( $('#searchresults').length === 0 || $('#searchresults').hasClass('hidden') ) {
 					this.$el.find('.nofilterresults').removeClass('hidden').
-						find('p').text(t('files', "No entries in this folder match '{filter}'", {filter:this._filter},  null, {'escape': false}));
+						find('p').text(t('files', 'No entries in this folder match {filter}', {filter:this._filter}));
 				}
 			} else {
 				$('#searchresults').removeClass('filter-empty');

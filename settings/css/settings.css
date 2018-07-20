@@ -662,6 +662,10 @@ li > a.icon-user {
 	background-image: url(../../core/img/actions/user.svg);
 }
 
+li > a.icon-workflows {
+	background-image: url(../../core/img/actions/play-next.svg);
+}
+
 #app-navigation li.divider {
 	background: none;
 }
@@ -670,4 +674,8 @@ li > a.icon-user {
 
 li > a.icon-settings {
 	background-image: url(../../core/img/actions/settings.svg);
+}
+
+div.app-settings .section {
+	margin-bottom: 0px;
 }

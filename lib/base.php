@@ -357,9 +357,8 @@ class OC {
 			$tooBig = $apps->isInstalled('user_ldap') || $apps->isInstalled('user_shibboleth');
 			if (!$tooBig) {
 				// count users
-				$stats = \OC::$server->getUserManager()->countUsers();
-				$totalUsers = array_sum($stats);
-				$tooBig = ($totalUsers > 50);
+				$db = new \OC\User\Database();
+				$tooBig = ($db->countUsers() > 50);
 			}
 		}
 		if ($disableWebUpdater || $tooBig) {
@@ -401,7 +400,6 @@ class OC {
 		// get third party apps
 		$ocVersion = \OCP\Util::getVersion();
 		$tmpl->assign('appsToUpgrade', $appManager->getAppsNeedingUpgrade($ocVersion));
-		$tmpl->assign('incompatibleAppsList', $appManager->getIncompatibleApps($ocVersion));
 		$tmpl->assign('productName', 'ownCloud'); // for now
 		$tmpl->assign('oldTheme', $oldTheme);
 		$tmpl->printPage();
@@ -583,6 +581,11 @@ class OC {
 			self::initSession();
 		}
 		\OC::$server->getEventLogger()->end('init_session');
+
+		// incognito mode for now
+		$uid = \OC::$server->getSession()->get('user_id');
+		\OC::$server->getSession()->set('user_id', null);
+
 		self::checkConfig();
 		self::checkInstalled();
 
@@ -621,6 +624,10 @@ class OC {
 				\OC::$server->getConfig()->deleteAppValue('core', 'cronErrors');
 			}
 		}
+
+		// set back user
+		\OC::$server->getSession()->set('user_id', $uid);
+
 		//try to set the session lifetime
 		$sessionLifeTime = self::getSessionLifeTime();
 		@ini_set('gc_maxlifetime', (string)$sessionLifeTime);
@@ -835,6 +842,15 @@ class OC {
 			$setupHelper = new OC\Setup(\OC::$server->getConfig(), \OC::$server->getIniWrapper(),
 				\OC::$server->getL10N('lib'), new \OC_Defaults(), \OC::$server->getLogger(),
 				\OC::$server->getSecureRandom());
+
+			$defaultEnabledAppTheme = \OC_App::getDefaultEnabledAppTheme();
+
+			if ($defaultEnabledAppTheme !== false) {
+				/** @var \OC\Theme\ThemeService $themeService */
+				$themeService = \OC::$server->query('ThemeService');
+				$themeService->setAppTheme($defaultEnabledAppTheme);
+			}
+
 			$controller = new OC\Core\Controller\SetupController($setupHelper);
 			$controller->run($_POST);
 			exit();
@@ -951,6 +967,9 @@ class OC {
 			return true;
 		}
 		if ($userSession->tryTokenLogin($request)) {
+			return true;
+		}
+		if ($userSession->tryAuthModuleLogin($request)) {
 			return true;
 		}
 		if ($userSession->tryBasicAuthLogin($request)) {

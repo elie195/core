@@ -164,6 +164,7 @@ OC.L10N.register(
     "Send" : "Skicka",
 =======
     "Name" : "Namn",
+    "Allow editing" : "Tillåt redigering",
     "Save" : "Spara",
 >>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "Share to Twitter. Opens in a new window." : "Dela till Twitter. Öppnas i ett nytt fönster.",
@@ -264,9 +265,6 @@ OC.L10N.register(
     "File: %s" : "Fil: %s",
     "Line: %s" : "Rad: %s",
     "Trace" : "Spåra",
-    "Security warning" : "Säkerhetsvarning",
-    "Your data directory and files are probably accessible from the internet because the .htaccess file does not work." : "Din datakatalog och filer är förmodligen tillgängliga från Internet, eftersom .htaccess-filen inte fungerar.",
-    "For information how to properly configure your server, please see the <a href=\"%s\" target=\"_blank\" rel=\"noreferrer\">documentation</a>." : "För information om hur man korrekt konfigurerar din server se <a href=\"%s\" target=\"_blank\" rel=\"noreferrer\">dokumentationen</a>.",
     "Create an <strong>admin account</strong>" : "Skapa ett <strong>administratörskonto</strong>",
     "Username" : "Användarnamn",
     "Storage & database" : "Lagring & databas",
@@ -321,7 +319,6 @@ OC.L10N.register(
     "App update required" : "Appen behöver uppdateras",
     "%s will be updated to version %s" : "%s kommer att uppdateras till version %s",
     "These apps will be updated:" : "Dessa appar kommer att uppdateras:",
-    "These incompatible apps will be disabled:" : "Dessa inkompatibla appar kommer att inaktiveras",
     "The theme %s has been disabled." : "Temat  %s har blivit inaktiverat.",
     "Please make sure that the database, the config folder and the data folder have been backed up before proceeding." : "Vänligen säkerställ att en säkerhetskopia har gjorts av databasen, konfigurations- och datamappen innan du fortsätter.",
     "Start update" : "Starta uppdateringen",
