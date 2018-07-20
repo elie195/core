@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,11 +27,10 @@
 
 namespace OCA\DAV\Connector\Sabre;
 
+use OC\Files\FileInfo;
+use OCA\DAV\Connector\Sabre\Exception\FileLocked;
 use OCA\DAV\Connector\Sabre\Exception\Forbidden;
 use OCA\DAV\Connector\Sabre\Exception\InvalidPath;
-use OCA\DAV\Connector\Sabre\Exception\FileLocked;
-use OC\Files\FileInfo;
-use OC\Files\Mount\MoveableMount;
 use OCP\Files\ForbiddenException;
 use OCP\Files\StorageInvalidException;
 use OCP\Files\StorageNotAvailableException;
@@ -72,11 +71,11 @@ class ObjectTree extends \Sabre\DAV\Tree {
 	 * is present.
 	 *
 	 * @param string $path chunk file path to convert
-	 * 
+	 *
 	 * @return string path to real file
 	 */
 	private function resolveChunkFile($path) {
-		if (isset($_SERVER['HTTP_OC_CHUNKED'])) {
+		if (\OC_FileChunking::isWebdavChunk()) {
 			// resolve to real file name to find the proper node
 			list($dir, $name) = \Sabre\HTTP\URLUtil::splitPath($path);
 			if ($dir == '/' || $dir == '.') {
@@ -89,14 +88,30 @@ class ObjectTree extends \Sabre\DAV\Tree {
 				// getNodePath is called for multiple nodes within a chunk
 				// upload call
 				$path = $dir . '/' . $info['name'];
-				$path = ltrim($path, '/');
+				$path = \ltrim($path, '/');
 			}
 		}
 		return $path;
 	}
 
 	public function cacheNode(Node $node) {
-		$this->cache[trim($node->getPath(), '/')] = $node;
+		$this->cache[\trim($node->getPath(), '/')] = $node;
+	}
+
+	/**
+	 * This function allows you to check if a node exists.
+	 *
+	 * @param string $path
+	 * @return bool
+	 */
+	public function nodeExists($path) {
+		$path = \trim($path, '/');
+		if (isset($this->cache[$path]) && $this->cache[$path] === false) {
+			// Node is not existing, as it was explicitely set in the cache
+			// Next call to getNodeForPath will create cache instance and unset the cached value
+			return false;
+		}
+		return parent::nodeExists($path);
 	}
 
 	/**
@@ -115,36 +130,31 @@ class ObjectTree extends \Sabre\DAV\Tree {
 			throw new \Sabre\DAV\Exception\ServiceUnavailable('filesystem not setup');
 		}
 
+		$path = \trim($path, '/');
+
+		if (isset($this->cache[$path]) && $this->cache[$path] !== false) {
+			return $this->cache[$path];
+		}
+
 		// check the path, also called when the path has been entered manually eg via a file explorer
 		if (\OC\Files\Filesystem::isForbiddenFileOrDir($path)) {
 			throw new \Sabre\DAV\Exception\Forbidden();
 		}
 
-		$path = trim($path, '/');
-
-		if (isset($this->cache[$path])) {
-			return $this->cache[$path];
-		}
-
-		if ($path) {
+		if ($path !== '') {
 			try {
-				$this->fileView->verifyPath($path, basename($path));
+				$this->fileView->verifyPath($path, \basename($path));
 			} catch (\OCP\Files\InvalidPathException $ex) {
 				throw new InvalidPath($ex->getMessage());
 			}
 		}
 
-		// check the path, also called when the path has been entered manually eg via a file explorer
-		if (\OC\Files\Filesystem::isForbiddenFileOrDir($path)) {
-			throw new \Sabre\DAV\Exception\Forbidden();
-		}
-
 		// Is it the root node?
-		if (!strlen($path)) {
+		if (!\strlen($path)) {
 			return $this->rootNode;
 		}
 
-		if (pathinfo($path, PATHINFO_EXTENSION) === 'part') {
+		if (\pathinfo($path, PATHINFO_EXTENSION) === 'part') {
 			// read from storage
 			$absPath = $this->fileView->getAbsolutePath($path);
 			$mount = $this->fileView->getMount($path);
@@ -179,6 +189,7 @@ class ObjectTree extends \Sabre\DAV\Tree {
 		}
 
 		if (!$info) {
+			$this->cache[$path] = false;
 			throw new \Sabre\DAV\Exception\NotFound('File with name ' . $path . ' could not be located');
 		}
 
@@ -190,7 +201,6 @@ class ObjectTree extends \Sabre\DAV\Tree {
 
 		$this->cache[$path] = $node;
 		return $node;
-
 	}
 
 	/**
@@ -226,7 +236,12 @@ class ObjectTree extends \Sabre\DAV\Tree {
 		}
 
 		// Webdav's copy will implicitly do a delete+create, so only create+delete permissions are required
-		if (!$this->fileView->isCreatable($destinationDir)) {
+		try {
+			$isCreatable = $this->fileView->isCreatable($destinationDir);
+		} catch (ForbiddenException $ex) {
+			throw new Forbidden($ex->getMessage(), $ex->getRetry());
+		}
+		if (!$isCreatable) {
 			throw new \Sabre\DAV\Exception\Forbidden();
 		}
 
@@ -240,7 +255,7 @@ class ObjectTree extends \Sabre\DAV\Tree {
 			throw new FileLocked($e->getMessage(), $e->getCode(), $e);
 		}
 
-		list($destinationDir,) = \Sabre\HTTP\URLUtil::splitPath($destination);
+		list($destinationDir, ) = \Sabre\HTTP\URLUtil::splitPath($destination);
 		$this->markDirty($destinationDir);
 	}
 

@@ -2,7 +2,7 @@
 /**
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -46,7 +46,7 @@ class AlternativeHomeUserBackend extends \OC\User\Database {
 		if ($this->userExists($uid)) {
 			// workaround to avoid killing the admin
 			if ($uid !== 'admin') {
-				$uid = md5($uid);
+				$uid = \md5($uid);
 			}
 			return \OC::$server->getConfig()->getSystemValue('datadirectory', \OC::$SERVERROOT . '/data') . '/' . $uid;
 		}

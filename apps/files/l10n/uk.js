@@ -5,10 +5,6 @@ OC.L10N.register(
     "Storage invalid" : "Неправильне сховище",
     "Unknown error" : "Невідома помилка",
     "All files" : "Усі файли",
-<<<<<<< HEAD
-=======
-    "Saved" : "Збережено",
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
     "File could not be found" : "Файл не знайдено",
     "Home" : "Домашня адреса",
     "Close" : "Закрити",
@@ -40,17 +36,17 @@ OC.L10N.register(
     "Name" : "Ім'я",
     "Size" : "Розмір",
     "Modified" : "Змінено",
-    "_%n folder_::_%n folders_" : ["%n тека ","теки : %n ","теки : %n "],
-    "_%n file_::_%n files_" : ["%n файл ","файли : %n ","файли : %n "],
+    "_%n folder_::_%n folders_" : ["%n тека ","теки : %n ","теки : %n ","теки : %n "],
+    "_%n file_::_%n files_" : ["%n файл ","файли : %n ","файли : %n ","файли : %n "],
     "{dirs} and {files}" : "{dirs} і {files}",
     "You don’t have permission to upload or create files here" : "У вас недостатньо прав для вивантаження або створення тут файлів",
-    "_Uploading %n file_::_Uploading %n files_" : ["Вивантаження %n файлу","Вивантаження %n файлів","Вивантаження %n файлів"],
+    "_Uploading %n file_::_Uploading %n files_" : ["Вивантаження %n файлу","Вивантаження %n файлів","Вивантаження %n файлів","Вивантаження %n файлів"],
     "New" : "Створити",
     "\"{name}\" is an invalid file name." : "\"{name}\" - некоректне ім'я файлу.",
     "File name cannot be empty." : " Ім'я файлу не може бути порожнім.",
     "Your storage is full, files can not be updated or synced anymore!" : "Ваше сховище переповнене, файли більше не можуть бути оновлені або синхронізовані !",
     "Your storage is almost full ({usedSpacePercent}%)" : "Ваше сховище майже повне ({usedSpacePercent}%)",
-    "_matches '{filter}'_::_match '{filter}'_" : ["знайдено '{filter}'","знайдено '{filter}'","знайдено '{filter}'"],
+    "_matches '{filter}'_::_match '{filter}'_" : ["знайдено '{filter}'","знайдено '{filter}'","знайдено '{filter}'","знайдено '{filter}'"],
     "Favorited" : "Улюблений",
     "Favorite" : "Улюблений",
     "Folder" : "Тека",
@@ -59,7 +55,6 @@ OC.L10N.register(
     "An error occurred while trying to update the tags" : "Виникла помилка при спробі оновити мітки",
     "A new file or folder has been <strong>created</strong>" : "Новий файл або теку було <strong>створено</strong>",
     "A file or folder has been <strong>changed</strong>" : "Файл або теку було <strong> змінено </strong>",
-    "Limit notifications about creation and changes to your <strong>favorite files</strong> <em>(Stream only)</em>" : "Обмежити повідомлення про створення та зміни в ваших <strong>улюблених файлах</strong>\n<em>(Тількі потік)</em>",
     "A file or folder has been <strong>deleted</strong>" : "Файл або теку було <strong> видалено </strong>",
     "A file or folder has been <strong>restored</strong>" : "Файл або теку було <strong> відновлено </strong>",
     "You created %1$s" : "Вами створено %1$s",
@@ -72,10 +67,6 @@ OC.L10N.register(
     "You restored %1$s" : "Вами відновлено %1$s",
     "%2$s restored %1$s" : "%2$s відновлено %1$s",
     "Upload (max. %s)" : "Вивантаження (макс. %s)",
-    "File handling" : "Робота з файлами",
-    "Maximum upload size" : "Максимальний розмір вивантажень",
-    "max. possible: " : "макс. можливе:",
-    "Save" : "Зберегти",
     "Settings" : "Налаштування",
     "WebDAV" : "WebDAV",
     "No files in here" : "Тут немає файлів",
@@ -89,4 +80,4 @@ OC.L10N.register(
     "Text file" : "Текстовий файл",
     "New text file.txt" : "Новий текстовий файл file.txt"
 },
-"nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);");
+"nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);");

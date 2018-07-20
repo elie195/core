@@ -11,7 +11,7 @@
 		<filesystem/>
 	</types>
 	<dependencies>
-		<owncloud min-version="10.0" max-version="10.0" />
+		<owncloud min-version="10.1" max-version="10.1" />
 	</dependencies>
 	<documentation>
 		<user>user-files</user>
@@ -27,14 +27,11 @@
 		<command>OCA\Files\Command\Scan</command>
 		<command>OCA\Files\Command\DeleteOrphanedFiles</command>
 		<command>OCA\Files\Command\TransferOwnership</command>
+		<command>OCA\Files\Command\VerifyChecksums</command>
 	</commands>
 
 	<navigation>
 		<route>files.view.index</route>
 		<order>0</order>
 	</navigation>
-
-	<settings>
-		<admin>OCA\Files\Panels\Admin</admin>
-	</settings>
 </info>

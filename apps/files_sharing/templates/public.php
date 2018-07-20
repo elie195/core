@@ -51,59 +51,38 @@ OCP\Util::addHeader('meta', ['property' => "og:image", 'content' => $_['previewI
 <input type="hidden" name="filesize" value="<?php p($_['nonHumanFileSize']); ?>" id="filesize">
 <input type="hidden" name="maxSizeAnimateGif" value="<?php p($_['maxSizeAnimateGif']); ?>" id="maxSizeAnimateGif">
 
-
-<header><div id="header" class="<?php p((isset($_['folder']) ? 'share-folder' : 'share-file')) ?>">
-		<a href="<?php print_unescaped(link_to('', 'index.php')); ?>"
-		   title="" id="owncloud">
-			<div class="logo-icon svg">
-			</div>
-		</a>
-
-		<div class="header-appname-container">
-			<h1 class="header-appname">
-				<?php
-					if(OC_Util::getEditionString() === OC_Util::EDITION_COMMUNITY) {
-						p($theme->getName());
-					} else {
-						print_unescaped($theme->getHTMLName());
-					}
-				?>
+<header>
+	<div id="header" class="<?php p((isset($_['folder']) ? 'share-folder' : 'share-file')) ?>" data-protected="<?php p($_['protected']) ?>"
+		 data-owner-display-name="<?php p($_['displayName']) ?>" data-owner="<?php p($_['owner']) ?>" data-name="<?php p($_['filename']) ?>">
+		<a href="<?php print_unescaped(link_to('', 'index.php')); ?>" title="" id="owncloud">
+			<h1 class="logo-icon">
+				<?php p($theme->getName()); ?>
 			</h1>
-		</div>
+		</a>
 
 		<div id="logo-claim" style="display:none;"><?php p($theme->getLogoClaim()); ?></div>
 		<?php
 			if ($_['canDownload']) {
-		?>
+				?>
 		<div class="header-right">
 			<span id="details">
-				<?php
-				if ($_['server2serversharing']) {
-					?>
-					<span id="save" data-protected="<?php p($_['protected']) ?>"
-						  data-owner-display-name="<?php p($_['displayName']) ?>" data-owner="<?php p($_['owner']) ?>" data-name="<?php p($_['filename']) ?>">
-					<button id="save-button"><?php p($l->t('Add to your ownCloud')) ?></button>
-					<form class="save-form hidden" action="#">
-						<input type="text" id="remote_address" placeholder="example.com/owncloud"/>
-						<button id="save-button-confirm" class="icon-confirm svg" disabled></button>
-					</form>
-				</span>
-				<?php } ?>
 				<a href="<?php p($_['downloadURL']); ?>" id="download" class="button">
 					<img class="svg" alt="" src="<?php print_unescaped(image_path("core", "actions/download.svg")); ?>"/>
 					<span id="download-text"><?php p($l->t('Download'))?></span>
 				</a>
 			</span>
 		</div>
-		<?php } ?>
-</div></header>
+		<?php
+			} ?>
+	</div>
+</header>
 <div id="content-wrapper">
 	<div id="content">
 		<div id="preview">
 			<?php if (isset($_['folder'])): ?>
 				<?php print_unescaped($_['folder']); ?>
 			<?php else: ?>
-				<?php if ($_['previewEnabled'] && substr($_['mimetype'], 0, strpos($_['mimetype'], '/')) == 'video'): ?>
+				<?php if ($_['previewEnabled'] && \substr($_['mimetype'], 0, \strpos($_['mimetype'], '/')) == 'video'): ?>
 					<div id="imgframe">
 						<video tabindex="0" controls="" preload="none" style="max-width: <?php p($_['previewMaxX']); ?>px; max-height: <?php p($_['previewMaxY']); ?>px">
 							<source src="<?php p($_['downloadURL']); ?>" type="<?php p($_['mimetype']); ?>" />

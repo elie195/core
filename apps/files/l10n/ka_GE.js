@@ -27,14 +27,10 @@ OC.L10N.register(
     "Folder" : "საქაღალდე",
     "New folder" : "ახალი ფოლდერი",
     "Upload" : "ატვირთვა",
-    "File handling" : "ფაილის დამუშავება",
-    "Maximum upload size" : "მაქსიმუმ ატვირთის ზომა",
-    "max. possible: " : "მაქს. შესაძლებელი:",
-    "Save" : "შენახვა",
     "Settings" : "პარამეტრები",
     "WebDAV" : "WebDAV",
     "Upload too large" : "ასატვირთი ფაილი ძალიან დიდია",
     "The files you are trying to upload exceed the maximum size for file uploads on this server." : "ფაილის ზომა რომლის ატვირთვასაც თქვენ აპირებთ, აჭარბებს სერვერზე დაშვებულ მაქსიმუმს.",
     "Text file" : "ტექსტური ფაილი"
 },
-"nplurals=1; plural=0;");
+"nplurals=2; plural=(n!=1);");

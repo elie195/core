@@ -2,7 +2,7 @@
 /**
  * @author Joas Schilling <nickvergessen@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -20,7 +20,6 @@
  */
 
 namespace Tests\Core\Command\Config\System;
-
 
 use OC\Core\Command\Config\System\SetConfig;
 use Test\TestCase;
@@ -49,7 +48,6 @@ class SetConfigTest extends TestCase {
 		/** @var \OC\SystemConfig $systemConfig */
 		$this->command = new SetConfig($systemConfig);
 	}
-
 
 	public function setData() {
 		return [
@@ -171,5 +169,4 @@ class SetConfigTest extends TestCase {
 	public function testCastValueInvalid($value, $type) {
 		$this->invokePrivate($this->command, 'castValue', [$value, $type]);
 	}
-
 }

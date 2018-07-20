@@ -1,7 +1,7 @@
 <?php
 /**
- * @copyright 2013 Thomas Tanghus (thomas@tanghus.net)
- * @copyright 2015 Lukas Reschke lukas@owncloud.com
+ * @copyright Copyright (c) 2013 Thomas Tanghus (thomas@tanghus.net)
+ * @copyright Copyright (c) 2015 Lukas Reschke lukas@owncloud.com
  *
  * This file is licensed under the Affero General Public License version 3 or
  * later.
@@ -13,16 +13,17 @@ namespace Test\AppFramework\Http;
 use OC\AppFramework\Http\Request;
 use OC\Security\CSRF\CsrfToken;
 use OC\Security\CSRF\CsrfTokenManager;
+use OCP\IConfig;
 use OCP\IRequest;
 use OCP\Security\ISecureRandom;
-use OCP\IConfig;
+use Test\TestCase;
 
 /**
  * Class RequestTest
  *
  * @package OC\AppFramework\Http
  */
-class RequestTest extends \Test\TestCase {
+class RequestTest extends TestCase {
 	/** @var string */
 	protected $stream = 'fakeinput://data';
 	/** @var ISecureRandom | \PHPUnit_Framework_MockObject_MockObject */
@@ -35,10 +36,10 @@ class RequestTest extends \Test\TestCase {
 	protected function setUp() {
 		parent::setUp();
 
-		if (in_array('fakeinput', stream_get_wrappers())) {
-			stream_wrapper_unregister('fakeinput');
+		if (\in_array('fakeinput', \stream_get_wrappers())) {
+			\stream_wrapper_unregister('fakeinput');
 		}
-		stream_wrapper_register('fakeinput', 'Test\AppFramework\Http\RequestStream');
+		\stream_wrapper_register('fakeinput', 'Test\AppFramework\Http\RequestStream');
 
 		$this->secureRandom = $this->getMockBuilder('\OCP\Security\ISecureRandom')->getMock();
 		$this->config = $this->getMockBuilder('\OCP\IConfig')->getMock();
@@ -47,7 +48,7 @@ class RequestTest extends \Test\TestCase {
 	}
 
 	protected function tearDown() {
-		stream_wrapper_unregister('fakeinput');
+		\stream_wrapper_unregister('fakeinput');
 		parent::tearDown();
 	}
 
@@ -66,19 +67,18 @@ class RequestTest extends \Test\TestCase {
 		);
 
 		// Countable
-		$this->assertSame(2, count($request));
+		$this->assertCount(2, $request);
 		// Array access
 		$this->assertSame('Joey', $request['nickname']);
 		// "Magic" accessors
 		$this->assertSame('Joey', $request->{'nickname'});
-		$this->assertTrue(isset($request['nickname']));
+		$this->assertArrayHasKey('nickname', $request);
 		$this->assertTrue(isset($request->{'nickname'}));
 		$this->assertFalse(isset($request->{'flickname'}));
 		// Only testing 'get', but same approach for post, files etc.
 		$this->assertSame('Joey', $request->get['nickname']);
 		// Always returns null if variable not set.
-		$this->assertSame(null, $request->{'flickname'});
-
+		$this->assertNull($request->{'flickname'});
 	}
 
 	// urlParams has precedence over POST which has precedence over GET
@@ -98,11 +98,10 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame(3, count($request));
+		$this->assertCount(3, $request);
 		$this->assertSame('Janey', $request->{'nickname'});
 		$this->assertSame('Johnny Weissmüller', $request->{'name'});
 	}
-
 
 	/**
 	 * @expectedException \RuntimeException
@@ -231,7 +230,7 @@ class RequestTest extends \Test\TestCase {
 
 	public function testPatch() {
 		global $data;
-		$data = http_build_query(['name' => 'John Q. Public', 'nickname' => 'Joey'], '', '&');
+		$data = \http_build_query(['name' => 'John Q. Public', 'nickname' => 'Joey'], '', '&');
 
 		$vars = [
 			'method' => 'PATCH',
@@ -296,12 +295,12 @@ class RequestTest extends \Test\TestCase {
 		$result = $request->patch;
 
 		$this->assertSame('John Q. Public', $result['name']);
-		$this->assertSame(null, $result['nickname']);
+		$this->assertNull($result['nickname']);
 	}
 
 	public function testPutStream() {
 		global $data;
-		$data = file_get_contents(__DIR__ . '/../../../data/testimage.png');
+		$data = \file_get_contents(__DIR__ . '/../../../data/testimage.png');
 
 		$vars = [
 			'put' => $data,
@@ -319,18 +318,16 @@ class RequestTest extends \Test\TestCase {
 
 		$this->assertSame('PUT', $request->method);
 		$resource = $request->put;
-		$contents = stream_get_contents($resource);
+		$contents = \stream_get_contents($resource);
 		$this->assertSame($data, $contents);
 
 		try {
 			$resource = $request->put;
-		} catch(\LogicException $e) {
+		} catch (\LogicException $e) {
 			return;
 		}
 		$this->fail('Expected LogicException.');
-
 	}
-
 
 	public function testSetUrlParameters() {
 		$vars = [
@@ -370,6 +367,78 @@ class RequestTest extends \Test\TestCase {
 		);
 
 		$this->assertSame('GeneratedUniqueIdByModUnique', $request->getId());
+	}
+
+	public function providesGetIdWithValidXRequestID() {
+		return [
+			['6241e4ae-ca5d-49e6-948c-6c9e20624361'],
+			['6241e4ae+ca5d+49e6+948c+6c9e20624361'],
+			['6241e4ae/ca5d/49e6/948c/6c9e20624361'],
+			['6241e4ae_ca5d_49e6_948c_6c9e20624361'],
+			['6241e4ae=ca5d=49e6=948c=6c9e20624361'],
+			['6241e4ae.ca5d.49e6.948c.6c9e20624361'],
+			['6241e4ae:ca5d:49e6:948c:6c9e20624361'],
+			['12-34-56-78-9A-BC_1985-04-12T23:20:50.52Z'],
+		];
+	}
+
+	/**
+	 * @dataProvider providesGetIdWithValidXRequestID
+	 */
+	public function testGetIdWithValidXRequestID($xRequestID) {
+		$vars = [
+			'server' => [
+				'HTTP_X_REQUEST_ID' => $xRequestID
+			],
+		];
+
+		$request = new Request(
+			$vars,
+			$this->secureRandom,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$this->assertSame($xRequestID, $request->getId());
+	}
+	public function providesGetIdWithInvalidXRequestID() {
+		return [
+			['too-short'],
+			[
+				'too-long--too-long--too-long--too-long--too-long--'.
+				'too-long--too-long--too-long--too-long--too-long--'.
+				'too-long--too-long--too-long--too-long--too-long--'.
+				'too-long--too-long--too-long--too-long--too-long--x'
+			],
+			['6241e4ae ca5d 49e6 948c 6c9e20624361'],
+			['6241e4ae#ca5d#49e6#948c#6c9e20624361'],
+			['6241e4ae%ca5d%49e6%948c%6c9e20624361'],
+			['6241e4ae"ca5d"49e6"948c"6c9e20624361'],
+			['6241e4ae\'ca5d\'49e6\'948c\'6c9e20624361'],
+		];
+	}
+
+	/**
+	 * @dataProvider providesGetIdWithInvalidXRequestID
+	 * @expectedException \InvalidArgumentException
+	 */
+	public function testGetIdWithInvalidXRequestID($xRequestID) {
+		$vars = [
+			'server' => [
+				'HTTP_X_REQUEST_ID' => $xRequestID
+			],
+		];
+
+		$request = new Request(
+			$vars,
+			$this->secureRandom,
+			$this->config,
+			$this->csrfTokenManager,
+			$this->stream
+		);
+
+		$request->getId();
 	}
 
 	public function testGetIdWithoutModUnique() {
@@ -626,7 +695,6 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-
 		$this->assertSame('https', $requestHttps->getServerProtocol());
 		$this->assertSame('http', $requestHttp->getServerProtocol());
 	}
@@ -776,7 +844,7 @@ class RequestTest extends \Test\TestCase {
 	/**
 	 * @return array
 	 */
-	function userAgentProvider() {
+	public function userAgentProvider() {
 		return [
 			[
 				'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0)',
@@ -859,7 +927,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('from.server.name:8080',  $request->getInsecureServerHost());
+		$this->assertSame('from.server.name:8080', $request->getInsecureServerHost());
 	}
 
 	public function testInsecureServerHostHttpHostHeader() {
@@ -876,7 +944,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('from.host.header:8080',  $request->getInsecureServerHost());
+		$this->assertSame('from.host.header:8080', $request->getInsecureServerHost());
 	}
 
 	public function testInsecureServerHostHttpFromForwardedHeaderSingle() {
@@ -894,7 +962,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('from.forwarded.host:8080',  $request->getInsecureServerHost());
+		$this->assertSame('from.forwarded.host:8080', $request->getInsecureServerHost());
 	}
 
 	public function testInsecureServerHostHttpFromForwardedHeaderStacked() {
@@ -912,7 +980,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('from.forwarded.host2:8080',  $request->getInsecureServerHost());
+		$this->assertSame('from.forwarded.host2:8080', $request->getInsecureServerHost());
 	}
 
 	public function testGetServerHostWithOverwriteHost() {
@@ -940,7 +1008,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('my.overwritten.host',  $request->getServerHost());
+		$this->assertSame('my.overwritten.host', $request->getServerHost());
 	}
 
 	public function testGetServerHostWithTrustedDomain() {
@@ -962,7 +1030,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('my.trusted.host',  $request->getServerHost());
+		$this->assertSame('my.trusted.host', $request->getServerHost());
 	}
 
 	public function testGetServerHostWithUntrustedDomain() {
@@ -989,7 +1057,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('my.trusted.host',  $request->getServerHost());
+		$this->assertSame('my.trusted.host', $request->getServerHost());
 	}
 
 	public function testGetServerHostWithNoTrustedDomain() {
@@ -1016,7 +1084,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('',  $request->getServerHost());
+		$this->assertSame('', $request->getServerHost());
 	}
 
 	public function testGetOverwriteHostDefaultNull() {
@@ -1077,7 +1145,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('apps/files/',  $request->getPathInfo());
+		$this->assertSame('apps/files/', $request->getPathInfo());
 	}
 
 	public function testGetPathInfoWithPathInfoBeingEmpty() {
@@ -1095,7 +1163,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('/apps/files/',  $request->getPathInfo());
+		$this->assertSame('/apps/files/', $request->getPathInfo());
 	}
 
 	/**
@@ -1242,6 +1310,7 @@ class RequestTest extends \Test\TestCase {
 			['/index.php/apps/files/../&amp;/&?someQueryParameter=QueryParam', 'index.php', '/apps/files/../&amp;/&'],
 			['/remote.php/漢字編碼方法 / 汉字编码方法', 'remote.php', '/漢字編碼方法 / 汉字编码方法'],
 			['///removeTrailin//gSlashes///', 'remote.php', '/removeTrailin/gSlashes/'],
+			['/remove/multiple/Slashes/In/ScriptName/', '//remote.php', '/remove/multiple/Slashes/In/ScriptName/'],
 			['/', '/', ''],
 			['', '', ''],
 		];
@@ -1253,6 +1322,8 @@ class RequestTest extends \Test\TestCase {
 	public function rawPathInfoProvider() {
 		return [
 			['/foo%2Fbar/subfolder', '', 'foo%2Fbar/subfolder'],
+			['/foo/bar', 'remote.php', '/foo/bar'],
+			['/foo/bar', '//remote.php', '/foo/bar'],
 		];
 	}
 
@@ -1265,7 +1336,22 @@ class RequestTest extends \Test\TestCase {
 		];
 	}
 
-	public function testGetRequestUriWithoutOverwrite() {
+	public function providesUri() {
+		return[
+			['/test.php', '/test.php'],
+			['/remote.php/dav/files/user0/test_folder:5', '/remote.php/dav/files/user0/test_folder:5'],
+			['/remote.php/dav/files/admin/welcome.txt', 'http://localhost:8080/remote.php/dav/files/admin/welcome.txt'],
+			['/path?arg=value#anchor', 'http://username:password@hostname:9090/path?arg=value#anchor'],
+			['/path:5?arg=value#anchor', 'http://username:password@hostname:9090/path:5?arg=value#anchor'],
+			['', ''],
+			['/test.php', '/test.php'],
+		];
+	}
+
+	/**
+	 * @dataProvider providesUri
+	 */
+	public function testGetRequestUriWithoutOverwrite($expectedUri, $requestUri) {
 		$this->config
 			->expects($this->once())
 			->method('getSystemValue')
@@ -1275,7 +1361,7 @@ class RequestTest extends \Test\TestCase {
 		$request = new Request(
 			[
 				'server' => [
-					'REQUEST_URI' => '/test.php'
+					'REQUEST_URI' => $requestUri
 				]
 			],
 			$this->secureRandom,
@@ -1284,7 +1370,7 @@ class RequestTest extends \Test\TestCase {
 			$this->stream
 		);
 
-		$this->assertSame('/test.php', $request->getRequestUri());
+		$this->assertSame($expectedUri, $request->getRequestUri());
 	}
 
 	public function providesGetRequestUriWithOverwriteData() {
@@ -1469,5 +1555,4 @@ class RequestTest extends \Test\TestCase {
 
 		$this->assertFalse($request->passesCSRFCheck());
 	}
-
 }

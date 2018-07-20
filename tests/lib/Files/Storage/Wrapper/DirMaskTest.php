@@ -3,13 +3,12 @@
 
 namespace Test\Files\Storage\Wrapper;
 
-
 use OC\Files\Storage\Temporary;
 use OC\Files\Storage\Wrapper\DirMask;
 use OCP\Constants;
+use PHPUnit\Framework\TestCase;
 
-
-class DirMaskTest extends \PHPUnit_Framework_TestCase {
+class DirMaskTest extends TestCase {
 
 	/** @var  Temporary */
 	private $sourceStorage;
@@ -49,7 +48,6 @@ class DirMaskTest extends \PHPUnit_Framework_TestCase {
 		);
 	}
 
-
 	public function testIsDeletable() {
 		$readOnlyStorage = $this->getStorage(Constants::PERMISSION_READ);
 		$this->assertFalse(
@@ -73,7 +71,6 @@ class DirMaskTest extends \PHPUnit_Framework_TestCase {
 			$sharableStorage->isSharable('masked/test.txt')
 		);
 	}
-
 
 	public function testMkdir() {
 		$storage = $this->getStorage(Constants::PERMISSION_CREATE);
@@ -109,7 +106,7 @@ class DirMaskTest extends \PHPUnit_Framework_TestCase {
 		));
 
 		$content = $this->sourceStorage->file_get_contents('masked/barbaz.txt');
-		$this->assertTrue($content == 'something');
+		$this->assertEquals('something', $content);
 
 		$storage = $this->getStorage(Constants::PERMISSION_READ);
 		$this->assertFalse($storage->file_put_contents(
@@ -119,13 +116,13 @@ class DirMaskTest extends \PHPUnit_Framework_TestCase {
 
 	public function testFopen() {
 		$storage = $this->getStorage(Constants::PERMISSION_ALL);
-		$this->assertTrue(
-			is_resource($storage->fopen('masked/test.txt', 'r+'))
+		$this->assertInternalType(
+			'resource', $storage->fopen('masked/test.txt', 'r+')
 		);
 
 		$storage = $this->getStorage(Constants::PERMISSION_READ);
-		$this->assertTrue(
-			is_resource($storage->fopen('masked/test.txt', 'r'))
+		$this->assertInternalType(
+			'resource', $storage->fopen('masked/test.txt', 'r')
 		);
 
 		$storage = $this->getStorage(Constants::PERMISSION_READ);

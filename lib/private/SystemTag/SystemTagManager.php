@@ -3,7 +3,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -30,7 +30,6 @@ use OCP\SystemTag\ManagerEvent;
 use OCP\SystemTag\TagAlreadyExistsException;
 use OCP\SystemTag\TagNotFoundException;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\SystemTag\ISystemTag;
 use OCP\IUser;
@@ -39,7 +38,6 @@ use OCP\IUser;
  * Manager class for system tags
  */
 class SystemTagManager implements ISystemTagManager {
-
 	const TAG_TABLE = 'systemtag';
 	const TAG_GROUP_TABLE = 'systemtag_group';
 
@@ -86,7 +84,7 @@ class SystemTagManager implements ISystemTagManager {
 	 * {@inheritdoc}
 	 */
 	public function getTagsByIds($tagIds) {
-		if (!is_array($tagIds)) {
+		if (!\is_array($tagIds)) {
 			$tagIds = [$tagIds];
 		}
 
@@ -94,7 +92,7 @@ class SystemTagManager implements ISystemTagManager {
 
 		// note: not all databases will fail if it's a string or starts with a number
 		foreach ($tagIds as $tagId) {
-			if (!is_numeric($tagId)) {
+			if (!\is_numeric($tagId)) {
 				throw new \InvalidArgumentException('Tag id must be integer');
 			}
 		}
@@ -115,9 +113,9 @@ class SystemTagManager implements ISystemTagManager {
 
 		$result->closeCursor();
 
-		if (count($tags) !== count($tagIds)) {
+		if (\count($tags) !== \count($tagIds)) {
 			throw new TagNotFoundException(
-				'Tag id(s) not found', 0, null, array_diff($tagIds, array_keys($tags))
+				'Tag id(s) not found', 0, null, \array_diff($tagIds, \array_keys($tags))
 			);
 		}
 
@@ -134,7 +132,7 @@ class SystemTagManager implements ISystemTagManager {
 		$query->select('*')
 			->from(self::TAG_TABLE);
 
-		if (!is_null($visibilityFilter)) {
+		if ($visibilityFilter !== null) {
 			$query->andWhere($query->expr()->eq('visibility', $query->createNamedParameter((int)$visibilityFilter)));
 		}
 
@@ -242,7 +240,7 @@ class SystemTagManager implements ISystemTagManager {
 			);
 		}
 
-		$beforeUpdate = array_shift($tags);
+		$beforeUpdate = \array_shift($tags);
 		$afterUpdate = new SystemTag(
 			(int) $tagId,
 			$tagName,
@@ -284,7 +282,7 @@ class SystemTagManager implements ISystemTagManager {
 	 * {@inheritdoc}
 	 */
 	public function deleteTags($tagIds) {
-		if (!is_array($tagIds)) {
+		if (!\is_array($tagIds)) {
 			$tagIds = [$tagIds];
 		}
 
@@ -296,7 +294,7 @@ class SystemTagManager implements ISystemTagManager {
 			$tagNotFoundException = $e;
 
 			// Get existing tag objects for the hooks later
-			$existingTags = array_diff($tagIds, $tagNotFoundException->getMissingTags());
+			$existingTags = \array_diff($tagIds, $tagNotFoundException->getMissingTags());
 			if (!empty($existingTags)) {
 				try {
 					$tags = $this->getTagsByIds($existingTags);
@@ -351,7 +349,7 @@ class SystemTagManager implements ISystemTagManager {
 
 		$groupIds = $this->groupManager->getUserGroupIds($user);
 		if (!empty($groupIds)) {
-			$matchingGroups = array_intersect($groupIds, $this->getTagGroups($tag));
+			$matchingGroups = \array_intersect($groupIds, $this->getTagGroups($tag));
 			if (!empty($matchingGroups)) {
 				return true;
 			}

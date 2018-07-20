@@ -2,7 +2,7 @@
 /**
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -67,10 +67,9 @@ class ExpireSharesJob extends TimedJob {
 			);
 
 		$shares = $qb->execute();
-		while($share = $shares->fetch()) {
+		while ($share = $shares->fetch()) {
 			\OCP\Share::unshare($share['item_type'], $share['file_source'], \OCP\Share::SHARE_TYPE_LINK, null, $share['uid_owner']);
 		}
 		$shares->closeCursor();
 	}
-
 }

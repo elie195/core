@@ -2,7 +2,7 @@
 * ownCloud
 *
 * @author Vincent Petry
-* @copyright 2015 Vincent Petry <pvince81@owncloud.com>
+* @copyright Copyright (c) 2015 Vincent Petry <pvince81@owncloud.com>
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -25,6 +25,7 @@ describe('OC.Share.ShareItemModel', function() {
 	var fetchSharesDeferred, fetchReshareDeferred;
 	var fileInfoModel, configModel, model;
 	var oldCurrentUser;
+	var capsSpec;
 
 	beforeEach(function() {
 		oldCurrentUser = OC.currentUser;
@@ -37,7 +38,7 @@ describe('OC.Share.ShareItemModel', function() {
 			.returns(fetchReshareDeferred.promise());
 
 		fileInfoModel = new OCA.Files.FileInfoModel({
-			id: 123,
+			id: '123',
 			name: 'shared_file_name.txt',
 			path: '/subdir',
 			size: 100,
@@ -56,8 +57,15 @@ describe('OC.Share.ShareItemModel', function() {
 			configModel: configModel,
 			fileInfoModel: fileInfoModel
 		});
+		capsSpec = sinon.stub(OC, 'getCapabilities');
+		capsSpec.returns({
+			'files_sharing': {
+				'default_permissions': OC.PERMISSION_ALL
+			}
+		});
 	});
 	afterEach(function() {
+		capsSpec.restore(); 
 		if (fetchSharesStub) {
 			fetchSharesStub.restore();
 		}
@@ -123,21 +131,21 @@ describe('OC.Share.ShareItemModel', function() {
 			fetchSharesDeferred.resolve(makeOcsResponse([
 				{
 					id: 100,
-					item_source: 123,
+					item_source: '123',
 					permissions: 31,
 					share_type: OC.Share.SHARE_TYPE_USER,
 					share_with: 'user1',
 					share_with_displayname: 'User One'
 				}, {
 					id: 101,
-					item_source: 123,
+					item_source: '123',
 					permissions: 31,
 					share_type: OC.Share.SHARE_TYPE_GROUP,
 					share_with: 'group',
 					share_with_displayname: 'group'
 				}, {
 					id: 102,
-					item_source: 123,
+					item_source: '123',
 					permissions: 31,
 					share_type: OC.Share.SHARE_TYPE_REMOTE,
 					share_with: 'foo@bar.com/baz',
@@ -146,7 +154,7 @@ describe('OC.Share.ShareItemModel', function() {
 				}, {
 					displayname_owner: 'root',
 					expiration: null,
-					file_source: 123,
+					file_source: '123',
 					file_target: '/folder',
 					id: 20,
 					item_source: '123',
@@ -165,7 +173,7 @@ describe('OC.Share.ShareItemModel', function() {
 				}, {
 					displayname_owner: 'root',
 					expiration: '2017-10-12 00:00:00',
-					file_source: 123,
+					file_source: '123',
 					file_target: '/folder',
 					id: 21,
 					item_source: '123',
@@ -266,7 +274,7 @@ describe('OC.Share.ShareItemModel', function() {
 			fetchSharesDeferred.resolve(makeOcsResponse([{
 					displayname_owner: 'root',
 					expiration: null,
-					file_source: 456,
+					file_source: '456',
 					file_target: '/folder',
 					id: 20,
 					item_source: '456',
@@ -300,7 +308,7 @@ describe('OC.Share.ShareItemModel', function() {
 			fetchSharesDeferred.resolve(makeOcsResponse([{
 					displayname_owner: 'root',
 					expiration: '2015-10-12 00:00:00',
-					file_source: 123,
+					file_source: '123',
 					file_target: '/folder',
 					id: 20,
 					item_source: '123',
@@ -318,7 +326,7 @@ describe('OC.Share.ShareItemModel', function() {
 				}, {
 					displayname_owner: 'root',
 					expiration: '2015-10-15 00:00:00',
-					file_source: 456,
+					file_source: '456',
 					file_target: '/file_in_folder.txt',
 					id: 21,
 					item_source: '456',
@@ -393,12 +401,13 @@ describe('OC.Share.ShareItemModel', function() {
 					displayname_owner: 'root',
 					expiration: '2015-10-12 00:00:00',
 					file_source: '123',
+					file_parent: '444',
 					file_target: '/folder',
 					id: '20',
 					item_source: '123',
 					item_type: 'file',
 					mail_send: '0',
-					parent: '999',
+					parent: 999,
 					path: '/folder',
 					permissions: '' + OC.PERMISSION_READ,
 					share_type: '' + OC.Share.SHARE_TYPE_USER,
@@ -417,9 +426,10 @@ describe('OC.Share.ShareItemModel', function() {
 
 			var share = shares[0];
 			expect(share.id).toEqual(20);
-			expect(share.file_source).toEqual(123);
+			expect(share.file_source).toEqual('123');
+			expect(share.file_parent).toEqual('444');
 			expect(share.file_target).toEqual('/folder');
-			expect(share.item_source).toEqual(123);
+			expect(share.item_source).toEqual('123');
 			expect(share.item_type).toEqual('file');
 			expect(share.displayname_owner).toEqual('root');
 			expect(share.mail_send).toEqual(0);
@@ -559,7 +569,22 @@ describe('OC.Share.ShareItemModel', function() {
 				});
 				expect(
 					testWithPermissions(OC.PERMISSION_UPDATE | OC.PERMISSION_SHARE)
-				).toEqual(OC.PERMISSION_READ | OC.PERMISSION_UPDATE | OC.PERMISSION_UPDATE);
+				).toEqual(OC.PERMISSION_READ | OC.PERMISSION_UPDATE);
+			});
+			it('uses default permissions from capabilities', function() {
+				capsSpec.returns({
+					'files_sharing': {
+						'default_permissions': OC.PERMISSION_READ | OC.PERMISSION_CREATE | OC.PERMISSION_SHARE
+					}
+				});
+				configModel.set('isResharingAllowed', true);
+				model.set({
+					reshare: {},
+					shares: []
+				});
+				expect(
+					testWithPermissions(OC.PERMISSION_ALL)
+				).toEqual(OC.PERMISSION_READ | OC.PERMISSION_CREATE | OC.PERMISSION_SHARE);
 			});
 		});
 	});
@@ -727,7 +752,7 @@ describe('OC.Share.ShareItemModel', function() {
 				var shares = _.map(shareTypes, function(shareType) {
 					return {
 						id: id++,
-						item_source: 123,
+						item_source: '123',
 						permissions: 31,
 						share_type: shareType,
 						uid_owner: 'root'

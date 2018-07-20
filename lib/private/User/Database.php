@@ -19,7 +19,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -52,12 +52,15 @@ namespace OC\User;
 
 use OC\Cache\CappedMemoryCache;
 use OCP\IUserBackend;
+use OCP\User\IProvidesDisplayNameBackend;
+use OCP\User\IProvidesEMailBackend;
+use OCP\User\IProvidesHomeBackend;
 use OCP\Util;
 
 /**
  * Class for user management in a SQL Database (e.g. MySQL, SQLite)
  */
-class Database extends Backend implements IUserBackend {
+class Database extends Backend implements IUserBackend, IProvidesHomeBackend, IProvidesDisplayNameBackend {
 	/** @var CappedMemoryCache */
 	private $cache;
 
@@ -208,14 +211,13 @@ class Database extends Backend implements IUserBackend {
 		if ($row) {
 			$storedHash = $row['password'];
 			$newHash = '';
-			if(\OC::$server->getHasher()->verify($password, $storedHash, $newHash)) {
-				if(!empty($newHash)) {
+			if (\OC::$server->getHasher()->verify($password, $storedHash, $newHash)) {
+				if (!empty($newHash)) {
 					$this->setPassword($uid, $password);
 					unset($this->cache[$uid]); // invalidate cache
 				}
 				return $row['uid'];
 			}
-
 		}
 
 		return false;
@@ -290,14 +292,10 @@ class Database extends Backend implements IUserBackend {
 	/**
 	 * get the user's home directory
 	 * @param string $uid the username
-	 * @return string|false
+	 * @return string
 	 */
 	public function getHome($uid) {
-		if ($this->userExists($uid)) {
-			return \OC::$server->getConfig()->getSystemValue("datadirectory", \OC::$SERVERROOT . "/data") . '/' . $uid;
-		}
-
-		return false;
+		return \OC::$server->getConfig()->getSystemValue("datadirectory", \OC::$SERVERROOT . "/data") . '/' . $uid;
 	}
 
 	/**
@@ -340,12 +338,12 @@ class Database extends Backend implements IUserBackend {
 	 * Backend name to be shown in user management
 	 * @return string the name of the backend to be shown
 	 */
-	public function getBackendName(){
+	public function getBackendName() {
 		return 'Database';
 	}
 
 	public static function preLoginNameUsedAsUserName($param) {
-		if(!isset($param['uid'])) {
+		if (!isset($param['uid'])) {
 			throw new \Exception('key uid is expected to be set in $param');
 		}
 
@@ -360,6 +358,5 @@ class Database extends Backend implements IUserBackend {
 				}
 			}
 		}
-
 	}
 }

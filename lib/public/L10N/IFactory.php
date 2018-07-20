@@ -2,7 +2,7 @@
 /**
  * @author Joas Schilling <coding@schilljs.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -67,13 +67,13 @@ interface IFactory {
 	 */
 	public function setLanguageFromRequest($app = null);
 
-
 	/**
 	 * Creates a function from the plural string
 	 *
 	 * @param string $string
 	 * @return string Unique function name
 	 * @since 9.0.0
+	 * @deprecated in 10.0.3
 	 */
 	public function createPluralFunction($string);
 }

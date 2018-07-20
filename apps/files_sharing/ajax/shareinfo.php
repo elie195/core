@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -25,6 +25,10 @@
  *
  */
 
+/**
+ * @deprecated fetches all metadata, kept for compatibility with older instances
+ */
+
 OCP\JSON::checkAppEnabled('files_sharing');
 
 if (!isset($_GET['t'])) {
@@ -32,7 +36,7 @@ if (!isset($_GET['t'])) {
 	exit;
 }
 
-$federatedSharingApp = new \OCA\FederatedFileSharing\AppInfo\Application('federatedfilesharing');
+$federatedSharingApp = new \OCA\FederatedFileSharing\AppInfo\Application();
 $federatedShareProvider = $federatedSharingApp->getFederatedShareProvider();
 
 if ($federatedShareProvider->isOutgoingServer2serverShareEnabled() === false) {
@@ -96,9 +100,8 @@ $result = \OCA\Files\Helper::formatFileInfo($rootInfo);
 $result['mtime'] = $result['mtime'] / 1000;
 $result['permissions'] = (int)$result['permissions'] & $sharePermissions;
 
-
 if ($rootInfo->getType() === 'dir') {
 	$result['children'] = getChildInfo($rootInfo, $rootView, $sharePermissions);
 }
 
-OCP\JSON::success(['data' => $result]);
+OCP\JSON::success(['data' => $result, 'message' => 'DEPRECATED API']);

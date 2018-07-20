@@ -13,7 +13,7 @@
  * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -31,19 +31,21 @@
  */
 
 try {
-
 	require_once __DIR__ . '/lib/base.php';
 
-	$values = \OCP\Util::getStatusInfo();
+	# show the version details based on config.php parameter,
+	# but do not expose the servername in the public via url
+	$values = \OCP\Util::getStatusInfo(
+		null,
+		\OC::$server->getConfig()->getSystemValue('show_server_hostname', false) !== true);
 
 	if (OC::$CLI) {
-		print_r($values);
+		\print_r($values);
 	} else {
-		header('Access-Control-Allow-Origin: *');
-		header('Content-Type: application/json');
-		echo json_encode($values);
+		\header('Access-Control-Allow-Origin: *');
+		\header('Content-Type: application/json');
+		echo \json_encode($values);
 	}
-
 } catch (Exception $ex) {
 	OC_Response::setStatus(OC_Response::STATUS_INTERNAL_SERVER_ERROR);
 	\OCP\Util::writeLog('remote', $ex->getMessage(), \OCP\Util::FATAL);

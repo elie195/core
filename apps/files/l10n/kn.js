@@ -4,7 +4,6 @@ OC.L10N.register(
     "Storage invalid" : "ಸಂಗ್ರಹ ಅಮಾನ್ಯವಾಗಿದೆ",
     "Unknown error" : "ಗೊತ್ತಿಲ್ಲದ ದೋಷ",
     "All files" : "﻿ಎಲ್ಲಾ ಕಡತಗಳು",
-    "Saved" : "﻿ಉಳಿಸಿದ",
     "Home" : "﻿ಮುಖಪುಟ",
     "Close" : "ಮುಚ್ಚು",
     "Favorites" : "ಅಚ್ಚುಮೆಚ್ಚಿನ",
@@ -21,10 +20,10 @@ OC.L10N.register(
     "Name" : "﻿ಹೆಸರು",
     "Size" : "﻿ ಪ್ರಮಾಣ",
     "Modified" : "﻿ಬದಲಾಯಿಸಿದ",
-    "_%n folder_::_%n folders_" : ["%n ಕೋಶ(ಗಳು)"],
-    "_%n file_::_%n files_" : ["%n ಕಡತ"],
+    "_%n folder_::_%n folders_" : ["%n ಕೋಶ(ಗಳು)","%n ಕೋಶ(ಗಳು)"],
+    "_%n file_::_%n files_" : ["%n ಕಡತ","%n ಕಡತ"],
     "You don’t have permission to upload or create files here" : "﻿ನಿಮಗೆ ಇಲ್ಲಿ ಅಪ್ಲೋಡ್ ಅಥವಾ ಕಡತಗಳನ್ನು ರಚಿಸವ ಅನುಮತಿ ಇಲ್ಲ",
-    "_Uploading %n file_::_Uploading %n files_" : ["%n 'ನೆ ಕಡತವನ್ನು ವರ್ಗಾಯಿಸಲಾಗುತ್ತಿದೆ"],
+    "_Uploading %n file_::_Uploading %n files_" : ["%n 'ನೆ ಕಡತವನ್ನು ವರ್ಗಾಯಿಸಲಾಗುತ್ತಿದೆ","%n 'ನೆ ಕಡತವನ್ನು ವರ್ಗಾಯಿಸಲಾಗುತ್ತಿದೆ"],
     "New" : "﻿ಹೊಸ",
     "File name cannot be empty." : "ಕಡತ ಹೆಸರು ಖಾಲಿ ಇರುವಂತಿಲ್ಲ.",
     "Favorited" : "ಅಚ್ಚುಮೆಚ್ಚಿನವು",
@@ -33,10 +32,6 @@ OC.L10N.register(
     "New folder" : "ಹೊಸ ಕಡತಕೋಶ",
     "Upload" : "ವರ್ಗಾಯಿಸಿ",
     "Upload (max. %s)" : "ವರ್ಗಾವಣೆ (ಗರಿಷ್ಠ %s)",
-    "File handling" : "﻿ಕಡತ ನಿರ್ವಹಣೆ",
-    "Maximum upload size" : "ಗರಿಷ್ಠ ವರ್ಗಾವಣೆ ಗಾತ್ರ",
-    "max. possible: " : "﻿ಗರಿಷ್ಠ. ಸಾಧ್ಯ:",
-    "Save" : "﻿ಉಳಿಸಿ",
     "Settings" : "ಆಯ್ಕೆ",
     "WebDAV" : "﻿WebDAV",
     "Select all" : "﻿ಎಲ್ಲಾ ಆಯ್ಕೆ ಮಾಡಿ",
@@ -46,4 +41,4 @@ OC.L10N.register(
     "Files and folders you mark as favorite will show up here" : "ನೀವು ಗುರುತು ಮಾಡಿರುವ ನೆಚ್ಚಿನ ಕಡತ ಮತ್ತು ಕಡತಕೋಶಗಳನ್ನು ಇಲ್ಲಿ ತೋರಿಸಲಾಗುತ್ತಿದೆ",
     "Text file" : "ಸರಳಾಕ್ಷರದ ಕಡತ"
 },
-"nplurals=1; plural=0;");
+"nplurals=2; plural=(n > 1);");

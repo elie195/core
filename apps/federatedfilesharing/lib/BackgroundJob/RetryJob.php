@@ -2,7 +2,7 @@
 /**
  * @author Björn Schießle <bjoern@schiessle.org>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -19,9 +19,7 @@
  *
  */
 
-
 namespace OCA\FederatedFileSharing\BackgroundJob;
-
 
 use OC\BackgroundJob\Job;
 use OC\BackgroundJob\JobList;
@@ -74,10 +72,10 @@ class RetryJob extends Job {
 				$addressHandler,
 				\OC::$server->getHTTPClientService(),
 				$discoveryManager,
-				\OC::$server->getJobList()
+				\OC::$server->getJobList(),
+				\OC::$server->getConfig()
 			);
 		}
-
 	}
 
 	/**
@@ -87,7 +85,6 @@ class RetryJob extends Job {
 	 * @param ILogger $logger
 	 */
 	public function execute($jobList, ILogger $logger = null) {
-
 		if ($this->shouldRun($this->argument)) {
 			parent::execute($jobList, $logger);
 			$jobList->remove($this, $this->argument);
@@ -102,7 +99,7 @@ class RetryJob extends Job {
 		$remoteId = $argument['remoteId'];
 		$token = $argument['token'];
 		$action = $argument['action'];
-		$data = json_decode($argument['data'], true);
+		$data = \json_decode($argument['data'], true);
 		$try = (int)$argument['try'] + 1;
 
 		$result = $this->notifications->sendUpdateToRemote($remote, $remoteId, $token, $action, $data, $try);
@@ -127,7 +124,7 @@ class RetryJob extends Job {
 				'data' => $argument['data'],
 				'action' => $argument['action'],
 				'try' => (int)$argument['try'] + 1,
-				'lastRun' => time()
+				'lastRun' => \time()
 			]
 		);
 	}
@@ -140,7 +137,6 @@ class RetryJob extends Job {
 	 */
 	protected function shouldRun(array $argument) {
 		$lastRun = (int)$argument['lastRun'];
-		return ((time() - $lastRun) > $this->interval);
+		return ((\time() - $lastRun) > $this->interval);
 	}
-
 }

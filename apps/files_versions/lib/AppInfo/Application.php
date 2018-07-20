@@ -4,7 +4,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,8 +23,8 @@
 
 namespace OCA\Files_Versions\AppInfo;
 
-use OCP\AppFramework\App;
 use OCA\Files_Versions\Expiration;
+use OCP\AppFramework\App;
 
 class Application extends App {
 	public function __construct(array $urlParams = []) {
@@ -40,7 +40,7 @@ class Application extends App {
 		/*
 		 * Register expiration
 		 */
-		$container->registerService('Expiration', function($c) {
+		$container->registerService('Expiration', function ($c) {
 			return  new Expiration(
 				$c->query('ServerContainer')->getConfig(),
 				$c->query('OCP\AppFramework\Utility\ITimeFactory')

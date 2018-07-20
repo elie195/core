@@ -3,7 +3,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 namespace OC;
 
 class RedisFactory {
-	/** @var  \Redis */
+	/** @var \Redis | \RedisCluster */
 	private $instance;
 
 	/** @var  SystemConfig */
@@ -39,9 +39,8 @@ class RedisFactory {
 	}
 
 	private function create() {
-
 		if ($config = $this->config->getValue('redis.cluster', [])) {
-			if (!class_exists('RedisCluster')) {
+			if (!\class_exists('RedisCluster')) {
 				throw new \Exception('Redis Cluster support is not available');
 			}
 			// cluster config
@@ -61,7 +60,6 @@ class RedisFactory {
 				$this->instance->setOption(\RedisCluster::OPT_SLAVE_FAILOVER, $config['failover_mode']);
 			}
 		} else {
-
 			$this->instance = new \Redis();
 			$config = $this->config->getValue('redis', []);
 			if (isset($config['host'])) {
@@ -80,7 +78,7 @@ class RedisFactory {
 				$timeout = 0.0; // unlimited
 			}
 
-			$this->instance->connect($host, $port, $timeout);
+			@$this->instance->connect($host, $port, $timeout);
 			if (isset($config['password']) && $config['password'] !== '') {
 				$this->instance->auth($config['password']);
 			}
@@ -91,6 +89,10 @@ class RedisFactory {
 		}
 	}
 
+	/**
+	 * @return \Redis|\RedisCluster
+	 * @throws \Exception
+	 */
 	public function getInstance() {
 		if (!$this->isAvailable()) {
 			throw new \Exception('Redis support is not available');
@@ -103,7 +105,8 @@ class RedisFactory {
 	}
 
 	public function isAvailable() {
-		return extension_loaded('redis')
-		&& version_compare(phpversion('redis'), '2.2.5', '>=');
+		return \extension_loaded('redis')
+		&& (\version_compare(\phpversion('redis'), '2.2.5', '>=')
+		|| \strcmp(\phpversion('redis'), 'develop')==0); // Using a developing Version?
 	}
 }

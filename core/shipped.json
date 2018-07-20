@@ -1,9 +1,7 @@
 {
   "shippedApps": [
-    "encryption",
     "configreport",
     "dav",
-    "enterprise_key",
     "federation",
     "federatedfilesharing",
     "files",

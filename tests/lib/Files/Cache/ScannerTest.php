@@ -9,6 +9,10 @@
 namespace Test\Files\Cache;
 
 use OC\Files\Cache\CacheEntry;
+use OC\Files\Storage\Storage;
+use OCA\Files_Sharing\ISharedStorage;
+use OCP\Files\IHomeStorage;
+use OCP\Files\Storage\ILockingStorage;
 
 /**
  * Class ScannerTest
@@ -19,7 +23,7 @@ use OC\Files\Cache\CacheEntry;
  */
 class ScannerTest extends \Test\TestCase {
 	/**
-	 * @var \OC\Files\Storage\Storage $storage
+	 * @var Storage $storage
 	 */
 	private $storage;
 
@@ -49,45 +53,45 @@ class ScannerTest extends \Test\TestCase {
 		parent::tearDown();
 	}
 
-	function testFile() {
+	public function testFile() {
 		$data = "dummy file data\n";
 		$this->storage->file_put_contents('foo.txt', $data);
 		$this->scanner->scanFile('foo.txt');
 
-		$this->assertEquals($this->cache->inCache('foo.txt'), true);
+		$this->assertTrue($this->cache->inCache('foo.txt'));
 		$cachedData = $this->cache->get('foo.txt');
-		$this->assertEquals($cachedData['size'], strlen($data));
+		$this->assertEquals($cachedData['size'], \strlen($data));
 		$this->assertEquals($cachedData['mimetype'], 'text/plain');
 		$this->assertNotEquals($cachedData['parent'], -1); //parent folders should be scanned automatically
 
-		$data = file_get_contents(\OC::$SERVERROOT . '/core/img/logo.png');
+		$data = \file_get_contents(\OC::$SERVERROOT . '/core/img/logo.png');
 		$this->storage->file_put_contents('foo.png', $data);
 		$this->scanner->scanFile('foo.png');
 
-		$this->assertEquals($this->cache->inCache('foo.png'), true);
+		$this->assertTrue($this->cache->inCache('foo.png'));
 		$cachedData = $this->cache->get('foo.png');
-		$this->assertEquals($cachedData['size'], strlen($data));
+		$this->assertEquals($cachedData['size'], \strlen($data));
 		$this->assertEquals($cachedData['mimetype'], 'image/png');
 	}
 
 	private function fillTestFolders() {
 		$textData = "dummy file data\n";
-		$imgData = file_get_contents(\OC::$SERVERROOT . '/core/img/logo.png');
+		$imgData = \file_get_contents(\OC::$SERVERROOT . '/core/img/logo.png');
 		$this->storage->mkdir('folder');
 		$this->storage->file_put_contents('foo.txt', $textData);
 		$this->storage->file_put_contents('foo.png', $imgData);
 		$this->storage->file_put_contents('folder/bar.txt', $textData);
 	}
 
-	function testFolder() {
+	public function testFolder() {
 		$this->fillTestFolders();
 
 		$this->scanner->scan('');
-		$this->assertEquals($this->cache->inCache(''), true);
-		$this->assertEquals($this->cache->inCache('foo.txt'), true);
-		$this->assertEquals($this->cache->inCache('foo.png'), true);
-		$this->assertEquals($this->cache->inCache('folder'), true);
-		$this->assertEquals($this->cache->inCache('folder/bar.txt'), true);
+		$this->assertTrue($this->cache->inCache(''));
+		$this->assertTrue($this->cache->inCache('foo.txt'));
+		$this->assertTrue($this->cache->inCache('foo.png'));
+		$this->assertTrue($this->cache->inCache('folder'));
+		$this->assertTrue($this->cache->inCache('folder/bar.txt'));
 
 		$cachedDataText = $this->cache->get('foo.txt');
 		$cachedDataText2 = $this->cache->get('foo.txt');
@@ -101,15 +105,15 @@ class ScannerTest extends \Test\TestCase {
 		$this->assertEquals($cachedDataFolder2['size'], $cachedDataText2['size']);
 	}
 
-	function testShallow() {
+	public function testShallow() {
 		$this->fillTestFolders();
 
 		$this->scanner->scan('', \OC\Files\Cache\Scanner::SCAN_SHALLOW);
-		$this->assertEquals($this->cache->inCache(''), true);
-		$this->assertEquals($this->cache->inCache('foo.txt'), true);
-		$this->assertEquals($this->cache->inCache('foo.png'), true);
-		$this->assertEquals($this->cache->inCache('folder'), true);
-		$this->assertEquals($this->cache->inCache('folder/bar.txt'), false);
+		$this->assertTrue($this->cache->inCache(''));
+		$this->assertTrue($this->cache->inCache('foo.txt'));
+		$this->assertTrue($this->cache->inCache('foo.png'));
+		$this->assertTrue($this->cache->inCache('folder'));
+		$this->assertFalse($this->cache->inCache('folder/bar.txt'));
 
 		$cachedDataFolder = $this->cache->get('');
 		$cachedDataFolder2 = $this->cache->get('folder');
@@ -129,7 +133,7 @@ class ScannerTest extends \Test\TestCase {
 		$this->assertNotEquals($cachedDataFolder['size'], -1);
 	}
 
-	function testBackgroundScan() {
+	public function testBackgroundScan() {
 		$this->fillTestFolders();
 		$this->storage->mkdir('folder2');
 		$this->storage->file_put_contents('folder2/bar.txt', 'foobar');
@@ -151,7 +155,7 @@ class ScannerTest extends \Test\TestCase {
 		$this->assertFalse($this->cache->getIncomplete());
 	}
 
-	function testBackgroundScanOnlyRecurseIncomplete() {
+	public function testBackgroundScanOnlyRecurseIncomplete() {
 		$this->fillTestFolders();
 		$this->storage->mkdir('folder2');
 		$this->storage->file_put_contents('folder2/bar.txt', 'foobar');
@@ -343,4 +347,104 @@ class ScannerTest extends \Test\TestCase {
 		];
 	}
 
+	public function failGetDataProvider() {
+		return [
+			// throws for empty path and "files" in home storage
+			[true, false, '', true],
+			[true, false, 'files', true],
+			// but in shared storage
+			[true, true, '', false],
+			[true, true, 'files', false],
+
+			// doesn't throw for federated shares (non-home)
+			[false, true, '', false],
+			[false, true, 'files', false],
+
+			// doesn't throw for external storage (non-home)
+			[false, false, '', false],
+			[false, false, 'files', false],
+
+			// doesn't throw for other paths
+			[true, false, 'other', false],
+
+			// doesn't throw if metadata exists
+			[true, false, 'other', false, []],
+		];
+	}
+
+	/**
+	 * @dataProvider failGetDataProvider
+	 */
+	public function testFailGetData($isHomeStorage, $isSharedStorage, $scanPath, $expectedThrown, $metadata = null) {
+		$this->storage = $this->createMock(Storage::class);
+		$this->storage->method('getCache')->willReturn($this->createMock(\OCP\Files\Cache\ICache::class));
+		$this->storage->expects($this->any())
+			->method('getMetaData')
+			->willReturn(null);
+		$this->storage->expects($this->any())
+			->method('instanceOfStorage')
+			->will($this->returnValueMap([
+				[IHomeStorage::class, $isHomeStorage],
+				[ISharedStorage::class, $isSharedStorage],
+			]));
+		$this->scanner = new \OC\Files\Cache\Scanner($this->storage);
+		$thrown = false;
+		try {
+			$this->scanner->scanFile($scanPath);
+		} catch (\OCP\Files\StorageNotAvailableException $e) {
+			$thrown = true;
+		}
+
+		$this->assertEquals($expectedThrown, $thrown);
+	}
+
+	/**
+	 * @expectedException \Exception
+	 * @expectedExceptionMessage No MetaData
+	 *
+	 * @throws \OCP\Files\StorageNotAvailableException
+	 * @throws \OCP\Lock\LockedException
+	 * @throws \OC\HintException
+	 * @throws \OC\ServerNotAvailableException
+	 */
+	public function testUnLockInCaseOfExceptionInScanFile() {
+		/** @var Storage | \PHPUnit_Framework_MockObject_MockObject $storage */
+		$storage = $this->createMock(Storage::class);
+		$storage->expects($this->any())
+			->method('instanceOfStorage')
+			->will($this->returnValueMap([
+				[ILockingStorage::class, true],
+			]));
+
+		$storage->expects($this->once())->method('acquireLock');
+		$storage->expects($this->once())->method('releaseLock');
+		$storage->expects($this->any())->method('getMetaData')->willThrowException(new \Exception('No MetaData'));
+		$this->scanner = new \OC\Files\Cache\Scanner($storage);
+		$this->scanner->scanFile('file/test.txt');
+	}
+
+	/**
+	 * @expectedException \Exception
+	 * @expectedExceptionMessage No MetaData
+	 *
+	 * @throws \OCP\Files\StorageNotAvailableException
+	 * @throws \OCP\Lock\LockedException
+	 * @throws \OC\HintException
+	 * @throws \OC\ServerNotAvailableException
+	 */
+	public function testUnLockInCaseOfExceptionInScan() {
+		/** @var Storage | \PHPUnit_Framework_MockObject_MockObject $storage */
+		$storage = $this->createMock(Storage::class);
+		$storage->expects($this->any())
+			->method('instanceOfStorage')
+			->will($this->returnValueMap([
+				[ILockingStorage::class, true],
+			]));
+
+		$storage->expects($this->exactly(3))->method('acquireLock');
+		$storage->expects($this->exactly(3))->method('releaseLock');
+		$storage->expects($this->any())->method('getMetaData')->willThrowException(new \Exception('No MetaData'));
+		$this->scanner = new \OC\Files\Cache\Scanner($storage);
+		$this->scanner->scan('file/test.txt');
+	}
 }

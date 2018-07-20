@@ -28,6 +28,7 @@ OC.L10N.register(
     "Invalid ownCloud url" : "آدرس نمونه ownCloud  غیر معتبر است",
     "Share" : "اشتراک گذاری",
     "No expiration date set" : "تاریخ انقضا تعیین نشده است.",
+    "Pending" : "در انتظار",
     "Shared by" : "اشتراک گذاشته شده به وسیله",
     "Sharing" : "اشتراک گذاری",
     "Share API is disabled" : "API اشتراک گذاری غیر فعال است.",
@@ -92,6 +93,7 @@ OC.L10N.register(
     "Public link of %2$s expired" : "لینک عمومی %2$s منقضی شده است",
     "Shared by %2$s" : "به اشتراک گذاشته شده توسط %2$s",
     "Shares" : "موارد به اشتراک گذاشته",
+    "Accept" : "قبول",
     "This share is password-protected" : "این اشتراک توسط رمز عبور محافظت می شود",
     "The password is wrong. Try again." : "رمزعبور اشتباه می باشد. دوباره امتحان کنید.",
     "Password" : "گذرواژه",
@@ -106,9 +108,8 @@ OC.L10N.register(
     "sharing is disabled" : "قابلیت اشتراک گذاری غیرفعال است",
     "For more info, please ask the person who sent this link." : "برای اطلاعات بیشتر، لطفا از شخصی که این پیوند را ارسال کرده سوال بفرمایید.",
     "%s is publicly shared" : "%s به اشتراک عمومی گذاشته شده است",
-    "Add to your ownCloud" : "افزودن به ownCloud شما",
     "Download" : "دانلود",
     "Download %s" : "دانلود %s",
     "Direct link" : "پیوند مستقیم"
 },
-"nplurals=1; plural=0;");
+"nplurals=2; plural=(n > 1);");

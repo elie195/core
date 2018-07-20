@@ -10,7 +10,7 @@
 # @author Joas Schilling
 # @author Lukas Reschke
 # @author Jörn Friedrich Dreyer
-# @copyright 2012-2015 Thomas Müller thomas.mueller@tmit.eu
+# @copyright Copyright (c) 2012-2015 Thomas Müller thomas.mueller@tmit.eu
 #
 
 #$EXECUTOR_NUMBER is set by Jenkins and allows us to run autotest in parallel
@@ -179,10 +179,6 @@ function execute_tests {
 	rm -rf "$DATADIR"
 	mkdir "$DATADIR"
 
-	if [ "$PRIMARY_STORAGE_CONFIG" == "swift" ] ; then
-		tests/objectstore/start-swift-ceph.sh
-		cp tests/objectstore/swift.config.php config/autotest-storage-swift.config.php
-	fi
 	cp tests/preseed-config.php config/config.php
 
 	_DB=$DB
@@ -229,7 +225,7 @@ function execute_tests {
 
 		DATABASEHOST=$(docker inspect --format="{{.NetworkSettings.IPAddress}}" "$DOCKER_CONTAINER_ID")
 
-		echo "Waiting for MySQL(utf8mb4) initialisation ..."
+		echo "Waiting for MySQL(utf8mb4) initialisation of container $DOCKER_CONTAINER_ID ..."
 
 		if ! apps/files_external/tests/env/wait-for-connection $DATABASEHOST 3306 600; then
 			echo "[ERROR] Waited 600 seconds, no response" >&2
@@ -345,19 +341,6 @@ function execute_tests {
 	echo "${PHPUNIT[@]}" --configuration phpunit-autotest.xml $GROUP $COVER --log-junit "autotest-results-$DB.xml" "$2" "$3"
 	"${PHPUNIT[@]}" --configuration phpunit-autotest.xml $GROUP $COVER --log-junit "autotest-results-$DB.xml" "$2" "$3"
 		RESULT=$?
-
-	if [ "$PRIMARY_STORAGE_CONFIG" == "swift" ] ; then
-		cd ..
-		echo "Kill the swift docker"
-		tests/objectstore/stop-swift-ceph.sh
-	fi
-
-	if [ ! -z "$DOCKER_CONTAINER_ID" ] ; then
-		echo "Kill the docker $DOCKER_CONTAINER_ID"
-		docker stop $DOCKER_CONTAINER_ID
-		docker rm -f $DOCKER_CONTAINER_ID
-		unset DOCKER_CONTAINER_ID
-	fi
 }
 
 #
@@ -390,12 +373,14 @@ fi
 #
 # NOTES on pgsql:
 #  - su - postgres
-#  - createuser -P oc_autotest (enter password and enable superuser)
+#  - createuser -P oc_autotest (enter password "owncloud")
+#  - psql -c 'ALTER USER oc_autotest CREATEDB;' (to give the user the priveleged to create databases)
 #  - to enable dropdb I decided to add following line to pg_hba.conf (this is not the safest way but I don't care for the testing machine):
 # local	all	all	trust
 #
 #  - for parallel executor support with EXECUTOR_NUMBER=0:
-#  - createuser -P oc_autotest0 (enter password and enable superuser)
+#  - createuser -P oc_autotest0 (enter password "owncloud")
+#  - psql -c 'ALTER USER oc_autotest0 CREATEDB;' (to give the user the priveleged to create databases)
 #
 # NOTES on oci:
 #  - it's a pure nightmare to install Oracle on a Linux-System

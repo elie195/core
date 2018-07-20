@@ -4,7 +4,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -28,13 +28,14 @@ use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 
 class InnoDB implements IRepairStep {
-
 	public function getName() {
 		return 'Repair MySQL database engine';
 	}
 
 	/**
 	 * Fix mime types
+	 *
+	 * @param IOutput $output
 	 */
 	public function run(IOutput $output) {
 		$connection = \OC::$server->getDatabaseConnection();
@@ -44,7 +45,7 @@ class InnoDB implements IRepairStep {
 		}
 
 		$tables = $this->getAllMyIsamTables($connection);
-		if (is_array($tables)) {
+		if (\is_array($tables)) {
 			foreach ($tables as $table) {
 				$connection->exec("ALTER TABLE $table ENGINE=InnoDB;");
 				$output->info("Fixed $table");
@@ -57,13 +58,13 @@ class InnoDB implements IRepairStep {
 	 * @return string[]
 	 */
 	private function getAllMyIsamTables($connection) {
+		$dbPrefix = \OC::$server->getConfig()->getSystemValue("dbtableprefix");
 		$dbName = \OC::$server->getConfig()->getSystemValue("dbname");
 		$result = $connection->fetchArray(
-			"SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND engine = 'MyISAM' AND TABLE_NAME LIKE \"*PREFIX*%\"",
-			[$dbName]
+			"SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND engine = ? AND TABLE_NAME LIKE ?",
+			[$dbName, 'MyISAM', $dbPrefix.'%']
 		);
 
 		return $result;
 	}
 }
-

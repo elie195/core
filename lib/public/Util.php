@@ -23,7 +23,7 @@
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -119,11 +119,11 @@ class Util {
 		$message->setSubject($subject);
 		$message->setPlainBody($mailtext);
 		$message->setFrom([$fromaddress => $fromname]);
-		if($html === 1) {
+		if ($html === 1) {
 			$message->setHtmlBody($altbody);
 		}
 
-		if($altbody === '') {
+		if ($altbody === '') {
 			$message->setHtmlBody($mailtext);
 			$message->setPlainBody('');
 		} else {
@@ -131,14 +131,14 @@ class Util {
 			$message->setPlainBody($altbody);
 		}
 
-		if(!empty($ccaddress)) {
-			if(!empty($ccname)) {
+		if (!empty($ccaddress)) {
+			if (!empty($ccname)) {
 				$message->setCc([$ccaddress => $ccname]);
 			} else {
 				$message->setCc([$ccaddress]);
 			}
 		}
-		if(!empty($bcc)) {
+		if (!empty($bcc)) {
 			$message->setBcc([$bcc]);
 		}
 
@@ -152,7 +152,7 @@ class Util {
 	 * @param int $level
 	 * @since 4.0.0
 	 */
-	public static function writeLog( $app, $message, $level ) {
+	public static function writeLog($app, $message, $level) {
 		$context = ['app' => $app];
 		\OC::$server->getLogger()->log($level, $message, $context);
 	}
@@ -165,7 +165,7 @@ class Util {
 	 * @since ....0.0 - parameter $level was added in 7.0.0
 	 * @deprecated 8.2.0 use logException of \OCP\ILogger
 	 */
-	public static function logException( $app, \Exception $ex, $level = \OCP\Util::FATAL ) {
+	public static function logException($app, \Exception $ex, $level = \OCP\Util::FATAL) {
 		\OC::$server->getLogger()->logException($ex, ['app' => $app]);
 	}
 
@@ -181,9 +181,15 @@ class Util {
 			self::$shareManager = \OC::$server->getShareManager();
 		}
 
-		$user = \OC::$server->getUserSession()->getUser();
-		if ($user !== null) {
-			$user = $user->getUID();
+		$userSession = \OC::$server->getUserSession();
+		// session is null while installing OC
+		if ($userSession !== null) {
+			$user = $userSession->getUser();
+			if ($user !== null) {
+				$user = $user->getUID();
+			}
+		} else {
+			$user = null;
 		}
 
 		return self::$shareManager->sharingDisabledForUser($user);
@@ -206,8 +212,8 @@ class Util {
 	 * @param string $file
 	 * @since 4.0.0
 	 */
-	public static function addStyle( $application, $file = null ) {
-		\OC_Util::addStyle( $application, $file );
+	public static function addStyle($application, $file = null) {
+		\OC_Util::addStyle($application, $file);
 	}
 
 	/**
@@ -216,8 +222,8 @@ class Util {
 	 * @param string $file
 	 * @since 4.0.0
 	 */
-	public static function addScript( $application, $file = null ) {
-		\OC_Util::addScript( $application, $file );
+	public static function addScript($application, $file = null) {
+		\OC_Util::addScript($application, $file);
 	}
 
 	/**
@@ -277,7 +283,7 @@ class Util {
 	 * @return string the url
 	 * @since 4.0.0 - parameter $args was added in 4.5.0
 	 */
-	public static function linkToAbsolute( $app, $file, $args = []) {
+	public static function linkToAbsolute($app, $file, $args = []) {
 		$urlGenerator = \OC::$server->getURLGenerator();
 		return $urlGenerator->getAbsoluteURL(
 			$urlGenerator->linkTo($app, $file, $args)
@@ -290,11 +296,11 @@ class Util {
 	 * @return string the url
 	 * @since 4.0.0
 	 */
-	public static function linkToRemote( $service ) {
+	public static function linkToRemote($service) {
 		$urlGenerator = \OC::$server->getURLGenerator();
 		$remoteBase = $urlGenerator->linkTo('', 'remote.php') . '/' . $service;
 		return $urlGenerator->getAbsoluteURL(
-			$remoteBase . (($service[strlen($service) - 1] != '/') ? '/' : '')
+			$remoteBase . (($service[\strlen($service) - 1] != '/') ? '/' : '')
 		);
 	}
 
@@ -317,7 +323,7 @@ class Util {
 	 * @deprecated 8.1.0 Use \OC::$server->getURLGenerator()->linkToRoute($route, $parameters)
 	 * @since 5.0.0
 	 */
-	public static function linkToRoute( $route, $parameters = []) {
+	public static function linkToRoute($route, $parameters = []) {
 		return \OC::$server->getURLGenerator()->linkToRoute($route, $parameters);
 	}
 
@@ -331,7 +337,7 @@ class Util {
 	 * @deprecated 8.1.0 Use \OC::$server->getURLGenerator()->linkTo($app, $file, $args)
 	 * @since 4.0.0 - parameter $args was added in 4.5.0
 	 */
-	public static function linkTo( $app, $file, $args = []) {
+	public static function linkTo($app, $file, $args = []) {
 		return \OC::$server->getURLGenerator()->linkTo($app, $file, $args);
 	}
 
@@ -353,9 +359,9 @@ class Util {
 	public static function getServerHostName() {
 		$host_name = self::getServerHost();
 		// strip away port number (if existing)
-		$colon_pos = strpos($host_name, ':');
-		if ($colon_pos != FALSE) {
-			$host_name = substr($host_name, 0, $colon_pos);
+		$colon_pos = \strpos($host_name, ':');
+		if ($colon_pos != false) {
+			$host_name = \substr($host_name, 0, $colon_pos);
 		}
 		return $host_name;
 	}
@@ -430,7 +436,7 @@ class Util {
 	 * @deprecated 8.1.0 Use \OC::$server->getURLGenerator()->imagePath($app, $image)
 	 * @since 4.0.0
 	 */
-	public static function imagePath( $app, $image ) {
+	public static function imagePath($app, $image) {
 		return \OC::$server->getURLGenerator()->imagePath($app, $image);
 	}
 
@@ -440,8 +446,8 @@ class Util {
 	 * @return string a human readable file size
 	 * @since 4.0.0
 	 */
-	public static function humanFileSize( $bytes ) {
-		return(\OC_Helper::humanFileSize( $bytes ));
+	public static function humanFileSize($bytes) {
+		return(\OC_Helper::humanFileSize($bytes));
 	}
 
 	/**
@@ -452,8 +458,8 @@ class Util {
 	 * Inspired by: http://www.php.net/manual/en/function.filesize.php#92418
 	 * @since 4.0.0
 	 */
-	public static function computerFileSize( $str ) {
-		return(\OC_Helper::computerFileSize( $str ));
+	public static function computerFileSize($str) {
+		return(\OC_Helper::computerFileSize($str));
 	}
 
 	/**
@@ -470,8 +476,8 @@ class Util {
 	 * TODO: write example
 	 * @since 4.0.0
 	 */
-	static public function connectHook($signalClass, $signalName, $slotClass, $slotName ) {
-		return(\OC_Hook::connect($signalClass, $signalName, $slotClass, $slotName ));
+	public static function connectHook($signalClass, $signalName, $slotClass, $slotName) {
+		return(\OC_Hook::connect($signalClass, $signalName, $slotClass, $slotName));
 	}
 
 	/**
@@ -484,8 +490,8 @@ class Util {
 	 * TODO: write example
 	 * @since 4.0.0
 	 */
-	static public function emitHook( $signalclass, $signalname, $params = []) {
-		return(\OC_Hook::emit( $signalclass, $signalname, $params ));
+	public static function emitHook($signalclass, $signalname, $params = []) {
+		return(\OC_Hook::emit($signalclass, $signalname, $params));
 	}
 
 	/**
@@ -501,7 +507,7 @@ class Util {
 	 * @since 4.5.0
 	 */
 	public static function callRegister() {
-		if(self::$token === '') {
+		if (self::$token === '') {
 			self::$token = \OC::$server->getCsrfTokenManager()->getToken()->getEncryptedValue();
 		}
 		return self::$token;
@@ -573,7 +579,7 @@ class Util {
 	 * @deprecated 8.2.0 Use substr_replace() instead.
 	 */
 	public static function mb_substr_replace($string, $replacement, $start, $length = null, $encoding = 'UTF-8') {
-		return substr_replace($string, $replacement, $start, $length);
+		return \substr_replace($string, $replacement, $start, $length);
 	}
 
 	/**
@@ -589,7 +595,7 @@ class Util {
 	 * @deprecated 8.2.0 Use str_replace() instead.
 	 */
 	public static function mb_str_replace($search, $replace, $subject, $encoding = 'UTF-8', &$count = null) {
-		return str_replace($search, $replace, $subject, $count);
+		return \str_replace($search, $replace, $subject, $count);
 	}
 
 	/**
@@ -673,8 +679,12 @@ class Util {
 
 	/**
 	 * check if a password is required for each public link
+	 * This is deprecated due to not reflecting all the possibilities now. Falling back to
+	 * enforce password for read-only links. Note that read & write or write-only options won't
+	 * be considered here
 	 * @return boolean
 	 * @since 7.0.0
+	 * @deprecated
 	 */
 	public static function isPublicLinkPasswordRequired() {
 		return \OC_Util::isPublicLinkPasswordRequired();
@@ -700,7 +710,7 @@ class Util {
 	public static function needUpgrade() {
 		if (!isset(self::$needUpgradeCache)) {
 			self::$needUpgradeCache=\OC_Util::needUpgrade(\OC::$server->getConfig());
-		}		
+		}
 		return self::$needUpgradeCache;
 	}
 
@@ -711,30 +721,91 @@ class Util {
 	 * @return array
 	 * @since 10.0
 	 */
-	public static function getStatusInfo($includeVersion = false) {
+	public static function getStatusInfo($includeVersion = false, $serverHide = false) {
 		$systemConfig = \OC::$server->getSystemConfig();
 
 		$installed = (bool) $systemConfig->getValue('installed', false);
 		$maintenance = (bool) $systemConfig->getValue('maintenance', false);
-		# see core/lib/private/legacy/defaults.php and core/themes/example/defaults.php
-		# for description and defaults
+
+		// see core/lib/private/legacy/defaults.php and core/themes/example/defaults.php
+		// for description and defaults
 		$defaults = new \OCP\Defaults();
 		$values = [
-			'installed'=> $installed ? 'true' : 'false',
-			'maintenance' => $maintenance ? 'true' : 'false',
-			'needsDbUpgrade' => self::needUpgrade() ? 'true' : 'false',
+			'installed'=> $installed ? true : false,
+			'maintenance' => $maintenance ? true : false,
+			'needsDbUpgrade' => self::needUpgrade() ? true : false,
 			'version' => '',
 			'versionstring' => '',
 			'edition' => '',
 			'productname' => ''];
 
+		// expose version and servername details
 		if ($includeVersion || (bool) $systemConfig->getValue('version.hide', false) === false) {
-			$values['version'] = implode('.', self::getVersion());
+			$values['version'] = \implode('.', self::getVersion());
 			$values['versionstring'] = \OC_Util::getVersionString();
 			$values['edition'] = \OC_Util::getEditionString();
 			$values['productname'] = $defaults->getName();
+			// expose the servername only if allowed via version, but never when called via status.php
+			if ($serverHide === false) {
+				$values['hostname'] = \gethostname();
+			}
 		}
 
 		return $values;
+	}
+
+	/**
+	 * Returns the protocol, domain and port as string in a normalized
+	 * format for easier comparison.
+	 * Example: "HTTPS://HOST.tld:8080" is returned as "https://host.tld:8080"
+	 *
+	 * If no port was specified, it will add the default port
+	 * of the specified protocol (80 for http or 443 for https)
+	 *
+	 * @param string $url full url
+	 * @return string protocol, domain and port as string
+	 * @since 10.0.5
+	 */
+	public static function getFullDomain($url) {
+		$parts = \parse_url($url);
+		if ($parts === false) {
+			throw new \InvalidArgumentException('Invalid url "' . $url . '"');
+		}
+		if (!isset($parts['scheme']) || !isset($parts['host'])) {
+			throw new \InvalidArgumentException('Invalid url "' . $url . '"');
+		}
+		$protocol = \strtolower($parts['scheme']);
+		$host = \strtolower($parts['host']);
+		$port = null;
+		if ($protocol === 'http') {
+			$port = 80;
+		} elseif ($protocol === 'https') {
+			$port = 443;
+		} else {
+			throw new \InvalidArgumentException('Only http based URLs supported');
+		}
+
+		if (isset($parts['port']) && $port !== '') {
+			$port = $parts['port'];
+		}
+
+		return $protocol . '://' . \strtolower($host) . ':' . $port;
+	}
+
+	/**
+	 * Check whether the given URLs have the same protocol, domain and port.
+	 * This is useful to check a browser's cross-domain situation.
+	 * If this method returns false, a browser would consider both URLs to be
+	 * a cross-domain situation and would require a CORS setup.
+	 *
+	 * @param string $url1
+	 * @param string $url2
+	 *
+	 * @return bool true if both URLs have the same protocol, domain and port
+	 *
+	 * @since 10.0.5
+	 */
+	public static function isSameDomain($url1, $url2) {
+		return self::getFullDomain($url1) === self::getFullDomain($url2);
 	}
 }

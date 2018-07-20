@@ -2,11 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
-<<<<<<< HEAD:apps/dav/lib/Capabilities.php
- * @copyright Copyright (c) 2016, ownCloud GmbH
-=======
- * @copyright Copyright (c) 2017, ownCloud GmbH
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e:apps/dav/lib/Capabilities.php
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,17 +19,19 @@
  *
  */
 
-
 namespace OCA\DAV;
 
 use OCP\Capabilities\ICapability;
 
 class Capabilities implements ICapability {
-
 	public function getCapabilities() {
 		return [
 			'dav' => [
 				'chunking' => '1.0',
+				'zsync' => '1.0',
+				'reports' => [
+					'search-files',
+				],
 			]
 		];
 	}

@@ -2,7 +2,7 @@
 /**
  * @author Tom Needham <tom@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -46,6 +46,7 @@ class Mail implements ISettings {
 	public function getPanel() {
 		$template = new Template('settings', 'panels/admin/mail');
 		// Should we display sendmail as an option?
+		$template->assign('read-only', $this->config->isSystemConfigReadOnly());
 		$template->assign('sendmail_is_available', $this->helper->findBinaryPath('sendmail'));
 		$template->assign('loglevel', $this->config->getSystemValue("loglevel", 2));
 		$template->assign('mail_domain', $this->config->getSystemValue("mail_domain", ''));
@@ -64,5 +65,4 @@ class Mail implements ISettings {
 	public function getSectionID() {
 		return 'general';
 	}
-
 }

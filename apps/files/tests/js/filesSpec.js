@@ -2,7 +2,7 @@
 * ownCloud
 *
 * @author Vincent Petry
-* @copyright 2014 Vincent Petry <pvince81@owncloud.com>
+* @copyright Copyright (c) 2014 Vincent Petry <pvince81@owncloud.com>
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -59,6 +59,10 @@ describe('OCA.Files.Files tests', function() {
 				'.. ',
 				'. ',
 				' .',
+				'/',
+				'folder/',
+				'/file',
+				'folder/file',
 				'foo.part',
 				'bar.filepart'
 			];

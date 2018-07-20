@@ -5,7 +5,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -52,6 +52,8 @@ class Collation implements IRepairStep {
 
 	/**
 	 * Fix mime types
+	 *
+	 * @param IOutput $output
 	 */
 	public function run(IOutput $output) {
 		if (!$this->connection->getDatabasePlatform() instanceof MySqlPlatform) {
@@ -82,6 +84,7 @@ class Collation implements IRepairStep {
 	 * @return string[]
 	 */
 	protected function getAllNonUTF8BinTables(IDBConnection $connection) {
+		$dbPrefix = $this->config->getSystemValue("dbtableprefix");
 		$dbName = $this->config->getSystemValue("dbname");
 		$characterSet = $this->config->getSystemValue('mysql.utf8mb4', false) ? 'utf8mb4' : 'utf8';
 
@@ -91,8 +94,8 @@ class Collation implements IRepairStep {
 			"	FROM INFORMATION_SCHEMA . COLUMNS" .
 			"	WHERE TABLE_SCHEMA = ?" .
 			"	AND (COLLATION_NAME <> '" . $characterSet . "_bin' OR CHARACTER_SET_NAME <> '" . $characterSet . "')" .
-			"	AND TABLE_NAME LIKE \"*PREFIX*%\"",
-			[$dbName]
+			"	AND TABLE_NAME LIKE ?",
+			[$dbName, $dbPrefix.'%']
 		);
 		$rows = $statement->fetchAll();
 		$result = [];
@@ -106,15 +109,14 @@ class Collation implements IRepairStep {
 			"	FROM INFORMATION_SCHEMA . TABLES" .
 			"	WHERE TABLE_SCHEMA = ?" .
 			"	AND TABLE_COLLATION <> '" . $characterSet . "_bin'" .
-			"	AND TABLE_NAME LIKE \"*PREFIX*%\"",
-			[$dbName]
+			"	AND TABLE_NAME LIKE ?",
+			[$dbName, $dbPrefix.'%']
 		);
 		$rows = $statement->fetchAll();
 		foreach ($rows as $row) {
 			$result[$row['table']] = true;
 		}
 
-		return array_keys($result);
+		return \array_keys($result);
 	}
 }
-

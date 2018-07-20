@@ -6,7 +6,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,12 +23,12 @@
  *
  */
 
-
 namespace OCA\FederatedFileSharing;
 
 use OCP\AppFramework\Http;
 use OCP\BackgroundJob\IJobList;
 use OCP\Http\Client\IClientService;
+use OCP\IConfig;
 
 class Notifications {
 	const RESPONSE_FORMAT = 'json'; // default response format for ocs calls
@@ -45,22 +45,28 @@ class Notifications {
 	/** @var IJobList  */
 	private $jobList;
 
+	/** @var IConfig */
+	private $config;
+
 	/**
 	 * @param AddressHandler $addressHandler
 	 * @param IClientService $httpClientService
 	 * @param DiscoveryManager $discoveryManager
 	 * @param IJobList $jobList
+	 * @param IConfig $config
 	 */
 	public function __construct(
 		AddressHandler $addressHandler,
 		IClientService $httpClientService,
 		DiscoveryManager $discoveryManager,
-		IJobList $jobList
+		IJobList $jobList,
+		IConfig $config
 	) {
 		$this->addressHandler = $addressHandler;
 		$this->httpClientService = $httpClientService;
 		$this->discoveryManager = $discoveryManager;
 		$this->jobList = $jobList;
+		$this->config = $config;
 	}
 
 	/**
@@ -79,7 +85,6 @@ class Notifications {
 	 * @throws \OC\ServerNotAvailableException
 	 */
 	public function sendRemoteShare($token, $shareWith, $name, $remote_id, $owner, $ownerFederatedId, $sharedBy, $sharedByFederatedId) {
-
 		list($user, $remote) = $this->addressHandler->splitUserRemote($shareWith);
 
 		if ($user && $remote) {
@@ -100,13 +105,12 @@ class Notifications {
 
 			$url = $this->addressHandler->removeProtocolFromUrl($url);
 			$result = $this->tryHttpPostToShareEndpoint($url, '', $fields);
-			$status = json_decode($result['result'], true);
+			$status = \json_decode($result['result'], true);
 
 			if ($result['success'] && ($status['ocs']['meta']['statuscode'] === 100 || $status['ocs']['meta']['statuscode'] === 200)) {
 				\OC_Hook::emit('OCP\Share', 'federated_share_added', ['server' => $remote]);
 				return true;
 			}
-
 		}
 
 		return false;
@@ -122,11 +126,9 @@ class Notifications {
 	 * @param string $shareWith
 	 * @param int $permission
 	 * @return bool
-	 * @throws \OC\HintException
-	 * @throws \OC\ServerNotAvailableException
+	 * @throws \Exception
 	 */
 	public function requestReShare($token, $id, $shareId, $remote, $shareWith, $permission) {
-
 		$fields = [
 			'shareWith' => $shareWith,
 			'token' => $token,
@@ -135,12 +137,12 @@ class Notifications {
 		];
 
 		$url = $this->addressHandler->removeProtocolFromUrl($remote);
-		$result = $this->tryHttpPostToShareEndpoint(rtrim($url, '/'), '/' . $id . '/reshare', $fields);
-		$status = json_decode($result['result'], true);
+		$result = $this->tryHttpPostToShareEndpoint(\rtrim($url, '/'), '/' . $id . '/reshare', $fields);
+		$status = \json_decode($result['result'], true);
 
 		$httpRequestSuccessful = $result['success'];
 		$ocsCallSuccessful = $status['ocs']['meta']['statuscode'] === 100 || $status['ocs']['meta']['statuscode'] === 200;
-		$validToken = isset($status['ocs']['data']['token']) && is_string($status['ocs']['data']['token']);
+		$validToken = isset($status['ocs']['data']['token']) && \is_string($status['ocs']['data']['token']);
 		$validRemoteId = isset($status['ocs']['data']['remoteId']);
 
 		if ($httpRequestSuccessful && $ocsCallSuccessful && $validToken && $validRemoteId) {
@@ -162,7 +164,7 @@ class Notifications {
 	 * @return bool
 	 */
 	public function sendRemoteUnShare($remote, $id, $token) {
-		$this->sendUpdateToRemote($remote, $id, $token, 'unshare');
+		return $this->sendUpdateToRemote($remote, $id, $token, 'unshare');
 	}
 
 	/**
@@ -174,7 +176,7 @@ class Notifications {
 	 * @return bool
 	 */
 	public function sendRevokeShare($remote, $id, $token) {
-		$this->sendUpdateToRemote($remote, $id, $token, 'revoke');
+		return $this->sendUpdateToRemote($remote, $id, $token, 'revoke');
 	}
 
 	/**
@@ -187,12 +189,12 @@ class Notifications {
 	 * @return bool
 	 */
 	public function sendPermissionChange($remote, $remoteId, $token, $permissions) {
-		$this->sendUpdateToRemote($remote, $remoteId, $token, 'permissions', ['permissions' => $permissions]);
+		return $this->sendUpdateToRemote($remote, $remoteId, $token, 'permissions', ['permissions' => $permissions]);
 	}
 
 	/**
 	 * forward accept reShare to remote server
-	 * 
+	 *
 	 * @param string $remote
 	 * @param int $remoteId
 	 * @param string $token
@@ -222,17 +224,17 @@ class Notifications {
 	 * @param array $data
 	 * @param int $try
 	 * @return boolean
+	 * @throws \Exception
 	 */
 	public function sendUpdateToRemote($remote, $remoteId, $token, $action, $data = [], $try = 0) {
-
 		$fields = ['token' => $token];
 		foreach ($data as $key => $value) {
 			$fields[$key] = $value;
 		}
 
 		$url = $this->addressHandler->removeProtocolFromUrl($remote);
-		$result = $this->tryHttpPostToShareEndpoint(rtrim($url, '/'), '/' . $remoteId . '/' . $action, $fields);
-		$status = json_decode($result['result'], true);
+		$result = $this->tryHttpPostToShareEndpoint(\rtrim($url, '/'), '/' . $remoteId . '/' . $action, $fields);
+		$status = \json_decode($result['result'], true);
 
 		if ($result['success'] &&
 			($status['ocs']['meta']['statuscode'] === 100 ||
@@ -248,7 +250,7 @@ class Notifications {
 					'remoteId' => $remoteId,
 					'token' => $token,
 					'action' => $action,
-					'data' => json_encode($data),
+					'data' => \json_encode($data),
 					'try' => $try,
 					'lastRun' => $this->getTimestamp()
 				]
@@ -258,14 +260,13 @@ class Notifications {
 		return false;
 	}
 
-
 	/**
 	 * return current timestamp
 	 *
 	 * @return int
 	 */
 	protected function getTimestamp() {
-		return time();
+		return \time();
 	}
 
 	/**
@@ -303,6 +304,10 @@ class Notifications {
 				// (flat re-shares has been introduced in ownCloud 9.1)
 				if ($e->getCode() === Http::STATUS_INTERNAL_SERVER_ERROR) {
 					throw $e;
+				}
+				$allowHttpFallback = $this->config->getSystemValue('sharing.federation.allowHttpFallback', false) === true;
+				if (!$allowHttpFallback) {
+					break;
 				}
 				$try++;
 				$protocol = 'http://';

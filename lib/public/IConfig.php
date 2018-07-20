@@ -8,7 +8,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -139,7 +139,6 @@ interface IConfig {
 	 */
 	public function deleteAppValues($appName);
 
-
 	/**
 	 * Set a user defined value
 	 *
@@ -223,4 +222,13 @@ interface IConfig {
 	 * @since 8.0.0
 	 */
 	public function getUsersForUserValue($appName, $key, $value);
+
+	/**
+	 * In some environments the system config file is readonly. Find out if this
+	 * is the case.
+	 *
+	 * @return boolean
+	 * @since 10.0.3
+	 */
+	public function isSystemConfigReadOnly();
 }

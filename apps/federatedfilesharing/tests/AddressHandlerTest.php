@@ -4,7 +4,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,9 +21,7 @@
  *
  */
 
-
 namespace OCA\FederatedFileSharing\Tests;
-
 
 use OCA\FederatedFileSharing\AddressHandler;
 use OCP\IL10N;
@@ -195,5 +193,4 @@ class AddressHandlerTest extends \Test\TestCase {
 			['http://localhost/index.php/s/AShareToken', 'http://localhost'],
 		];
 	}
-
 }

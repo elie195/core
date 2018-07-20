@@ -3,7 +3,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Morris Jobke <hey@morrisjobke.de>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -38,5 +38,4 @@ interface Share_Backend_File_Dependent extends Share_Backend {
 	 * @since 5.0.0
 	 */
 	public function getFilePath($itemSource, $uidOwner);
-
 }

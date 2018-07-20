@@ -6,7 +6,7 @@
  * @author Sergio Bertolín <sbertolin@solidgear.es>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -105,7 +105,7 @@ class DecryptAll extends Command {
 		parent::configure();
 
 		$this->setName('encryption:decrypt-all');
-		$this->setDescription('Disable server-side encryption and decrypt all files');
+		$this->setDescription('Disable server-side encryption and decrypt all files.');
 		$this->setHelp(
 			'This will disable server-side encryption and decrypt all files for '
 			. 'all users if it is supported by your encryption module. '
@@ -114,13 +114,12 @@ class DecryptAll extends Command {
 		$this->addArgument(
 			'user',
 			InputArgument::OPTIONAL,
-			'user for which you want to decrypt all files (optional)',
+			'User for whom you want to decrypt all files (optional).',
 			''
 		);
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output) {
-
 		try {
 			if ($this->encryptionManager->isEnabled() === true) {
 				$output->write('Disable server side encryption... ');
@@ -153,7 +152,7 @@ class DecryptAll extends Command {
 					$output->writeln(' aborted.');
 					$output->writeln('Server side encryption remains enabled');
 					$this->config->setAppValue('core', 'encryption_enabled', 'yes');
-				} else if ($uid !== '') {
+				} elseif ($uid !== '') {
 					$output->writeln('Server side encryption remains enabled');
 					$this->config->setAppValue('core', 'encryption_enabled', 'yes');
 				}
@@ -170,6 +169,5 @@ class DecryptAll extends Command {
 			$this->resetSingleUserAndTrashbin();
 			throw $e;
 		}
-
 	}
 }

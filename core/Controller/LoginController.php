@@ -3,9 +3,10 @@
  * @author Christoph Wurst <christoph@owncloud.com>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Lukas Reschke <lukas@statuscode.ch>
+ * @author Semih Serhat Karakaya <karakayasemi@itu.edu.tr>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -68,7 +69,7 @@ class LoginController extends Controller {
 	 * @param IURLGenerator $urlGenerator
 	 * @param Manager $twoFactorManager
 	 */
-	function __construct($appName, IRequest $request, IUserManager $userManager, IConfig $config, ISession $session,
+	public function __construct($appName, IRequest $request, IUserManager $userManager, IConfig $config, ISession $session,
 		Session $userSession, IURLGenerator $urlGenerator, Manager $twoFactorManager) {
 		parent::__construct($appName, $request);
 		$this->userManager = $userManager;
@@ -87,7 +88,7 @@ class LoginController extends Controller {
 	 */
 	public function logout() {
 		$loginToken = $this->request->getCookie('oc_token');
-		if (!is_null($loginToken)) {
+		if ($loginToken !== null) {
 			$this->config->deleteUserValue($this->userSession->getUser()->getUID(), 'login_token', $loginToken);
 		}
 		$this->userSession->logout();
@@ -107,7 +108,7 @@ class LoginController extends Controller {
 	 * @return TemplateResponse|RedirectResponse
 	 */
 	public function showLoginForm($user, $redirect_url, $remember_login) {
-		if ($this->userSession->isLoggedIn()) {
+		if (\OC_User::handleApacheAuth() || $this->userSession->isLoggedIn()) {
 			return new RedirectResponse($this->getDefaultUrl());
 		}
 
@@ -115,7 +116,7 @@ class LoginController extends Controller {
 		$loginMessages = $this->session->get('loginMessages');
 		$errors = [];
 		$messages = [];
-		if (is_array($loginMessages)) {
+		if (\is_array($loginMessages)) {
 			list($errors, $messages) = $loginMessages;
 		}
 		$this->session->remove('loginMessages');
@@ -124,7 +125,7 @@ class LoginController extends Controller {
 		}
 
 		$parameters['messages'] = $messages;
-		if (!is_null($user) && $user !== '') {
+		if ($user !== null && $user !== '') {
 			$parameters['loginName'] = $user;
 			$parameters['user_autofocus'] = false;
 		} else {
@@ -138,7 +139,7 @@ class LoginController extends Controller {
 		$parameters['canResetPassword'] = true;
 		$parameters['resetPasswordLink'] = $this->config->getSystemValue('lost_password_link', '');
 		if (!$parameters['resetPasswordLink']) {
-			if (!is_null($user) && $user !== '') {
+			if ($user !== null && $user !== '') {
 				$userObj = $this->userManager->get($user);
 				if ($userObj instanceof IUser) {
 					$parameters['canResetPassword'] = $userObj->canChangePassword();
@@ -150,19 +151,33 @@ class LoginController extends Controller {
 
 		$altLogins = OC_App::getAlternativeLogIns();
 		$altLogins2 = $this->config->getSystemValue('login.alternatives');
-		if (is_array($altLogins2) && !empty($altLogins2)) {
-			$altLogins = array_merge($altLogins, $altLogins2);
+		if (\is_array($altLogins2) && !empty($altLogins2)) {
+			$altLogins = \array_merge($altLogins, $altLogins2);
 		}
 		$parameters['alt_login'] = $altLogins;
 		$parameters['rememberLoginAllowed'] = OC_Util::rememberLoginAllowed();
 		$parameters['rememberLoginState'] = !empty($remember_login) ? $remember_login : 0;
 
-		if (!is_null($user) && $user !== '') {
+		if ($user !== null && $user !== '') {
 			$parameters['loginName'] = $user;
 			$parameters['user_autofocus'] = false;
 		} else {
 			$parameters['loginName'] = '';
 			$parameters['user_autofocus'] = true;
+		}
+
+		/**
+		 * If redirect_url is not empty and remember_login is null and
+		 * user not logged in and check if the string
+		 * webroot+"/index.php/f/" is in redirect_url then
+		 * user is trying to access files for which he needs to login.
+		 */
+
+		if (!empty($redirect_url) && ($remember_login === null) &&
+			($this->userSession->isLoggedIn() === false) &&
+			(\strpos($this->urlGenerator->getAbsoluteURL(\urldecode($redirect_url)),
+				$this->urlGenerator->getAbsoluteURL('/index.php/f/')) !== false)) {
+			$parameters['accessLink'] = true;
 		}
 
 		return new TemplateResponse(
@@ -177,40 +192,55 @@ class LoginController extends Controller {
 	 * @param string $user
 	 * @param string $password
 	 * @param string $redirect_url
+	 * @param string $timezone
 	 * @return RedirectResponse
+	 * @throws \OCP\PreConditionNotMetException
+	 * @throws \OC\User\LoginException
 	 */
-	public function tryLogin($user, $password, $redirect_url) {
+	public function tryLogin($user, $password, $redirect_url, $timezone = null) {
 		$originalUser = $user;
 		// TODO: Add all the insane error handling
-		/* @var $loginResult IUser */
-		$loginResult = $this->userManager->checkPassword($user, $password);
-		if ($loginResult === false) {
+		$loginResult = $this->userSession->login($user, $password);
+		if ($loginResult !== true) {
 			$users = $this->userManager->getByEmail($user);
 			// we only allow login by email if unique
-			if (count($users) === 1) {
+			if (\count($users) === 1) {
 				$user = $users[0]->getUID();
-				$loginResult = $this->userManager->checkPassword($user, $password);
+				$loginResult = $this->userSession->login($user, $password);
 			}
 		}
-		if ($loginResult === false) {
+		if ($loginResult !== true) {
 			$this->session->set('loginMessages', [
 				['invalidpassword'], []
 			]);
+			$args = [];
 			// Read current user and append if possible - we need to return the unmodified user otherwise we will leak the login name
-			$args = !is_null($user) ? ['user' => $originalUser] : [];
+			if ($user !== null) {
+				$args['user'] = $originalUser;
+			}
+			// keep the redirect url
+			if (!empty($redirect_url)) {
+				$args['redirect_url'] = $redirect_url;
+			}
 			return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm', $args));
 		}
+		/* @var $userObject IUser */
+		$userObject = $this->userSession->getUser();
 		// TODO: remove password checks from above and let the user session handle failures
 		// requires https://github.com/owncloud/core/pull/24616
-		$this->userSession->login($user, $password);
-		$this->userSession->createSessionToken($this->request, $loginResult->getUID(), $user, $password);
+		$this->userSession->createSessionToken($this->request, $userObject->getUID(), $user, $password);
 
 		// User has successfully logged in, now remove the password reset link, when it is available
-		$this->config->deleteUserValue($loginResult->getUID(), 'owncloud', 'lostpassword');
+		$this->config->deleteUserValue($userObject->getUID(), 'owncloud', 'lostpassword');
 
-		if ($this->twoFactorManager->isTwoFactorAuthenticated($loginResult)) {
-			$this->twoFactorManager->prepareTwoFactorLogin($loginResult);
-			if (!is_null($redirect_url)) {
+		// Save the timezone
+		if ($timezone !== null) {
+			$this->config->setUserValue($userObject->getUID(), 'core', 'timezone', $timezone);
+		}
+
+		if ($this->twoFactorManager->isTwoFactorAuthenticated($userObject)) {
+			$this->twoFactorManager->prepareTwoFactorLogin($userObject);
+			if ($redirect_url !== null) {
 				return new RedirectResponse($this->urlGenerator->linkToRoute('core.TwoFactorChallenge.selectChallenge', [
 					'redirect_url' => $redirect_url
 				]));
@@ -218,11 +248,11 @@ class LoginController extends Controller {
 			return new RedirectResponse($this->urlGenerator->linkToRoute('core.TwoFactorChallenge.selectChallenge'));
 		}
 
-		if (!is_null($redirect_url) && $this->userSession->isLoggedIn()) {
-			$location = $this->urlGenerator->getAbsoluteURL(urldecode($redirect_url));
+		if ($redirect_url !== null && $this->userSession->isLoggedIn()) {
+			$location = $this->urlGenerator->getAbsoluteURL(\urldecode($redirect_url));
 			// Deny the redirect if the URL contains a @
 			// This prevents unvalidated redirects like ?redirect_url=:user@domain.com
-			if (strpos($location, '@') === false) {
+			if (\strpos($location, '@') === false) {
 				return new RedirectResponse($location);
 			}
 		}
@@ -237,4 +267,10 @@ class LoginController extends Controller {
 		return OC_Util::getDefaultPageUrl();
 	}
 
+	/**
+	 * @return ISession
+	 */
+	public function getSession() {
+		return $this->session;
+	}
 }

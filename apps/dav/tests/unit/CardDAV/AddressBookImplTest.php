@@ -5,7 +5,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,9 +22,7 @@
  *
  */
 
-
 namespace OCA\DAV\Tests\unit\CardDAV;
-
 
 use OCA\DAV\CardDAV\AddressBook;
 use OCA\DAV\CardDAV\AddressBookImpl;
@@ -102,10 +100,10 @@ class AddressBookImplTest extends TestCase {
 			->getMock();
 
 		$pattern = 'pattern';
-		$searchProperties = 'properties';
+		$searchProperties = ['properties'];
 
 		$this->backend->expects($this->once())->method('search')
-			->with($this->addressBookInfo['id'], $pattern, $searchProperties)
+			->with($this->addressBookInfo['id'], $pattern, $searchProperties, 10, 0)
 			->willReturn(
 				[
 					['uri' => 'foo.vcf', 'carddata' => 'cardData1'],
@@ -121,9 +119,9 @@ class AddressBookImplTest extends TestCase {
 				['bar.vcf', $this->vCard]
 			)->willReturn('vCard');
 
-		$result = $addressBookImpl->search($pattern, $searchProperties, []);
-		$this->assertTrue((is_array($result)));
-		$this->assertSame(2, count($result));
+		$result = $addressBookImpl->search($pattern, $searchProperties, [], 10, 0);
+		$this->assertInternalType('array', $result);
+		$this->assertCount(2, $result);
 	}
 
 	/**
@@ -132,7 +130,6 @@ class AddressBookImplTest extends TestCase {
 	 * @param array $properties
 	 */
 	public function testCreate($properties) {
-
 		$uid = 'uid';
 
 		/** @var \PHPUnit_Framework_MockObject_MockObject | AddressBookImpl $addressBookImpl */
@@ -152,7 +149,7 @@ class AddressBookImplTest extends TestCase {
 			->willReturn($uid);
 		$addressBookImpl->expects($this->once())->method('createEmptyVCard')
 			->with($uid)->willReturn($this->vCard);
-		$this->vCard->expects($this->exactly(count($properties)))
+		$this->vCard->expects($this->exactly(\count($properties)))
 			->method('createProperty');
 		$this->backend->expects($this->once())->method('createCard');
 		$this->backend->expects($this->never())->method('updateCard');
@@ -171,7 +168,6 @@ class AddressBookImplTest extends TestCase {
 	}
 
 	public function testUpdate() {
-
 		$uid = 'uid';
 		$uri = 'bla.vcf';
 		$properties = ['URI' => $uri, 'UID' => $uid, 'FN' => 'John Doe'];
@@ -196,7 +192,7 @@ class AddressBookImplTest extends TestCase {
 			->willReturn(['carddata' => 'data']);
 		$addressBookImpl->expects($this->once())->method('readCard')
 			->with('data')->willReturn($this->vCard);
-		$this->vCard->expects($this->exactly(count($properties)))
+		$this->vCard->expects($this->exactly(\count($properties)))
 			->method('createProperty');
 		$this->backend->expects($this->never())->method('createCard');
 		$this->backend->expects($this->once())->method('updateCard');
@@ -278,7 +274,7 @@ class AddressBookImplTest extends TestCase {
 		// simulate that 'uid0' already exists, so the second uid will be returned
 		$this->backend->expects($this->exactly(2))->method('getContact')
 			->willReturnCallback(
-				function($id, $uid) {
+				function ($id, $uid) {
 					return ($uid === 'uid0.vcf');
 				}
 			);
@@ -286,7 +282,6 @@ class AddressBookImplTest extends TestCase {
 		$this->assertSame('uid1',
 			$this->invokePrivate($addressBookImpl, 'createUid', [])
 		);
-
 	}
 
 	public function testCreateEmptyVCard() {
@@ -300,5 +295,4 @@ class AddressBookImplTest extends TestCase {
 
 		$this->assertSame($expectedVCardSerialized, $resultSerialized);
 	}
-
 }

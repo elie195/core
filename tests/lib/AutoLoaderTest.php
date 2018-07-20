@@ -21,7 +21,7 @@ class AutoLoaderTest extends TestCase {
 
 	public function testLegacyPath() {
 		$this->assertEquals([
-			\OC::$SERVERROOT . '/lib/private/legacy/files.php', 
+			\OC::$SERVERROOT . '/lib/private/legacy/files.php',
 		], $this->loader->findClass('OC_Files'));
 	}
 
@@ -33,7 +33,7 @@ class AutoLoaderTest extends TestCase {
 
 	public function testLoadCore() {
 		$this->assertEquals([
-			\OC::$SERVERROOT . '/lib/private/legacy/foo/bar.php', 
+			\OC::$SERVERROOT . '/lib/private/legacy/foo/bar.php',
 		], $this->loader->findClass('OC_Foo_Bar'));
 	}
 
@@ -43,7 +43,7 @@ class AutoLoaderTest extends TestCase {
 
 	public function testLoadAppNamespace() {
 		$result = $this->loader->findClass('OCA\Files\Foobar');
-		$this->assertEquals(2, count($result));
+		$this->assertCount(2, $result);
 		$this->assertStringEndsWith('apps/files/foobar.php', $result[0]);
 		$this->assertStringEndsWith('apps/files/lib/foobar.php', $result[1]);
 	}

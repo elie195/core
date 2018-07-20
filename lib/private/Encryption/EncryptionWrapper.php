@@ -3,7 +3,7 @@
  * @author Björn Schießle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -20,9 +20,7 @@
  *
  */
 
-
 namespace OC\Encryption;
-
 
 use OC\Memcache\ArrayCache;
 use OC\Files\Filesystem;
@@ -84,7 +82,6 @@ class EncryptionWrapper {
 		if (!$storage->instanceOfStorage('OCA\Files_Sharing\SharedStorage')
 			&& !$storage->instanceOfStorage('OCA\Files_Sharing\External\Storage')
 			&& !$storage->instanceOfStorage('OC\Files\Storage\OwnCloud')) {
-
 			$user = \OC::$server->getUserSession()->getUser();
 			$mountManager = Filesystem::getMountManager();
 			$uid = $user ? $user->getUID() : null;
@@ -121,5 +118,4 @@ class EncryptionWrapper {
 			return $storage;
 		}
 	}
-
 }

@@ -22,7 +22,7 @@
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -44,10 +44,9 @@ use bantu\IniGetWrapper\IniGetWrapper;
 use OC\AppFramework\Http\Request;
 use OC\AppFramework\Db\Db;
 use OC\AppFramework\Utility\TimeFactory;
+use OC\Authentication\AccountModule\Manager as AccountModuleManager;
 use OC\Command\AsyncBus;
 use OC\Diagnostics\EventLogger;
-use OC\Diagnostics\NullEventLogger;
-use OC\Diagnostics\NullQueryLogger;
 use OC\Diagnostics\QueryLogger;
 use OC\Files\Config\UserMountCache;
 use OC\Files\Config\UserMountCacheListener;
@@ -83,14 +82,27 @@ use OC\Session\CryptoWrapper;
 use OC\Session\Memory;
 use OC\Settings\Panels\Helper;
 use OC\Settings\SettingsManager;
+use OC\Shutdown\ShutDownManager;
 use OC\Tagging\TagMapper;
 use OC\Theme\ThemeService;
 use OC\User\AccountMapper;
 use OC\User\AccountTermMapper;
+use OC\User\Session;
+use OC\User\SyncService;
+use OCP\App\IServiceLoader;
+use OCP\AppFramework\QueryException;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Events\EventEmitterTrait;
+use OCP\IConfig;
 use OCP\IL10N;
+use OCP\ILogger;
 use OCP\IServerContainer;
 use OCP\ISession;
+use OCP\IUser;
 use OCP\Security\IContentSecurityPolicyManager;
+use OCP\Shutdown\IShutdownManager;
+use OCP\Theme\IThemeService;
+use OCP\Util\UserSearch;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use OC\Files\External\StoragesBackendService;
@@ -98,6 +110,8 @@ use OC\Files\External\Service\UserStoragesService;
 use OC\Files\External\Service\UserGlobalStoragesService;
 use OC\Files\External\Service\GlobalStoragesService;
 use OC\Files\External\Service\DBConfigService;
+use OC\Http\Client\WebDavClientService;
+use Symfony\Component\EventDispatcher\GenericEvent;
 
 /**
  * Class Server
@@ -106,9 +120,16 @@ use OC\Files\External\Service\DBConfigService;
  *
  * TODO: hookup all manager classes
  */
-class Server extends ServerContainer implements IServerContainer {
+class Server extends ServerContainer implements IServerContainer, IServiceLoader {
+	use EventEmitterTrait;
 	/** @var string */
 	private $webRoot;
+
+	/**
+	 * cache the logger to prevent querying it over and over again
+	 * @var ILogger;
+	 */
+	private $logger;
 
 	/**
 	 * @param string $webRoot
@@ -118,7 +139,7 @@ class Server extends ServerContainer implements IServerContainer {
 		parent::__construct();
 		$this->webRoot = $webRoot;
 
-		$this->registerService('SettingsManager', function(Server $c) {
+		$this->registerService('SettingsManager', function (Server $c) {
 			return new SettingsManager(
 				$c->getL10N('lib'),
 				$c->getAppManager(),
@@ -142,7 +163,9 @@ class Server extends ServerContainer implements IServerContainer {
 		});
 
 		$this->registerService('PreviewManager', function (Server $c) {
-			return new PreviewManager($c->getConfig());
+			return new PreviewManager($c->getConfig(),
+				$c->getLazyRootFolder(),
+				$c->getUserSession());
 		});
 
 		$this->registerService('EncryptionManager', function (Server $c) {
@@ -216,21 +239,38 @@ class Server extends ServerContainer implements IServerContainer {
 			$connector->viewToNode();
 			return $root;
 		});
-		$this->registerService('LazyRootFolder', function(Server $c) {
-			return new LazyRoot(function() use ($c) {
+		$this->registerService('LazyRootFolder', function (Server $c) {
+			return new LazyRoot(function () use ($c) {
 				return $c->getRootFolder();
 			});
 		});
-		$this->registerService('AccountMapper', function(Server $c) {
-			return new AccountMapper($c->getDatabaseConnection(), new AccountTermMapper($c->getDatabaseConnection()));
+		$this->registerService('AccountMapper', function (Server $c) {
+			return new AccountMapper($c->getConfig(), $c->getDatabaseConnection(), new AccountTermMapper($c->getDatabaseConnection()));
 		});
 		$this->registerService('UserManager', function (Server $c) {
-			$config = $c->getConfig();
-			$logger = $c->getLogger();
-			return new \OC\User\Manager($config, $logger, $c->getAccountMapper());
+			return new \OC\User\Manager(
+				$c->getConfig(),
+				$c->getLogger(),
+				$c->getAccountMapper(),
+				new SyncService(
+					$c->getConfig(),
+					$c->getLogger(),
+					$c->getAccountMapper()
+				),
+				new UserSearch(
+					$c->getConfig()
+				)
+			);
 		});
 		$this->registerService('GroupManager', function (Server $c) {
-			$groupManager = new \OC\Group\Manager($this->getUserManager());
+			$groupManager = new \OC\Group\Manager(
+				$this->getUserManager(),
+				new UserSearch(
+					$c->getConfig()
+				),
+				$this->getEventDispatcher()
+			);
+
 			$groupManager->listen('\OC\Group', 'preCreate', function ($gid) {
 				\OC_Hook::emit('OC_Group', 'pre_createGroup', ['run' => true, 'gid' => $gid]);
 			});
@@ -266,6 +306,10 @@ class Server extends ServerContainer implements IServerContainer {
 			return new \OC\Authentication\Token\DefaultTokenProvider($mapper, $crypto, $config, $logger, $timeFactory);
 		});
 		$this->registerAlias('OC\Authentication\Token\IProvider', 'OC\Authentication\Token\DefaultTokenProvider');
+		$this->registerService('TimeFactory', function () {
+			return new TimeFactory();
+		});
+		$this->registerAlias('OCP\AppFramework\Utility\ITimeFactory', 'TimeFactory');
 		$this->registerService('UserSession', function (Server $c) {
 			$manager = $c->getUserManager();
 			$session = new \OC\Session\Memory('');
@@ -278,7 +322,10 @@ class Server extends ServerContainer implements IServerContainer {
 				$defaultTokenProvider = null;
 			}
 
-			$userSession = new \OC\User\Session($manager, $session, $timeFactory, $defaultTokenProvider, $c->getConfig());
+			$userSyncService = new SyncService($c->getConfig(), $c->getLogger(), $c->getAccountMapper());
+
+			$userSession = new Session($manager, $session, $timeFactory,
+				$defaultTokenProvider, $c->getConfig(), $c->getLogger(), $this, $userSyncService, $c->getEventDispatcher());
 			$userSession->listen('\OC\User', 'preCreateUser', function ($uid, $password) {
 				\OC_Hook::emit('OC_User', 'pre_createUser', ['run' => true, 'uid' => $uid, 'password' => $password]);
 			});
@@ -293,6 +340,9 @@ class Server extends ServerContainer implements IServerContainer {
 			$userSession->listen('\OC\User', 'postDelete', function ($user) {
 				/** @var $user \OC\User\User */
 				\OC_Hook::emit('OC_User', 'post_deleteUser', ['uid' => $user->getUID()]);
+				$this->emittingCall(function () use (&$user) {
+					return true;
+				}, ['before' => [], 'after' => ['uid' => $user->getUID()]], 'user', 'delete');
 			});
 			$userSession->listen('\OC\User', 'preSetPassword', function ($user, $password, $recoveryPassword) {
 				/** @var $user \OC\User\User */
@@ -309,17 +359,27 @@ class Server extends ServerContainer implements IServerContainer {
 				/** @var $user \OC\User\User */
 				\OC_Hook::emit('OC_User', 'post_login', ['run' => true, 'uid' => $user->getUID(), 'password' => $password]);
 			});
+			$userSession->listen('\OC\User', 'preLogout', function () {
+				$event = new GenericEvent(null, []);
+				\OC::$server->getEventDispatcher()->dispatch('\OC\User\Session::pre_logout', $event);
+			});
 			$userSession->listen('\OC\User', 'logout', function () {
 				\OC_Hook::emit('OC_User', 'logout', []);
 			});
 			$userSession->listen('\OC\User', 'changeUser', function ($user, $feature, $value) {
 				/** @var $user \OC\User\User */
 				\OC_Hook::emit('OC_User', 'changeUser', ['run' => true, 'user' => $user, 'feature' => $feature, 'value' => $value]);
+				$this->emittingCall(function () use (&$user, &$feature, &$value) {
+					return true;
+				}, [
+					'before' => ['run' => true, 'user' => $user, 'feature' => $feature, 'value' => $value],
+					'after' => ['run' => true, 'user' => $user, 'feature' => $feature, 'value' => $value]
+				], 'user', 'featurechange');
 			});
 			return $userSession;
 		});
 
-		$this->registerService('\OC\Authentication\TwoFactorAuth\Manager', function (Server $c) {
+		$this->registerService('OC\Authentication\TwoFactorAuth\Manager', function (Server $c) {
 			return new \OC\Authentication\TwoFactorAuth\Manager($c->getAppManager(), $c->getSession(), $c->getConfig());
 		});
 
@@ -330,9 +390,11 @@ class Server extends ServerContainer implements IServerContainer {
 				$c->getUserSession(),
 				$c->getGroupManager());
 		});
+		$this->registerAlias(IConfig::class, 'AllConfig');
 		$this->registerService('AllConfig', function (Server $c) {
 			return new \OC\AllConfig(
-				$c->getSystemConfig()
+				$c->getSystemConfig(),
+				$c->getEventDispatcher()
 			);
 		});
 		$this->registerService('SystemConfig', function ($c) use ($config) {
@@ -345,6 +407,7 @@ class Server extends ServerContainer implements IServerContainer {
 			return new \OC\L10N\Factory(
 				$c->getConfig(),
 				$c->getRequest(),
+				$c->getThemeService(),
 				$c->getUserSession(),
 				\OC::$SERVERROOT
 			);
@@ -368,13 +431,13 @@ class Server extends ServerContainer implements IServerContainer {
 		$this->registerService('MemCacheFactory', function (Server $c) {
 			$config = $c->getConfig();
 
-			if ($config->getSystemValue('installed', false) && !(defined('PHPUNIT_RUN') && PHPUNIT_RUN)) {
+			if ($config->getSystemValue('installed', false) && !(\defined('PHPUNIT_RUN') && PHPUNIT_RUN)) {
 				$v = \OC_App::getAppVersions();
-				$v['core'] = md5(file_get_contents(\OC::$SERVERROOT . '/version.php'));
-				$version = implode(',', $v);
+				$v['core'] = \md5(\file_get_contents(\OC::$SERVERROOT . '/version.php'));
+				$version = \implode(',', $v);
 				$instanceId = \OC_Util::getInstanceId();
 				$path = \OC::$SERVERROOT;
-				$prefix = md5($instanceId . '-' . $version . '-' . $path);
+				$prefix = \md5($instanceId . '-' . $version . '-' . $path);
 				return new \OC\Memcache\Factory($prefix, $c->getLogger(),
 					$config->getSystemValue('memcache.local', null),
 					$config->getSystemValue('memcache.distributed', null),
@@ -402,15 +465,16 @@ class Server extends ServerContainer implements IServerContainer {
 		$this->registerService('AvatarManager', function (Server $c) {
 			return new AvatarManager(
 				$c->getUserManager(),
-				$c->getRootFolder(),
+				$c->getLazyRootFolder(),  // initialize the root folder lazily
 				$c->getL10N('lib'),
 				$c->getLogger()
 			);
 		});
+		$this->registerAlias(ILogger::class, 'Logger');
 		$this->registerService('Logger', function (Server $c) {
 			$logClass = $c->query('AllConfig')->getSystemValue('log_type', 'owncloud');
-			$logger = 'OC\\Log\\' . ucfirst($logClass);
-			call_user_func([$logger, 'init']);
+			$logger = 'OC\\Log\\' . \ucfirst($logClass);
+			\call_user_func([$logger, 'init']);
 
 			return new Log($logger);
 		});
@@ -483,6 +547,14 @@ class Server extends ServerContainer implements IServerContainer {
 				new \OC\Security\CertificateManager($uid, new View(), $c->getConfig())
 			);
 		});
+		$this->registerService('WebDavClientService', function (Server $c) {
+			$user = \OC_User::getUser();
+			$uid = $user ? $user : null;
+			return new WebDavClientService(
+				$c->getConfig(),
+				new \OC\Security\CertificateManager($uid, new View(), $c->getConfig())
+			);
+		});
 		$this->registerService('EventLogger', function (Server $c) {
 			$eventLogger = new EventLogger();
 			if ($c->getSystemConfig()->getValue('debug', false)) {
@@ -506,12 +578,20 @@ class Server extends ServerContainer implements IServerContainer {
 			);
 		});
 		$this->registerService('AppManager', function (Server $c) {
+			if (\OC::$server->getSystemConfig()->getValue('installed', false)) {
+				$appConfig = $c->getAppConfig();
+				$groupManager = $c->getGroupManager();
+			} else {
+				$appConfig = null;
+				$groupManager = null;
+			}
 			return new \OC\App\AppManager(
 				$c->getUserSession(),
-				$c->getAppConfig(),
-				$c->getGroupManager(),
+				$appConfig,
+				$groupManager,
 				$c->getMemCacheFactory(),
-				$c->getEventDispatcher()
+				$c->getEventDispatcher(),
+				$c->getConfig()
 			);
 		});
 		$this->registerService('DateTimeZone', function (Server $c) {
@@ -549,6 +629,7 @@ class Server extends ServerContainer implements IServerContainer {
 			// external storage
 			if ($config->getAppValue('core', 'enable_external_storage', 'no') === 'yes') {
 				$manager->registerProvider(new \OC\Files\External\ConfigAdapter(
+					$c->query('AllConfig'),
 					$c->query('UserStoragesService'),
 					$c->query('UserGlobalStoragesService')
 				));
@@ -569,7 +650,7 @@ class Server extends ServerContainer implements IServerContainer {
 		$this->registerService('IntegrityCodeChecker', function (Server $c) {
 			// IConfig and IAppManager requires a working database. This code
 			// might however be called when ownCloud is not yet setup.
-			if(\OC::$server->getSystemConfig()->getValue('installed', false)) {
+			if (\OC::$server->getSystemConfig()->getValue('installed', false)) {
 				$config = $c->getConfig();
 				$appManager = $c->getAppManager();
 			} else {
@@ -594,8 +675,8 @@ class Server extends ServerContainer implements IServerContainer {
 				$urlParams = [];
 			}
 
-			if (defined('PHPUNIT_RUN') && PHPUNIT_RUN
-				&& in_array('fakeinput', stream_get_wrappers())
+			if (\defined('PHPUNIT_RUN') && PHPUNIT_RUN
+				&& \in_array('fakeinput', \stream_get_wrappers())
 			) {
 				$stream = 'fakeinput://data';
 			} else {
@@ -610,7 +691,7 @@ class Server extends ServerContainer implements IServerContainer {
 					'server' => $_SERVER,
 					'env' => $_ENV,
 					'cookies' => $_COOKIE,
-					'method' => (isset($_SERVER) && isset($_SERVER['REQUEST_METHOD']))
+					'method' => (isset($_SERVER, $_SERVER['REQUEST_METHOD']))
 						? $_SERVER['REQUEST_METHOD']
 						: null,
 					'urlParams' => $urlParams,
@@ -631,8 +712,8 @@ class Server extends ServerContainer implements IServerContainer {
 		$this->registerService('LockingProvider', function (Server $c) {
 			$ini = $c->getIniWrapper();
 			$config = $c->getConfig();
-			$ttl = $config->getSystemValue('filelocking.ttl', max(3600, $ini->getNumeric('max_execution_time')));
-			if ($config->getSystemValue('filelocking.enabled', true) or (defined('PHPUNIT_RUN') && PHPUNIT_RUN)) {
+			$ttl = $config->getSystemValue('filelocking.ttl', \max(3600, $ini->getNumeric('max_execution_time')));
+			if ($config->getSystemValue('filelocking.enabled', true) or (\defined('PHPUNIT_RUN') && PHPUNIT_RUN)) {
 				/** @var \OC\Memcache\Factory $memcacheFactory */
 				$memcacheFactory = $c->getMemCacheFactory();
 				$memcache = $memcacheFactory->createLocking('lock');
@@ -643,6 +724,7 @@ class Server extends ServerContainer implements IServerContainer {
 			}
 			return new NoopLockingProvider();
 		});
+		$this->registerAlias('OCP\Lock\ILockingProvider', 'LockingProvider');
 		$this->registerService('MountManager', function () {
 			return new \OC\Files\Mount\Manager();
 		});
@@ -658,8 +740,9 @@ class Server extends ServerContainer implements IServerContainer {
 				$c->getDatabaseConnection()
 			);
 		});
-		$this->registerService('NotificationManager', function () {
-			return new Manager();
+		$this->registerAlias('OCP\Files\IMimeTypeLoader', 'MimeTypeLoader');
+		$this->registerService('NotificationManager', function (Server $c) {
+			return new Manager($c->getEventDispatcher());
 		});
 		$this->registerService('CapabilitiesManager', function (Server $c) {
 			$manager = new \OC\CapabilitiesManager();
@@ -668,7 +751,7 @@ class Server extends ServerContainer implements IServerContainer {
 			});
 			return $manager;
 		});
-		$this->registerService('CommentsManager', function(Server $c) {
+		$this->registerService('CommentsManager', function (Server $c) {
 			$config = $c->getConfig();
 			$factoryClass = $config->getSystemValue('comments.managerFactory', '\OC\Comments\ManagerFactory');
 			/** @var \OCP\Comments\ICommentsManagerFactory $factory */
@@ -688,7 +771,7 @@ class Server extends ServerContainer implements IServerContainer {
 					'server' => $_SERVER,
 					'env' => $_ENV,
 					'cookies' => $_COOKIE,
-					'method' => (isset($_SERVER) && isset($_SERVER['REQUEST_METHOD']))
+					'method' => (isset($_SERVER, $_SERVER['REQUEST_METHOD']))
 						? $_SERVER['REQUEST_METHOD']
 						: null,
 				],
@@ -776,7 +859,7 @@ class Server extends ServerContainer implements IServerContainer {
 			);
 		});
 		$this->registerAlias('OCP\Files\External\Service\IUserStoragesService', 'UserStoragesService');
-		$this->registerService('ShareManager', function(Server $c) {
+		$this->registerService('ShareManager', function (Server $c) {
 			$config = $c->getConfig();
 			$factoryClass = $config->getSystemValue('sharing.managerFactory', '\OC\Share20\ProviderFactory');
 			/** @var \OCP\Share\IProviderFactory $factory */
@@ -792,17 +875,29 @@ class Server extends ServerContainer implements IServerContainer {
 				$c->getL10N('core'),
 				$factory,
 				$c->getUserManager(),
-				$c->getLazyRootFolder()
+				$c->getLazyRootFolder(),
+				$c->getEventDispatcher(),
+				new View('/'),
+				$c->getDatabaseConnection()
 			);
 
 			return $manager;
 		});
 
 		$this->registerService('ThemeService', function ($c) {
-			return new ThemeService($this->getSystemConfig()->getValue('theme'));
+			return new ThemeService(
+				$this->getSystemConfig()->getValue('theme'),
+				$c->getAppManager(),
+				new \OC\Helper\EnvironmentHelper()
+			);
 		});
+		$this->registerAlias('OCP\Theme\IThemeService', 'ThemeService');
 		$this->registerAlias('OCP\IUserSession', 'UserSession');
 		$this->registerAlias('OCP\Security\ICrypto', 'Crypto');
+
+		$this->registerService(IServiceLoader::class, function () {
+			return $this;
+		});
 	}
 
 	/**
@@ -884,7 +979,6 @@ class Server extends ServerContainer implements IServerContainer {
 	public function getSystemTagObjectMapper() {
 		return $this->query('SystemTagObjectMapper');
 	}
-
 
 	/**
 	 * Returns the avatar manager, used for avatar functionality
@@ -974,7 +1068,7 @@ class Server extends ServerContainer implements IServerContainer {
 	 * @return \OC\User\Session
 	 */
 	public function getUserSession() {
-		if($this->getConfig()->getSystemValue('installed', false) === false) {
+		if ($this->getConfig()->getSystemValue('installed', false) === false) {
 			return null;
 		}
 		return $this->query('UserSession');
@@ -985,7 +1079,7 @@ class Server extends ServerContainer implements IServerContainer {
 	 */
 	public function getSession() {
 		$userSession = $this->getUserSession();
-		if (is_null($userSession)) {
+		if ($userSession === null) {
 			return new Memory('');
 		}
 		return $userSession->getSession();
@@ -996,7 +1090,7 @@ class Server extends ServerContainer implements IServerContainer {
 	 */
 	public function setSession(ISession $session) {
 		$userSession = $this->getUserSession();
-		if (is_null($userSession)) {
+		if ($userSession === null) {
 			return;
 		}
 		$userSession->setSession($session);
@@ -1006,7 +1100,14 @@ class Server extends ServerContainer implements IServerContainer {
 	 * @return \OC\Authentication\TwoFactorAuth\Manager
 	 */
 	public function getTwoFactorAuthManager() {
-		return $this->query('\OC\Authentication\TwoFactorAuth\Manager');
+		return $this->query('OC\Authentication\TwoFactorAuth\Manager');
+	}
+
+	/**
+	 * @return \OC\Authentication\AccountModule\Manager
+	 */
+	public function getAccountModuleManager() {
+		return $this->query(AccountModuleManager::class);
 	}
 
 	/**
@@ -1101,7 +1202,6 @@ class Server extends ServerContainer implements IServerContainer {
 		return $this->query('RedisFactory');
 	}
 
-
 	/**
 	 * Returns the current session
 	 *
@@ -1135,7 +1235,10 @@ class Server extends ServerContainer implements IServerContainer {
 	 * @return \OCP\ILogger
 	 */
 	public function getLogger() {
-		return $this->query('Logger');
+		if ($this->logger === null) {
+			$this->logger = $this->query('Logger');
+		}
+		return $this->logger;
 	}
 
 	/**
@@ -1146,7 +1249,6 @@ class Server extends ServerContainer implements IServerContainer {
 	public function getSettingsManager() {
 		return $this->query('SettingsManager');
 	}
-
 
 	/**
 	 * Returns a router for generating and matching urls
@@ -1232,7 +1334,7 @@ class Server extends ServerContainer implements IServerContainer {
 		if ($userId === '') {
 			$userSession = $this->getUserSession();
 			$user = $userSession->getUser();
-			if (is_null($user)) {
+			if ($user === null) {
 				return null;
 			}
 			$userId = $user->getUID();
@@ -1247,6 +1349,15 @@ class Server extends ServerContainer implements IServerContainer {
 	 */
 	public function getHTTPClientService() {
 		return $this->query('HttpClientService');
+	}
+
+	/**
+	 * Returns an instance of the Webdav client service
+	 *
+	 * @return \OCP\Http\Client\IWebDavClientService
+	 */
+	public function getWebDavClientService() {
+		return $this->query('WebDavClientService');
 	}
 
 	/**
@@ -1375,7 +1486,7 @@ class Server extends ServerContainer implements IServerContainer {
 	/**
 	 * @return \OCP\Files\Mount\IMountManager
 	 **/
-	function getMountManager() {
+	public function getMountManager() {
 		return $this->query('MountManager');
 	}
 
@@ -1496,4 +1607,67 @@ class Server extends ServerContainer implements IServerContainer {
 		return $this->query('ShareManager');
 	}
 
+	/**
+	 * @return IThemeService
+	 */
+	public function getThemeService() {
+		return $this->query('OCP\Theme\IThemeService');
+	}
+
+	/**
+	 * @return ITimeFactory
+	 */
+	public function getTimeFactory() {
+		return $this->query('OCP\AppFramework\Utility\ITimeFactory');
+	}
+
+	/**
+	 * @return IServiceLoader
+	 */
+	public function getServiceLoader() {
+		return $this;
+	}
+
+	/**
+	 * @inheritdoc
+	 */
+	public function load(array $xmlPath, IUser $user = null) {
+		$appManager = $this->getAppManager();
+		$allApps = $appManager->getEnabledAppsForUser($user);
+
+		foreach ($allApps as $appId) {
+			$info = $appManager->getAppInfo($appId);
+			if ($info === null) {
+				$info = [];
+			}
+
+			foreach ($xmlPath as $xml) {
+				$info = isset($info[$xml]) ? $info[$xml] : [];
+			}
+			if (!\is_array($info)) {
+				$info = [$info];
+			}
+
+			foreach ($info as $class) {
+				try {
+					if (!\OC_App::isAppLoaded($appId)) {
+						\OC_App::loadApp($appId);
+					}
+
+					yield $this->query($class);
+				} catch (QueryException $exc) {
+					throw new \Exception("Could not load service $class");
+				}
+			}
+		}
+	}
+
+	/**
+	 * @return IShutdownManager
+	 * @throws QueryException
+	 * @since 11.0.0
+	 */
+	public function getShutdownHandler() {
+		return $this->query(ShutDownManager::class);
+	}
 }

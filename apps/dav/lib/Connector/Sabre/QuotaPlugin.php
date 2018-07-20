@@ -6,7 +6,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,10 +23,12 @@
  *
  */
 namespace OCA\DAV\Connector\Sabre;
+use OCA\DAV\Upload\FutureFile;
 use OCP\Files\FileInfo;
 use OCP\Files\StorageNotAvailableException;
 use Sabre\DAV\Exception\InsufficientStorage;
 use Sabre\DAV\Exception\ServiceUnavailable;
+use Sabre\DAV\INode;
 use Sabre\HTTP\URLUtil;
 
 /**
@@ -69,29 +71,84 @@ class QuotaPlugin extends \Sabre\DAV\ServerPlugin {
 	 * @return void
 	 */
 	public function initialize(\Sabre\DAV\Server $server) {
-
 		$this->server = $server;
 
-		$server->on('beforeWriteContent', [$this, 'checkQuota'], 10);
-		$server->on('beforeCreateFile', [$this, 'checkQuota'], 10);
+		$server->on('beforeWriteContent', [$this, 'handleBeforeWriteContent'], 10);
+		$server->on('beforeCreateFile', [$this, 'handleBeforeCreateFile'], 10);
+		$server->on('beforeMove', [$this, 'handleBeforeMove'], 10);
+	}
+
+	/**
+	 * Check if we're moving a Futurefile in which case we need to check
+	 * the quota on the target destination.
+	 *
+	 * @param string $source source path
+	 * @param string $destination destination path
+	 */
+	public function handleBeforeMove($source, $destination) {
+		$sourceNode = $this->server->tree->getNodeForPath($source);
+		if (!$sourceNode instanceof FutureFile) {
+			return;
+		}
+
+		// get target node for proper path conversion
+		if ($this->server->tree->nodeExists($destination)) {
+			$destinationNode = $this->server->tree->getNodeForPath($destination);
+			$path = $destinationNode->getPath();
+		} else {
+			$parentNode = $this->server->tree->getNodeForPath(\dirname($destination));
+			$path = $parentNode->getPath();
+		}
+
+		return $this->checkQuota($path, $sourceNode->getSize());
+	}
+
+	/**
+	 * Check quota before writing content
+	 *
+	 * @param string $uri target file URI
+	 * @param INode $node Sabre Node
+	 * @param resource $data data
+	 * @param bool $modified modified
+	 */
+	public function handleBeforeWriteContent($uri, $node, $data, $modified) {
+		if (!$node instanceof Node) {
+			return;
+		}
+		return $this->checkQuota($node->getPath());
+	}
+
+	/**
+	 * Check quota before creating file
+	 *
+	 * @param string $uri target file URI
+	 * @param resource $data data
+	 * @param INode $parent Sabre Node
+	 * @param bool $modified modified
+	 */
+	public function handleBeforeCreateFile($uri, $data, $parent, $modified) {
+		if (!$parent instanceof Node) {
+			return;
+		}
+		return $this->checkQuota($parent->getPath() . '/' . \basename($uri));
 	}
 
 	/**
 	 * This method is called before any HTTP method and validates there is enough free space to store the file
 	 *
-	 * @param string $uri
+	 * @param string $path path of the user's home
+	 * @param int $length size to check whether it fits
 	 * @throws InsufficientStorage
 	 * @return bool
 	 */
-	public function checkQuota($uri) {
-		$length = $this->getLength();
+	public function checkQuota($path, $length = null) {
+		if ($length === null) {
+			$length = $this->getLength();
+		}
 		if ($length) {
-			if (substr($uri, 0, 1) !== '/') {
-				$uri = '/' . $uri;
-			}
-			list($parentUri, $newName) = URLUtil::splitPath($uri);
-			if(is_null($parentUri)) {
-				$parentUri = '';
+			list($parentPath, $newName) = URLUtil::splitPath($path);
+			if ($parentPath === null) {
+				$parentPath = '';
 			}
 			$req = $this->server->httpRequest;
 			if ($req->getHeader('OC-Chunked')) {
@@ -101,10 +158,10 @@ class QuotaPlugin extends \Sabre\DAV\ServerPlugin {
 				// there is still enough space for the remaining chunks
 				$length -= $chunkHandler->getCurrentSize();
 				// use target file name for free space check in case of shared files
-				$uri = rtrim($parentUri, '/') . '/' . $info['name'];
+				$path = \rtrim($parentPath, '/') . '/' . $info['name'];
 			}
-			$freeSpace = $this->getFreeSpace($uri);
-			if ($freeSpace !== FileInfo::SPACE_UNKNOWN && $length > $freeSpace) {
+			$freeSpace = $this->getFreeSpace($path);
+			if ($freeSpace !== FileInfo::SPACE_UNKNOWN && $freeSpace !== FileInfo::SPACE_UNLIMITED && $length > $freeSpace) {
 				if (isset($chunkHandler)) {
 					$chunkHandler->cleanup();
 				}
@@ -122,14 +179,14 @@ class QuotaPlugin extends \Sabre\DAV\ServerPlugin {
 	public function getLength() {
 		$req = $this->server->httpRequest;
 		$length = $req->getHeader('X-Expected-Entity-Length');
-		if (!is_numeric($length)) {
+		if (!\is_numeric($length)) {
 			$length = $req->getHeader('Content-Length');
-			$length = is_numeric($length) ? $length : null;
+			$length = \is_numeric($length) ? $length : null;
 		}
 
 		$ocLength = $req->getHeader('OC-Total-Length');
-		if (is_numeric($length) && is_numeric($ocLength)) {
-			return max($length, $ocLength);
+		if (\is_numeric($length) && \is_numeric($ocLength)) {
+			return \max($length, $ocLength);
 		}
 
 		return $length;
@@ -142,7 +199,7 @@ class QuotaPlugin extends \Sabre\DAV\ServerPlugin {
 	 */
 	public function getFreeSpace($uri) {
 		try {
-			$freeSpace = $this->view->free_space(ltrim($uri, '/'));
+			$freeSpace = $this->view->free_space(\ltrim($uri, '/'));
 			return $freeSpace;
 		} catch (StorageNotAvailableException $e) {
 			throw new ServiceUnavailable($e->getMessage());

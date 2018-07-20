@@ -8,7 +8,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -32,11 +32,11 @@
 
 namespace OCP\AppFramework;
 
+use OC\OCS\Result;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\OCSResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\IRequest;
-
 
 /**
  * Base class to inherit your controllers from that are used for RESTful APIs
@@ -62,7 +62,7 @@ abstract class OCSController extends ApiController {
 								IRequest $request,
 								$corsMethods='PUT, POST, GET, DELETE, PATCH',
 								$corsAllowedHeaders='Authorization, Content-Type, Accept',
-								$corsMaxAge=1728000){
+								$corsMaxAge=1728000) {
 		parent::__construct($appName, $request, $corsMethods,
 							$corsAllowedHeaders, $corsMaxAge);
 		$this->registerResponder('json', function ($data) {
@@ -73,7 +73,6 @@ abstract class OCSController extends ApiController {
 		});
 	}
 
-
 	/**
 	 * Unwrap data and build ocs response
 	 * @param string $format json or xml
@@ -81,6 +80,13 @@ abstract class OCSController extends ApiController {
 	 * @since 8.1.0
 	 */
 	private function buildOCSResponse($format, $data) {
+		if ($data instanceof Result) {
+			$headers = $data->getHeaders();
+			$d = $data->getData();
+			$data = $data->getMeta();
+			$data['headers'] = $headers;
+			$data['data'] = $d;
+		}
 		if ($data instanceof DataResponse) {
 			$data = $data->getData();
 		}
@@ -97,11 +103,20 @@ abstract class OCSController extends ApiController {
 			$params[$key] = $value;
 		}
 
-		return new OCSResponse(
+		$isV2 = \substr($this->request->getScriptName(), -11) === '/ocs/v2.php';
+
+		$resp = new OCSResponse(
 			$format, $params['statuscode'],
 			$params['message'], $params['data'],
-			$params['itemscount'], $params['itemsperpage']
+			$params['itemscount'], $params['itemsperpage'], $isV2
 		);
+		if (isset($data['headers'])) {
+			foreach ($data['headers'] as $key => $value) {
+				$resp->addHeader($key, $value);
+			}
+		}
+
+		return $resp;
 	}
 
 	/**
@@ -113,26 +128,22 @@ abstract class OCSController extends ApiController {
 	 * @return Response
 	 * @since 7.0.0
 	 */
-	function buildResponse($response, $format = 'json') {
+	public function buildResponse($response, $format = 'json') {
 		$format = $this->request->getParam('format');
-		if (is_null($format)) {
+		if ($format === null) {
 			$format = 'xml';
 		}
 		/** @var OCSResponse $resp */
 		$resp = parent::buildResponse($response, $format);
 		$script = $this->request->getScriptName();
 
-		if (substr($script, -11) === '/ocs/v2.php') {
+		if (\substr($script, -11) === '/ocs/v2.php') {
 			$statusCode = \OC_API::mapStatusCodes($resp->getStatusCode());
-			if (!is_null($statusCode)) {
-<<<<<<< HEAD
-				$resp->setStatus($statusCode);
-=======
+			if ($statusCode !== null) {
 				// HTTP code
 				$resp->setStatus($statusCode);
 				// OCS code
 				$resp->setStatusCode($statusCode);
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			}
 		}
 

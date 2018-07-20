@@ -2,14 +2,15 @@ OC.L10N.register(
     "settings",
     {
     "Email sent" : "ارسال شدہ ای میل ",
-    "Invalid request" : "غلط درخواست",
     "Delete" : "حذف کریں",
+    "Share" : "اشتراک",
+    "Invalid request" : "غلط درخواست",
     "Very weak password" : "بہت کمزور پاسورڈ",
     "Weak password" : "کمزور پاسورڈ",
     "So-so password" : "نص نص پاسورڈ",
     "Good password" : "اچھا پاسورڈ",
     "Strong password" : "مضبوط پاسورڈ",
-    "Cheers!" : "واہ!",
+    "Add" : "شامل کریں",
     "Cancel" : "منسوخ کریں",
     "Password" : "پاسورڈ",
     "New password" : "نیا پاسورڈ",
@@ -17,8 +18,6 @@ OC.L10N.register(
     "Username" : "یوزر نیم",
     "Personal" : "شخصی",
     "Admin" : "ایڈمن",
-    "Error" : "خرابی",
-    "Group" : "گروپ",
-    "Other" : "دیگر"
+    "Error" : "خرابی"
 },
 "nplurals=2; plural=(n != 1);");

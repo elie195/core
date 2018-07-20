@@ -4,7 +4,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -102,7 +102,8 @@ class ProviderFactory implements IProviderFactory {
 				$addressHandler,
 				$this->serverContainer->getHTTPClientService(),
 				$discoveryManager,
-				$this->serverContainer->getJobList()
+				$this->serverContainer->getJobList(),
+				$this->serverContainer->getConfig()
 			);
 			$tokenHandler = new TokenHandler(
 				$this->serverContainer->getSecureRandom()
@@ -131,7 +132,7 @@ class ProviderFactory implements IProviderFactory {
 		$provider = null;
 		if ($id === 'ocinternal') {
 			$provider = $this->defaultShareProvider();
-		} else if ($id === 'ocFederatedSharing') {
+		} elseif ($id === 'ocFederatedSharing') {
 			$provider = $this->federatedShareProvider();
 		}
 
@@ -152,7 +153,7 @@ class ProviderFactory implements IProviderFactory {
 			$shareType === \OCP\Share::SHARE_TYPE_GROUP ||
 			$shareType === \OCP\Share::SHARE_TYPE_LINK) {
 			$provider = $this->defaultShareProvider();
-		} else if ($shareType === \OCP\Share::SHARE_TYPE_REMOTE) {
+		} elseif ($shareType === \OCP\Share::SHARE_TYPE_REMOTE) {
 			$provider = $this->federatedShareProvider();
 		}
 

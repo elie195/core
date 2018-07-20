@@ -31,6 +31,7 @@ OC.L10N.register(
     "Invalid ownCloud url" : "נתיב ownCloud לא חוקי",
     "Share" : "שיתוף",
     "No expiration date set" : "לא הוגדר תאריך תפוגה",
+    "Pending" : "ממתין",
     "Shared by" : "שותף על־ידי",
     "Sharing" : "שיתוף",
     "Share API is disabled" : "שיתוף API מנוטרל",
@@ -96,6 +97,8 @@ OC.L10N.register(
     "Public link of %2$s expired" : "קישור ציבורי של %2$s פג תוקף",
     "Shared by %2$s" : "שיתף/שיתפה על ידי %2$s",
     "Shares" : "שיתופים",
+    "Accept" : "אישור",
+    "Decline" : "סירוב",
     "This share is password-protected" : "שיתוף זה מוגן סיסמא",
     "The password is wrong. Try again." : "הסיסמא שגויה. יש לנסות שנית.",
     "Password" : "סיסמא",
@@ -110,9 +113,8 @@ OC.L10N.register(
     "sharing is disabled" : "השיתוף נוטרל",
     "For more info, please ask the person who sent this link." : "למידע נוסף, יש לפנות לשולח קישור זה.",
     "%s is publicly shared" : "%s בשיתוף ציבורי",
-    "Add to your ownCloud" : "הוספה ל- ownCloud שלך",
     "Download" : "הורדה",
     "Download %s" : "הורדה %s",
     "Direct link" : "קישור ישיר"
 },
-"nplurals=2; plural=(n != 1);");
+"nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % 1 == 0) ? 1: (n % 10 == 0 && n % 1 == 0 && n > 10) ? 2 : 3;");

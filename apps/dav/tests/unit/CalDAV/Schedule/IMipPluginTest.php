@@ -3,7 +3,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -25,12 +25,12 @@ namespace OCA\DAV\Tests\unit\CalDAV\Schedule;
 use OC\Mail\Mailer;
 use OCA\DAV\CalDAV\Schedule\IMipPlugin;
 use OCP\ILogger;
+use OCP\IRequest;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\ITip\Message;
 use Test\TestCase;
 
 class IMipPluginTest extends TestCase {
-
 	public function testDelivery() {
 		$mailMessage = new \OC\Mail\Message(new \Swift_Message());
 		/** @var Mailer | \PHPUnit_Framework_MockObject_MockObject $mailer */
@@ -40,7 +40,9 @@ class IMipPluginTest extends TestCase {
 		/** @var ILogger | \PHPUnit_Framework_MockObject_MockObject $logger */
 		$logger = $this->getMockBuilder('OC\Log')->disableOriginalConstructor()->getMock();
 
-		$plugin = new IMipPlugin($mailer, $logger);
+		$request = $this->createMock(IRequest::class);
+
+		$plugin = new IMipPlugin($mailer, $logger, $request);
 		$message = new Message();
 		$message->method = 'REQUEST';
 		$message->message = new VCalendar();
@@ -69,7 +71,9 @@ class IMipPluginTest extends TestCase {
 		/** @var ILogger | \PHPUnit_Framework_MockObject_MockObject $logger */
 		$logger = $this->getMockBuilder('OC\Log')->disableOriginalConstructor()->getMock();
 
-		$plugin = new IMipPlugin($mailer, $logger);
+		$request = $this->createMock(IRequest::class);
+
+		$plugin = new IMipPlugin($mailer, $logger, $request);
 		$message = new Message();
 		$message->method = 'REQUEST';
 		$message->message = new VCalendar();
@@ -88,5 +92,4 @@ class IMipPluginTest extends TestCase {
 		$this->assertEquals(['gandalf@wiz.ard' => null], $mailMessage->getReplyTo());
 		$this->assertEquals('text/calendar; charset=UTF-8; method=REQUEST', $mailMessage->getSwiftMessage()->getContentType());
 	}
-
 }

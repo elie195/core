@@ -9,7 +9,7 @@
  * @author Roeland Jago Douma <rullzer@users.noreply.github.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -51,7 +51,7 @@ $application->registerRoutes($this, [
 
 /** @var $this \OCP\Route\IRouter */
 $this->create('core_ajax_public_preview', '/publicpreview')->action(
-	function() {
+	function () {
 		require_once __DIR__ . '/../ajax/publicpreview.php';
 	});
 
@@ -68,7 +68,7 @@ $this->create('sharing_external_add', '/external')
 
 //TODO: SET: mail notification, waiting for PR #4689 to be accepted
 
-$OCSShare = new \OCA\Files_Sharing\API\OCSShareWrapper();
+$OCSShare = new \OCA\Files_Sharing\API\OCSShareWrapper($application);
 
 API::register('get',
 		'/apps/files_sharing/api/v1/shares',
@@ -78,6 +78,16 @@ API::register('get',
 API::register('post',
 		'/apps/files_sharing/api/v1/shares',
 		[$OCSShare, 'createShare'],
+		'files_sharing');
+
+API::register('post',
+		'/apps/files_sharing/api/v1/shares/pending/{id}',
+		[$OCSShare, 'acceptShare'],
+		'files_sharing');
+
+API::register('delete',
+		'/apps/files_sharing/api/v1/shares/pending/{id}',
+		[$OCSShare, 'declineShare'],
 		'files_sharing');
 
 API::register('get',

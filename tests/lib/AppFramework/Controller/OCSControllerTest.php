@@ -4,7 +4,7 @@
  * ownCloud - App Framework
  *
  * @author Bernhard Posselt
- * @copyright 2015 Bernhard Posselt <dev@bernhard-posselt.com>
+ * @copyright Copyright (c) 2015 Bernhard Posselt <dev@bernhard-posselt.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -21,22 +21,20 @@
  *
  */
 
-
 namespace Test\AppFramework\Controller;
 
 use OC\AppFramework\Http\Request;
+use OC\OCS\Result;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IConfig;
 use OCP\Security\ISecureRandom;
 use Test\TestCase;
 
-
-class ChildOCSController extends OCSController {}
-
+class ChildOCSController extends OCSController {
+}
 
 class OCSControllerTest extends TestCase {
-
 	public function testCors() {
 		$request = new Request(
 			[
@@ -60,7 +58,6 @@ class OCSControllerTest extends TestCase {
 		$this->assertEquals('false', $headers['Access-Control-Allow-Credentials']);
 		$this->assertEquals(100, $headers['Access-Control-Max-Age']);
 	}
-
 
 	public function testXML() {
 		$controller = new ChildOCSController('app', new Request(
@@ -98,7 +95,6 @@ class OCSControllerTest extends TestCase {
 		$this->assertEquals($expected, $out);
 	}
 
-
 	public function testXMLDataResponse() {
 		$controller = new ChildOCSController('app', new Request(
 			[
@@ -135,8 +131,11 @@ class OCSControllerTest extends TestCase {
 		$this->assertEquals($expected, $out);
 	}
 
-
-	public function testJSON() {
+	/**
+	 * @dataProvider providesData
+	 * @param $params
+	 */
+	public function testJSON($params) {
 		$controller = new ChildOCSController('app', new Request(
 			[
 				'urlParams' => [
@@ -151,18 +150,25 @@ class OCSControllerTest extends TestCase {
 			$this->createMock(IConfig::class)
 		));
 		$expected = '{"ocs":{"meta":{"status":"failure","statuscode":400,"message":"OK",' .
-		            '"totalitems":"","itemsperpage":""},"data":{"test":"hi"}}}';
-		$params = [
-			'data' => [
-				'test' => 'hi'
-			],
-			'statuscode' => 400
-		];
+					'"totalitems":"","itemsperpage":""},"data":{"test":"hi"}}}';
 
 		$out = $controller->buildResponse($params, 'json')->render();
 		$this->assertEquals($expected, $out);
 	}
 
+	public function providesData() {
+		return [
+			'array' => [[
+				'data' => [
+					'test' => 'hi'
+				],
+				'statuscode' => 400]
+			],
+			'ocs-resuls' => [new Result([
+				'test' => 'hi'
+			], 400, 'OK')]
+		];
+	}
 
 	public function testStatusCodeMapping() {
 		$configMock = $this->createMock(IConfig::class);
@@ -180,8 +186,8 @@ class OCSControllerTest extends TestCase {
 			$this->createMock(ISecureRandom::class),
 			$configMock
 		));
-		$expected = '{"ocs":{"meta":{"status":"failure","statuscode":200,"message":"OK",' .
-		            '"totalitems":"","itemsperpage":""},"data":{"test":"hi"}}}';
+		$expected = '{"ocs":{"meta":{"status":"ok","statuscode":200,"message":"OK",' .
+					'"totalitems":"","itemsperpage":""},"data":{"test":"hi"}}}';
 		$params = [
 			'data' => [
 				'test' => 'hi'

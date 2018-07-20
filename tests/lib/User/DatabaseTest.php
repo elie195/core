@@ -3,7 +3,7 @@
 * ownCloud
 *
 * @author Robin Appelman
-* @copyright 2012 Robin Appelman icewind@owncloud.com
+* @copyright Copyright (c) 2012 Robin Appelman icewind@owncloud.com
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -43,10 +43,10 @@ class DatabaseTest extends BackendTestCase {
 	}
 
 	protected function tearDown() {
-		if(!isset($this->users)) {
+		if (!isset($this->users)) {
 			return;
 		}
-		foreach($this->users as $user) {
+		foreach ($this->users as $user) {
 			$this->backend->deleteUser($user);
 		}
 		parent::tearDown();

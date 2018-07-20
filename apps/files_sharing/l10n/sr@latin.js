@@ -23,6 +23,7 @@ OC.L10N.register(
     "No ownCloud installation (7 or higher) found at {remote}" : "Nije pronađena ownCloud instalacija (7 ili noviji) na {remote}",
     "Invalid ownCloud url" : "Neispravan ownCloud url",
     "Share" : "Deljenje",
+    "Pending" : "Na čekanju",
     "Shared by" : "Deljeno od strane",
     "A file or folder has been <strong>shared</strong>" : "Fijl ili direktorijum je <strong>podeljen</strong>",
     "A file or folder was shared from <strong>another server</strong>" : "Fajl ili direktorijum je deljen sa <strong>drugog servera</strong>",
@@ -51,7 +52,6 @@ OC.L10N.register(
     "the link expired" : "prečica je istekla",
     "sharing is disabled" : "deljenje je onemogućeno",
     "For more info, please ask the person who sent this link." : "Za više informacija, molimo Vas da se obratite osobi koja je poslala prečicu.",
-    "Add to your ownCloud" : "Dodaj na svoj ownCloud",
     "Download" : "Preuzmi",
     "Download %s" : "Preuzmi %s",
     "Direct link" : "Direktna prečica"

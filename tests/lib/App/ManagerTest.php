@@ -9,10 +9,19 @@
 
 namespace Test\App;
 
+use OC\App\AppManager;
 use OC\Group\Group;
+use OCP\App\IAppManager;
+use OCP\IAppConfig;
+use OCP\ICache;
+use OCP\ICacheFactory;
+use OCP\IConfig;
+use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserSession;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Test\TestCase;
+use org\bovigo\vfs\vfsStream;
 
 /**
  * Class Manager
@@ -21,12 +30,30 @@ use Test\TestCase;
  * @group DB
  */
 class ManagerTest extends TestCase {
+
+	/** @var IUserSession | \PHPUnit_Framework_MockObject_MockObject */
+	protected $userSession;
+	/** @var IGroupManager | \PHPUnit_Framework_MockObject_MockObject */
+	protected $groupManager;
+	/** @var IAppConfig */
+	protected $appConfig;
+	/** @var ICache | \PHPUnit_Framework_MockObject_MockObject */
+	protected $cache;
+	/** @var ICacheFactory | \PHPUnit_Framework_MockObject_MockObject */
+	protected $cacheFactory;
+	/** @var IAppManager */
+	protected $manager;
+	/** @var  EventDispatcherInterface | \PHPUnit_Framework_MockObject_MockObject */
+	protected $eventDispatcher;
+	/** @var IConfig | \PHPUnit_Framework_MockObject_MockObject */
+	private $config;
+
 	/**
-	 * @return \OCP\IAppConfig | \PHPUnit_Framework_MockObject_MockObject
+	 * @return IAppConfig | \PHPUnit_Framework_MockObject_MockObject
 	 */
 	protected function getAppConfig() {
 		$appConfig = [];
-		$config = $this->getMockBuilder('\OCP\IAppConfig')
+		$config = $this->getMockBuilder(IAppConfig::class)
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -62,41 +89,23 @@ class ManagerTest extends TestCase {
 		return $config;
 	}
 
-	/** @var \OCP\IUserSession | \PHPUnit_Framework_MockObject_MockObject */
-	protected $userSession;
-
-	/** @var \OCP\IGroupManager | \PHPUnit_Framework_MockObject_MockObject */
-	protected $groupManager;
-
-	/** @var \OCP\IAppConfig */
-	protected $appConfig;
-
-	/** @var \OCP\ICache | \PHPUnit_Framework_MockObject_MockObject */
-	protected $cache;
-
-	/** @var \OCP\ICacheFactory | \PHPUnit_Framework_MockObject_MockObject */
-	protected $cacheFactory;
-
-	/** @var \OCP\App\IAppManager */
-	protected $manager;
-
-	/** @var  EventDispatcherInterface | \PHPUnit_Framework_MockObject_MockObject */
-	protected $eventDispatcher;
-
 	protected function setUp() {
 		parent::setUp();
 
-		$this->userSession = $this->createMock('\OCP\IUserSession');
-		$this->groupManager = $this->createMock('\OCP\IGroupManager');
+		$this->userSession = $this->createMock(IUserSession::class);
+		$this->config = $this->createMock(IConfig::class);
+		$this->groupManager = $this->createMock(IGroupManager::class);
 		$this->appConfig = $this->getAppConfig();
-		$this->cacheFactory = $this->createMock('\OCP\ICacheFactory');
-		$this->cache = $this->createMock('\OCP\ICache');
-		$this->eventDispatcher = $this->createMock('\Symfony\Component\EventDispatcher\EventDispatcherInterface');
+		$this->cacheFactory = $this->createMock(ICacheFactory::class);
+		$this->cache = $this->createMock(ICache::class);
+		$this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
 		$this->cacheFactory->expects($this->any())
 			->method('create')
 			->with('settings')
 			->willReturn($this->cache);
-		$this->manager = new \OC\App\AppManager($this->userSession, $this->appConfig, $this->groupManager, $this->cacheFactory, $this->eventDispatcher);
+		$this->manager = new AppManager($this->userSession, $this->appConfig,
+			$this->groupManager, $this->cacheFactory, $this->eventDispatcher,
+			$this->config);
 	}
 
 	protected function expectClearCache() {
@@ -115,11 +124,74 @@ class ManagerTest extends TestCase {
 		$this->assertEquals('yes', $this->appConfig->getValue('files_trashbin', 'enabled', 'no'));
 	}
 
+	/**
+	 * @expectedException \OCP\App\AppManagerException
+	 */
+	public function testEnableSecondAppTheme() {
+		$appThemeName = 'theme-one';
+		$manager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['isTheme', 'getAppInfo', 'getAppPath'])
+			->setConstructorArgs([$this->userSession, $this->appConfig,
+				$this->groupManager, $this->cacheFactory, $this->eventDispatcher,
+				$this->config])
+			->getMock();
+
+		$manager->expects($this->once())
+			->method('getAppInfo')
+			->willReturn(['types'=>['theme']]);
+
+		$manager->expects($this->once())
+			->method('isTheme')
+			->willReturn(true);
+
+		$manager->expects($this->once())
+			->method('getAppPath')
+			->with($appThemeName)
+			->willReturn('path');
+
+		$manager->enableApp($appThemeName);
+	}
+
+	public function testEnableTheSameThemeTwice() {
+		$appThemeName = 'theme-one';
+		$manager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['isTheme', 'getAppInfo', 'getAppPath', 'getInstalledApps'])
+			->setConstructorArgs([$this->userSession, $this->appConfig,
+				$this->groupManager, $this->cacheFactory, $this->eventDispatcher,
+				$this->config])
+			->getMock();
+
+		$manager->expects($this->once())
+			->method('getInstalledApps')
+			->willReturn([$appThemeName]);
+		$manager->expects($this->once())
+			->method('getAppInfo')
+			->willReturn(['types'=>['theme']]);
+
+		$manager->expects($this->any())
+			->method('isTheme')
+			->will(
+				$this->returnCallback(
+					function ($appId) use ($appThemeName) {
+						return $appId === $appThemeName;
+					}
+				)
+			);
+
+		$manager->expects($this->once())
+			->method('getAppPath')
+			->with($appThemeName)
+			->willReturn('path');
+
+		$manager->enableApp($appThemeName);
+	}
+
 	public function testDisableApp() {
 		$this->expectClearCache();
 		$this->manager->disableApp('files_trashbin');
 		$this->assertEquals('no', $this->appConfig->getValue('files_trashbin', 'enabled', 'no'));
 	}
+
 	/**
 	 * @expectedException \Exception
 	 */
@@ -132,8 +204,8 @@ class ManagerTest extends TestCase {
 
 	public function testEnableAppForGroups() {
 		$groups = [
-			new Group('group1', [], null),
-			new Group('group2', [], null)
+			new Group('group1', [], null, $this->eventDispatcher),
+			new Group('group2', [], null, $this->eventDispatcher)
 		];
 		$this->expectClearCache();
 		$this->manager->enableAppForGroups('test', $groups);
@@ -159,15 +231,16 @@ class ManagerTest extends TestCase {
 	 */
 	public function testEnableAppForGroupsAllowedTypes(array $appInfo) {
 		$groups = [
-			new Group('group1', [], null),
-			new Group('group2', [], null)
+			new Group('group1', [], null, $this->eventDispatcher),
+			new Group('group2', [], null, $this->eventDispatcher)
 		];
 		$this->expectClearCache();
 
-		/** @var \OC\App\AppManager|\PHPUnit_Framework_MockObject_MockObject $manager */
+		/** @var AppManager|\PHPUnit_Framework_MockObject_MockObject $manager */
 		$manager = $this->getMockBuilder('OC\App\AppManager')
 			->setConstructorArgs([
-				$this->userSession, $this->appConfig, $this->groupManager, $this->cacheFactory, $this->eventDispatcher
+				$this->userSession, $this->appConfig, $this->groupManager,
+				$this->cacheFactory, $this->eventDispatcher, $this->config
 			])
 			->setMethods([
 				'getAppInfo'
@@ -203,14 +276,15 @@ class ManagerTest extends TestCase {
 	 */
 	public function testEnableAppForGroupsForbiddenTypes($type) {
 		$groups = [
-			new Group('group1', [], null),
-			new Group('group2', [], null)
+			new Group('group1', [], null, $this->eventDispatcher),
+			new Group('group2', [], null, $this->eventDispatcher)
 		];
 
-		/** @var \OC\App\AppManager|\PHPUnit_Framework_MockObject_MockObject $manager */
+		/** @var AppManager|\PHPUnit_Framework_MockObject_MockObject $manager */
 		$manager = $this->getMockBuilder('OC\App\AppManager')
 			->setConstructorArgs([
-				$this->userSession, $this->appConfig, $this->groupManager, $this->cacheFactory, $this->eventDispatcher
+				$this->userSession, $this->appConfig, $this->groupManager,
+				$this->cacheFactory, $this->eventDispatcher, $this->config
 			])
 			->setMethods([
 				'getAppInfo'
@@ -304,8 +378,8 @@ class ManagerTest extends TestCase {
 			'dav',
 			'federatedfilesharing',
 			'files',
-		   	'files_external',
-		   	'test1',
+			'files_external',
+			'test1',
 			'test3'
 		], $this->manager->getInstalledApps());
 	}
@@ -323,24 +397,25 @@ class ManagerTest extends TestCase {
 		$this->appConfig->setValue('test4', 'enabled', '["asd"]');
 		$this->assertEquals([
 			'dav',
-		   	'federatedfilesharing',
-		   	'files',
+			'federatedfilesharing',
+			'files',
 			'files_external',
-		   	'test1',
+			'test1',
 			'test3'
 		], $this->manager->getEnabledAppsForUser($user));
 	}
 
 	public function testGetAppsNeedingUpgrade() {
 		$this->manager = $this->getMockBuilder('\OC\App\AppManager')
-			->setConstructorArgs([$this->userSession, $this->appConfig, $this->groupManager, $this->cacheFactory, $this->eventDispatcher])
+			->setConstructorArgs([$this->userSession, $this->appConfig,
+				$this->groupManager, $this->cacheFactory, $this->eventDispatcher, $this->config])
 			->setMethods(['getAppInfo'])
 			->getMock();
 
 		$appInfos = [
 			'dav' => ['id' => 'dav'],
 			'files' => ['id' => 'files'],
-		   	'files_external' => ['id' => 'files_external'],
+			'files_external' => ['id' => 'files_external'],
 			'federatedfilesharing' => ['id' => 'federatedfilesharing'],
 			'test1' => ['id' => 'test1', 'version' => '1.0.1', 'requiremax' => '9.0.0'],
 			'test2' => ['id' => 'test2', 'version' => '1.0.0', 'requiremin' => '8.2.0'],
@@ -352,7 +427,7 @@ class ManagerTest extends TestCase {
 		$this->manager->expects($this->any())
 			->method('getAppInfo')
 			->will($this->returnCallback(
-				function($appId) use ($appInfos) {
+				function ($appId) use ($appInfos) {
 					return $appInfos[$appId];
 				}
 		));
@@ -375,14 +450,15 @@ class ManagerTest extends TestCase {
 
 	public function testGetIncompatibleApps() {
 		$this->manager = $this->getMockBuilder('\OC\App\AppManager')
-			->setConstructorArgs([$this->userSession, $this->appConfig, $this->groupManager, $this->cacheFactory, $this->eventDispatcher])
+			->setConstructorArgs([$this->userSession, $this->appConfig,
+				$this->groupManager, $this->cacheFactory, $this->eventDispatcher, $this->config])
 			->setMethods(['getAppInfo'])
 			->getMock();
 
 		$appInfos = [
 			'dav' => ['id' => 'dav'],
 			'files' => ['id' => 'files'],
-		   	'files_external' => ['id' => 'files_external'],
+			'files_external' => ['id' => 'files_external'],
 			'federatedfilesharing' => ['id' => 'federatedfilesharing'],
 			'test1' => ['id' => 'test1', 'version' => '1.0.1', 'requiremax' => '8.0.0'],
 			'test2' => ['id' => 'test2', 'version' => '1.0.0', 'requiremin' => '8.2.0'],
@@ -393,7 +469,7 @@ class ManagerTest extends TestCase {
 		$this->manager->expects($this->any())
 			->method('getAppInfo')
 			->will($this->returnCallback(
-				function($appId) use ($appInfos) {
+				function ($appId) use ($appInfos) {
 					return $appInfos[$appId];
 				}
 		));
@@ -407,5 +483,156 @@ class ManagerTest extends TestCase {
 		$this->assertCount(2, $apps);
 		$this->assertEquals('test1', $apps[0]['id']);
 		$this->assertEquals('test3', $apps[1]['id']);
+	}
+
+	/**
+	 * @dataProvider providesDataForCanInstall
+	 * @param bool $canInstall
+	 * @param string $opsMode
+	 */
+	public function testCanInstall($canInstall, $opsMode) {
+		$this->config->expects($this->once())->method('getSystemValue')->willReturn($opsMode);
+		$this->assertEquals($canInstall, $this->manager->canInstall());
+	}
+
+	public function providesDataForCanInstall() {
+		return [
+			[true, 'single-instance'],
+			[false, 'clustered-instance'],
+		];
+	}
+
+	/**
+	 * @dataProvider appInfoDataProvider
+	 *
+	 * @param string $firstDirVersion
+	 * @param string $secondDirVersion
+	 * @param bool $isFirstWinner
+	 */
+	public function testTheMostRecentAppIsFound($firstDirVersion, $secondDirVersion, $isFirstWinner) {
+		$appId = 'bogusapp';
+		$appsParentDir = vfsStream::setup();
+		$firstAppDir = vfsStream::newDirectory('apps')->at($appsParentDir);
+		$appDir1 = vfsStream::newDirectory($appId)->at($firstAppDir);
+		$secondAppDir = vfsStream::newDirectory('apps2')->at($appsParentDir);
+		$appDir2 = vfsStream::newDirectory($appId)->at($secondAppDir);
+
+		$appManager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['getAppVersionByPath', 'getAppRoots'])
+			->disableOriginalConstructor()
+			->getMock();
+
+		$appManager->expects($this->any())
+			->method('getAppRoots')
+			->willReturn([
+				[
+					'path' => $firstAppDir->url(),
+					'url' => $firstAppDir->url(),
+				],
+				[
+					'path' => $secondAppDir->url(),
+					'url' => $secondAppDir->url(),
+				]
+			]);
+
+		$appManager->expects($this->any())
+			->method('getAppVersionByPath')
+			->will($this->onConsecutiveCalls($firstDirVersion, $secondDirVersion));
+
+		$expected = $isFirstWinner ? $appDir1->url() : $appDir2->url();
+		$appPath = $appManager->getAppPath($appId);
+		$this->assertEquals($expected, $appPath);
+	}
+
+	public function appInfoDataProvider() {
+		return [
+			[ '1.2.3', '3.2.4', false ],
+			[ '2.2.3', '2.2.1', true ]
+		];
+	}
+
+	public function testPathIsNotCachedForNotFoundApp() {
+		$appId = 'notexistingapp';
+
+		$appManager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['getAppVersionByPath', 'getAppRoots', 'saveAppPath'])
+			->disableOriginalConstructor()
+			->getMock();
+
+		$appManager->expects($this->any())
+			->method('getAppRoots')
+			->willReturn([]);
+
+		$appManager->expects($this->never())
+			->method('saveAppPath');
+
+		$appPath = $appManager->getAppPath($appId);
+		$this->assertFalse($appPath);
+	}
+
+	/**
+	 * @dataProvider appAboveWebRootDataProvider
+	 *
+	 * @param string $ocWebRoot
+	 * @param string[] $appData
+	 * @param string $expectedAppWebPath
+	 */
+	public function testAppWebRootAboveOcWebRoot($ocWebRoot, $appData,
+		$expectedAppWebPath) {
+		$appId = 'notexistingapp';
+
+		$appManager = $this->getMockBuilder(AppManager::class)
+			->setMethods(['findAppInDirectories', 'getOcWebRoot'])
+			->disableOriginalConstructor()
+			->getMock();
+
+		$appManager->expects($this->any())
+			->method('getOcWebRoot')
+			->willReturn($ocWebRoot);
+
+		$appManager->expects($this->any())
+			->method('findAppInDirectories')
+			->with($appId)
+			->willReturn($appData);
+
+		$appWebPath = $appManager->getAppWebPath($appId);
+		$this->assertEquals($expectedAppWebPath, $appWebPath);
+	}
+
+	public function appAboveWebRootDataProvider() {
+		return [
+			[
+				'/some/host/path',
+				[
+					'path' => '/not/essential',
+					'url' => '../../relative',
+				],
+				'/some/relative'
+			],
+			[
+				'/some/host/path',
+				[
+					'path' => '/not/essential',
+					'url' => '../relative',
+				],
+				'/some/host/relative'
+			],
+			[
+				'/some/hostPath',
+				[
+					'path' => '/not/essential',
+					'url' => '../relative',
+				],
+				'/some/relative'
+			],
+			[
+				'/someHostPath',
+				[
+					'path' => '/not/essential',
+					'url' => '../relative',
+				],
+				'/relative'
+			],
+		];
 	}
 }

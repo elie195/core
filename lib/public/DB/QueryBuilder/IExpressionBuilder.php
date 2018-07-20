@@ -4,7 +4,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,7 +22,6 @@
  */
 
 namespace OCP\DB\QueryBuilder;
-
 
 use Doctrine\DBAL\Query\Expression\ExpressionBuilder;
 
@@ -324,4 +323,11 @@ interface IExpressionBuilder {
 	 * @since 9.0.0
 	 */
 	public function castColumn($column, $type);
+
+	/**
+	 * @param $column
+	 * @return string
+	 * @since 10.0.3
+	 */
+	public function length($column);
 }

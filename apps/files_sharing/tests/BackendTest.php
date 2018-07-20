@@ -6,7 +6,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -25,14 +25,12 @@
 
 namespace OCA\Files_Sharing\Tests;
 
-
 /**
  * Class BackendTest
  *
  * @group DB
  */
 class BackendTest extends TestCase {
-
 	const TEST_FOLDER_NAME = '/folder_share_api_test';
 
 	public $folder;
@@ -67,8 +65,7 @@ class BackendTest extends TestCase {
 		parent::tearDown();
 	}
 
-	function testGetParents() {
-
+	public function testGetParents() {
 		$fileinfo1 = $this->view->getFileInfo($this->folder);
 		$fileinfo2 = $this->view->getFileInfo($this->folder . $this->subfolder . $this->subsubfolder);
 		$fileinfo3 = $this->view->getFileInfo($this->folder . $this->subfolder . $this->subsubfolder . $this->filename);
@@ -81,16 +78,16 @@ class BackendTest extends TestCase {
 		$backend = new \OCA\Files_Sharing\ShareBackend\Folder();
 
 		$result = $backend->getParents($fileinfo3['fileid']);
-		$this->assertSame(2, count($result));
+		$this->assertCount(2, $result);
 
 		$count1 = 0;
 		$count2 = 0;
-		foreach($result as $r) {
+		foreach ($result as $r) {
 			if ($r['path'] === 'files' . $this->folder) {
-				$this->assertSame(ltrim($this->folder, '/'), $r['collection']['path']);
+				$this->assertSame(\ltrim($this->folder, '/'), $r['collection']['path']);
 				$count1++;
 			} elseif ($r['path'] === 'files' . $this->folder . $this->subfolder . $this->subsubfolder) {
-				$this->assertSame(ltrim($this->subsubfolder, '/'), $r['collection']['path']);
+				$this->assertSame(\ltrim($this->subsubfolder, '/'), $r['collection']['path']);
 				$count2++;
 			} else {
 				$this->assertTrue(false, 'unexpected result');
@@ -101,11 +98,9 @@ class BackendTest extends TestCase {
 		$this->assertSame(1, $count2);
 
 		$result1 = $backend->getParents($fileinfo3['fileid'], self::TEST_FILES_SHARING_API_USER3);
-		$this->assertSame(1, count($result1));
-		$elemet = reset($result1);
-		$this->assertSame('files' . $this->folder . $this->subfolder . $this->subsubfolder ,$elemet['path']);
-		$this->assertSame(ltrim($this->subsubfolder, '/') ,$elemet['collection']['path']);
-
+		$this->assertCount(1, $result1);
+		$elemet = \reset($result1);
+		$this->assertSame('files' . $this->folder . $this->subfolder . $this->subsubfolder, $elemet['path']);
+		$this->assertSame(\ltrim($this->subsubfolder, '/'), $elemet['collection']['path']);
 	}
-
 }

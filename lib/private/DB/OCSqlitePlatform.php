@@ -3,7 +3,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -37,7 +37,7 @@ class OCSqlitePlatform extends \Doctrine\DBAL\Platforms\SqlitePlatform {
 	/**
 	 * {@inheritDoc}
 	 */
-	protected function _getCreateTableSQL($name, array $columns, array $options = []){
+	protected function _getCreateTableSQL($name, array $columns, array $options = []) {
 		// if auto increment is set the column is already defined as primary key
 		foreach ($columns as $column) {
 			if (!empty($column['autoincrement'])) {

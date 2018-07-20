@@ -4,7 +4,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,7 +22,6 @@
  */
 
 namespace OCA\DAV\Tests\unit\SystemTag;
-
 
 use OC\SystemTag\SystemTag;
 use OCP\SystemTag\TagNotFoundException;
@@ -54,7 +53,7 @@ class SystemTagsObjectMappingCollectionTest extends \Test\TestCase {
 	}
 
 	public function getNode() {
-		return new \OCA\DAV\SystemTag\SystemTagsObjectMappingCollection (
+		return new \OCA\DAV\SystemTag\SystemTagsObjectMappingCollection(
 			111,
 			'files',
 			$this->user,
@@ -243,7 +242,7 @@ class SystemTagsObjectMappingCollectionTest extends \Test\TestCase {
 
 		$this->tagManager->expects($this->exactly(3))
 			->method('canUserSeeTag')
-			->will($this->returnCallback(function($tag) {
+			->will($this->returnCallback(function ($tag) {
 				return $tag->isUserVisible();
 			}));
 

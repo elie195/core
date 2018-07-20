@@ -9,6 +9,7 @@
 namespace Test\L10N;
 
 use OC\L10N\Factory;
+use OCP\Theme\IThemeService;
 use Test\TestCase;
 
 /**
@@ -28,6 +29,9 @@ class FactoryTest extends TestCase {
 	/** @var \OCP\IUserSession|\PHPUnit_Framework_MockObject_MockObject */
 	protected $userSession;
 
+	/** @var IThemeService|\PHPUnit_Framework_MockObject_MockObject */
+	protected $themeService;
+
 	/** @var string */
 	protected $serverRoot;
 
@@ -41,6 +45,11 @@ class FactoryTest extends TestCase {
 
 		/** @var \OCP\IRequest $request */
 		$this->request = $this->getMockBuilder('OCP\IRequest')
+			->disableOriginalConstructor()
+			->getMock();
+
+		/** @var IThemeService $themeService */
+		$this->themeService = $this->getMockBuilder(IThemeService::class)
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -59,13 +68,14 @@ class FactoryTest extends TestCase {
 				->setConstructorArgs([
 					$this->config,
 					$this->request,
+					$this->themeService,
 					$this->userSession,
 					$this->serverRoot,
 				])
 				->setMethods($methods)
 				->getMock();
 		} else {
-			return new Factory($this->config, $this->request, $this->userSession, $this->serverRoot);
+			return new Factory($this->config, $this->request, $this->themeService, $this->userSession, $this->serverRoot);
 		}
 	}
 
@@ -261,7 +271,6 @@ class FactoryTest extends TestCase {
 				->method('setUserValue')
 				->with('MyUserUid', 'core', 'lang', 'en');
 
-
 		$this->assertSame('en', $factory->findLanguage('MyApp'));
 	}
 
@@ -309,6 +318,47 @@ class FactoryTest extends TestCase {
 			->willReturn('abc');
 
 		$this->assertEquals(['en', 'zz'], $factory->findAvailableLanguages($app), '', 0.0, 10, true);
+	}
+
+	public function testFindAvailableLanguagesWithAppThemes() {
+		$app = 'files';
+		$factory = $this->getFactory(['getActiveAppThemeDirectory']);
+
+		$this->config
+			->expects($this->any())
+			->method('getSystemValue')
+			->with('theme')
+			->willReturn('');
+
+		$factory->expects($this->any())
+			->method('getActiveAppThemeDirectory')
+			->with()
+			->willReturn($this->serverRoot . '/tests/data/apptheme');
+
+		$availableLanguages = $factory->findAvailableLanguages($app);
+		$this->assertContains('en', $availableLanguages);
+		$this->assertContains('zz', $availableLanguages);
+	}
+
+	public function testAppThemeTranslation() {
+		$app = 'files';
+		$lang = 'zz';
+		$factory = $this->getFactory(['getActiveAppThemeDirectory']);
+
+		$this->config
+			->expects($this->any())
+			->method('getSystemValue')
+			->with('theme')
+			->willReturn('');
+
+		$factory->expects($this->any())
+			->method('getActiveAppThemeDirectory')
+			->with()
+			->willReturn($this->serverRoot . '/tests/data/apptheme');
+
+		$themeTranslations = $factory->getL10nFilesForApp($app, $lang);
+		$this->assertCount(1, $themeTranslations);
+		$this->assertContains('zz.json', $themeTranslations[0]);
 	}
 
 	/**
@@ -427,32 +477,5 @@ class FactoryTest extends TestCase {
 	public function testFindL10NDir($app, $expected) {
 		$factory = $this->getFactory();
 		$this->assertSame($expected, $this->invokePrivate($factory, 'findL10nDir', [$app]));
-	}
-
-	public function dataCreatePluralFunction() {
-		return [
-			['nplurals=2; plural=(n != 1);', 0, 1],
-			['nplurals=2; plural=(n != 1);', 1, 0],
-			['nplurals=2; plural=(n != 1);', 2, 1],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 0, 2],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 1, 0],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 2, 1],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 3, 1],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 4, 1],
-			['nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;', 5, 2],
-		];
-	}
-
-	/**
-	 * @dataProvider dataCreatePluralFunction
-	 *
-	 * @param string $function
-	 * @param int $count
-	 * @param int $expected
-	 */
-	public function testCreatePluralFunction($function, $count, $expected) {
-		$factory = $this->getFactory();
-		$fn = $factory->createPluralFunction($function);
-		$this->assertEquals($expected, $fn($count));
 	}
 }

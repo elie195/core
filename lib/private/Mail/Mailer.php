@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@statuscode.ch>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -58,7 +58,7 @@ class Mailer implements IMailer {
 	 * @param ILogger $logger
 	 * @param \OC_Defaults $defaults
 	 */
-	function __construct(IConfig $config,
+	public function __construct(IConfig $config,
 						 ILogger $logger,
 						 \OC_Defaults $defaults) {
 		$this->config = $config;
@@ -88,7 +88,7 @@ class Mailer implements IMailer {
 	public function send(Message $message) {
 		$debugMode = $this->config->getSystemValue('mail_smtpdebug', false);
 
-		if (sizeof($message->getFrom()) === 0) {
+		if (!\is_array($message->getFrom()) || \count($message->getFrom()) === 0) {
 			$message->setFrom([\OCP\Util::getDefaultEmailAddress($this->defaults->getName())]);
 		}
 
@@ -96,18 +96,29 @@ class Mailer implements IMailer {
 
 		$mailer = $this->getInstance();
 
-		// Enable logger if debug mode is enabled
-		if($debugMode) {
-			$mailLogger = new \Swift_Plugins_Loggers_ArrayLogger();
-			$mailer->registerPlugin(new \Swift_Plugins_LoggerPlugin($mailLogger));
-		}
-
 		$mailer->send($message->getSwiftMessage(), $failedRecipients);
 
+		$allRecipients = [];
+		if (!empty($message->getTo())) {
+			$allRecipients = \array_merge($allRecipients, $message->getTo());
+		}
+		if (!empty($message->getCc())) {
+			$allRecipients = \array_merge($allRecipients, $message->getCc());
+		}
+		if (!empty($message->getBcc())) {
+			$allRecipients = \array_merge($allRecipients, $message->getBcc());
+		}
+
 		// Debugging logging
-		$logMessage = sprintf('Sent mail to "%s" with subject "%s"', print_r($message->getTo(), true), $message->getSubject());
-		$this->logger->debug($logMessage, ['app' => 'core']);
-		if($debugMode && isset($mailLogger)) {
+		$logMessage = 'Sent mail from "{from}" to "{recipients}" with subject "{subject}"';
+		$this->logger->debug($logMessage, [
+			'app' => 'core',
+			'from' => \json_encode($message->getFrom()),
+			'recipients' => \json_encode($allRecipients),
+			'subject' => $message->getSubject()
+		]);
+
+		if ($debugMode && isset($mailLogger)) {
 			$this->logger->debug($mailLogger->dump(), ['app' => 'core']);
 		}
 
@@ -133,12 +144,12 @@ class Mailer implements IMailer {
 	 * @return string Converted mail address if `idn_to_ascii` exists
 	 */
 	protected function convertEmail($email) {
-		if (!function_exists('idn_to_ascii') || strpos($email, '@') === false) {
+		if (!\function_exists('idn_to_ascii') || \strpos($email, '@') === false) {
 			return $email;
 		}
 
-		list($name, $domain) = explode('@', $email, 2);
-		$domain = idn_to_ascii($domain);
+		list($name, $domain) = \explode('@', $email, 2);
+		$domain = \idn_to_ascii($domain, 0, INTL_IDNA_VARIANT_UTS46);
 		return $name.'@'.$domain;
 	}
 
@@ -148,24 +159,37 @@ class Mailer implements IMailer {
 	 * @return \Swift_SmtpTransport|\Swift_SendmailTransport|\Swift_MailTransport
 	 */
 	protected function getInstance() {
-		if (!is_null($this->instance)) {
+		if ($this->instance !== null) {
 			return $this->instance;
 		}
 
 		switch ($this->config->getSystemValue('mail_smtpmode', 'php')) {
 			case 'smtp':
-				$this->instance = $this->getSMTPInstance();
+				$instance = $this->getSMTPInstance();
 				break;
 			case 'sendmail':
 				// FIXME: Move into the return statement but requires proper testing
 				//       for SMTP and mail as well. Thus not really doable for a
 				//       minor release.
-				$this->instance = \Swift_Mailer::newInstance($this->getSendMailInstance());
+				$instance = \Swift_Mailer::newInstance($this->getSendMailInstance());
 				break;
 			default:
-				$this->instance = $this->getMailInstance();
+				$instance = $this->getMailInstance();
 				break;
 		}
+
+		// Register plugins
+
+		// Enable logger if debug mode is enabled
+		if ($this->config->getSystemValue('mail_smtpdebug', false)) {
+			$mailLogger = new \Swift_Plugins_Loggers_ArrayLogger();
+			$instance->registerPlugin(new \Swift_Plugins_LoggerPlugin($mailLogger));
+		}
+
+		// Enable antiflood on smtp connection (defaults to 100 mails before reconnect)
+		$instance->registerPlugin(new \Swift_Plugins_AntiFloodPlugin());
+
+		$this->instance = $instance;
 
 		return $this->instance;
 	}
@@ -219,5 +243,4 @@ class Mailer implements IMailer {
 	protected function getMailInstance() {
 		return \Swift_MailTransport::newInstance();
 	}
-
 }

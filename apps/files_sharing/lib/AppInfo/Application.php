@@ -2,12 +2,13 @@
 /**
  * @author Björn Schießle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
+ * @author Jörn Friedrich Dreyer <jfd@butonic.de>
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -26,15 +27,17 @@
 
 namespace OCA\Files_Sharing\AppInfo;
 
-use OCA\FederatedFileSharing\DiscoveryManager;
-use OCA\Files_Sharing\MountProvider;
-use OCP\AppFramework\App;
 use OC\AppFramework\Utility\SimpleContainer;
 use OCA\Files_Sharing\Controllers\ExternalSharesController;
 use OCA\Files_Sharing\Controllers\ShareController;
 use OCA\Files_Sharing\Middleware\SharingCheckMiddleware;
-use \OCP\IContainer;
-use OCA\Files_Sharing\Capabilities;
+use OCA\Files_Sharing\MountProvider;
+use OCA\Files_Sharing\Notifier;
+use OCP\AppFramework\App;
+use OCP\IContainer;
+use OCA\Files_Sharing\Hooks;
+use OCA\Files_Sharing\Service\NotificationPublisher;
+use OCP\Notification\Events\RegisterNotifierEvent;
 
 class Application extends App {
 	public function __construct(array $urlParams = []) {
@@ -47,7 +50,6 @@ class Application extends App {
 		 * Controllers
 		 */
 		$container->registerService('ShareController', function (SimpleContainer $c) use ($server) {
-			$federatedSharingApp = new \OCA\FederatedFileSharing\AppInfo\Application('federatedfilesharing');
 			return new ShareController(
 				$c->query('AppName'),
 				$c->query('Request'),
@@ -60,15 +62,16 @@ class Application extends App {
 				$server->getSession(),
 				$server->getPreviewManager(),
 				$server->getRootFolder(),
-				$federatedSharingApp->getFederatedShareProvider()
+				$server->getEventDispatcher()
 			);
 		});
-		$container->registerService('ExternalSharesController', function (SimpleContainer $c) {
+		$container->registerService('ExternalSharesController', function (SimpleContainer $c) use ($server) {
 			return new ExternalSharesController(
 				$c->query('AppName'),
 				$c->query('Request'),
 				$c->query('ExternalManager'),
-				$c->query('HttpClientService')
+				$c->query('HttpClientService'),
+				$server->getEventDispatcher()
 			);
 		});
 
@@ -81,17 +84,12 @@ class Application extends App {
 		$container->registerService('ExternalManager', function (SimpleContainer $c) use ($server) {
 			$user = $server->getUserSession()->getUser();
 			$uid = $user ? $user->getUID() : null;
-			$discoveryManager = new DiscoveryManager(
-				\OC::$server->getMemCacheFactory(),
-				\OC::$server->getHTTPClientService()
-			);
 			return new \OCA\Files_Sharing\External\Manager(
 				$server->getDatabaseConnection(),
 				\OC\Files\Filesystem::getMountManager(),
 				\OC\Files\Filesystem::getLoader(),
-				$server->getHTTPHelper(),
 				$server->getNotificationManager(),
-				$discoveryManager,
+				$server->getEventDispatcher(),
 				$uid
 			);
 		});
@@ -126,9 +124,22 @@ class Application extends App {
 			$server = $c->query('ServerContainer');
 			return new \OCA\Files_Sharing\External\MountProvider(
 				$server->getDatabaseConnection(),
-				function() use ($c) {
+				function () use ($c) {
 					return $c->query('ExternalManager');
 				}
+			);
+		});
+
+		/*
+		 * Register trashbin service
+		 */
+		$container->registerService('Hooks', function ($c) {
+			return new Hooks(
+				$c->getServer()->getLazyRootFolder(),
+				$c->getServer()->getUrlGenerator(),
+				$c->getServer()->getEventDispatcher(),
+				$c->getServer()->getShareManager(),
+				$c->query(NotificationPublisher::class)
 			);
 		});
 
@@ -144,5 +155,23 @@ class Application extends App {
 		$mountProviderCollection = $server->getMountProviderCollection();
 		$mountProviderCollection->registerProvider($this->getContainer()->query('MountProvider'));
 		$mountProviderCollection->registerProvider($this->getContainer()->query('ExternalMountProvider'));
+	}
+
+	/**
+	 * Registers the notifier
+	 */
+	public function registerNotifier() {
+		$container = $this->getContainer();
+
+		$dispatcher = $container->getServer()->getEventDispatcher();
+
+		$dispatcher->addListener(RegisterNotifierEvent::NAME, function (RegisterNotifierEvent $event) use ($container) {
+			$l10n = $container->getServer()->getL10N('files_sharing');
+			$event->registerNotifier($container->query(Notifier::class), 'files_sharing', $l10n->t('File sharing'));
+		});
+	}
+
+	public function registerEvents() {
+		$this->getContainer()->query('Hooks')->registerListeners();
 	}
 }

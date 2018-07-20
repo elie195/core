@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 namespace Tests\Core\Controller;
 
 use OC\Core\Controller\LostController;
+use OC\User\Session;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -34,13 +35,14 @@ use OCP\IUserManager;
 use OCP\Mail\IMailer;
 use OCP\Security\ISecureRandom;
 use PHPUnit_Framework_MockObject_MockObject;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Class LostControllerTest
  *
  * @package OC\Core\Controller
  */
-class LostControllerTest extends \PHPUnit_Framework_TestCase {
+class LostControllerTest extends TestCase {
 
 	/** @var LostController */
 	private $lostController;
@@ -62,13 +64,14 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 	private $secureRandom;
 	/** @var ITimeFactory | PHPUnit_Framework_MockObject_MockObject */
 	private $timeFactory;
-	/** @var IRequest */
+	/** @var IRequest | PHPUnit_Framework_MockObject_MockObject */
 	private $request;
-	/** @var ILogger */
+	/** @var ILogger | PHPUnit_Framework_MockObject_MockObject*/
 	private $logger;
+	/** @var Session */
+	private $userSession;
 
 	protected function setUp() {
-
 		$this->existingUser = $this->getMockBuilder('OCP\IUser')
 				->disableOriginalConstructor()->getMock();
 
@@ -84,8 +87,8 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$this->l10n
 			->expects($this->any())
 			->method('t')
-			->will($this->returnCallback(function($text, $parameters = []) {
-				return vsprintf($text, $parameters);
+			->will($this->returnCallback(function ($text, $parameters = []) {
+				return \vsprintf($text, $parameters);
 			}));
 		$this->defaults = $this->getMockBuilder('\OC_Defaults')
 			->disableOriginalConstructor()->getMock();
@@ -103,6 +106,8 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			->disableOriginalConstructor()->getMock();
 		$this->logger = $this->getMockBuilder('OCP\ILogger')
 			->disableOriginalConstructor()->getMock();
+		$this->userSession = $this->getMockBuilder('OC\User\Session')
+			->disableOriginalConstructor()->getMock();
 		$this->lostController = new LostController(
 			'Core',
 			$this->request,
@@ -116,7 +121,8 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			true,
 			$this->mailer,
 			$this->timeFactory,
-			$this->logger
+			$this->logger,
+			$this->userSession
 		);
 	}
 
@@ -128,7 +134,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			'error',
 			[
 				'errors' => [
-					['error' => 'Couldn\'t reset password because the token is invalid'],
+					['error' => 'Could not reset password because the token is invalid'],
 				]
 			],
 			'guest');
@@ -159,17 +165,14 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			'error',
 			[
 				'errors' => [
-					['error' => 'Couldn\'t reset password because the token is invalid'],
+					['error' => 'Could not reset password because the token does not match'],
 				]
 			],
 			'guest');
 		$this->assertEquals($expectedResponse, $response);
 	}
 
-
 	public function testResetFormExpiredToken() {
-		$userId = 'ValidTokenUser';
-		$token = '12345:TheOnlyAndOnlyOneTokenToResetThePassword';
 		$user = $this->getMockBuilder('\OCP\IUser')
 			->disableOriginalConstructor()->getMock();
 		$this->userManager
@@ -193,7 +196,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			'error',
 			[
 				'errors' => [
-					['error' => 'Couldn\'t reset password because the token is expired'],
+					['error' => 'Could not reset password because the token expired'],
 				]
 			],
 			'guest');
@@ -201,8 +204,6 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	public function testResetFormValidToken() {
-		$userId = 'ValidTokenUser';
-		$token = '12345:TheOnlyAndOnlyOneTokenToResetThePassword';
 		$user = $this->getMockBuilder('\OCP\IUser')
 			->disableOriginalConstructor()->getMock();
 		$user
@@ -241,7 +242,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$this->assertEquals($expectedResponse, $response);
 	}
 
-	public function testEmailUnsucessful() {
+	public function testEmailUnsuccessful() {
 		$existingUser = 'ExistingUser1';
 		$nonExistingUser = 'NonExistingUser';
 		$this->userManager
@@ -251,6 +252,9 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 				[true, $existingUser],
 				[false, $nonExistingUser]
 			]));
+		$this->userManager->expects($this->any())
+			->method('getByEmail')
+			->willReturn([]);
 
 		// With a non existing user
 		$response = $this->lostController->email($nonExistingUser);
@@ -359,9 +363,13 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$message
 			->expects($this->at(2))
 			->method('setPlainBody')
-			->with('Use the following link to reset your password: https://ownCloud.com/index.php/lostpassword/');
+			->with($this->stringContains('Use the following link to reset your password: https://ownCloud.com/index.php/lostpassword/'));
 		$message
 			->expects($this->at(3))
+			->method('setHtmlBody')
+			->with($this->stringContains('Use the following link to reset your password: <a href="https://ownCloud.com/index.php/lostpassword/">https://ownCloud.com/index.php/lostpassword/</a>'));
+		$message
+			->expects($this->at(4))
 			->method('setFrom')
 			->with(['lostpassword-noreply@localhost' => null]);
 		$this->mailer
@@ -420,9 +428,13 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$message
 			->expects($this->at(2))
 			->method('setPlainBody')
-			->with('Use the following link to reset your password: https://ownCloud.com/index.php/lostpassword/');
+			->with($this->stringContains('Use the following link to reset your password: https://ownCloud.com/index.php/lostpassword/'));
 		$message
 			->expects($this->at(3))
+			->method('setHtmlBody')
+			->with($this->stringContains('Use the following link to reset your password: <a href="https://ownCloud.com/index.php/lostpassword/">https://ownCloud.com/index.php/lostpassword/</a>'));
+		$message
+			->expects($this->at(4))
 			->method('setFrom')
 			->with(['lostpassword-noreply@localhost' => null]);
 		$this->mailer
@@ -452,7 +464,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$response = $this->lostController->setPassword('wrongToken', $userName, 'NewPassword', true);
 		$expectedResponse = [
 			'status' => 'error',
-			'msg' => 'Couldn\'t reset password because the token is invalid'
+			'msg' => 'Could not reset password because the token is invalid'
 		];
 		$this->assertSame($expectedResponse, $response);
 
@@ -519,7 +531,6 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 			->method('send')
 			->with($message);
 
-
 		$response = $this->lostController->setPassword('TheOnlyAndOnlyOneTokenToResetThePassword', 'ValidTokenUser', 'NewPassword', true);
 		$expectedResponse = ['status' => 'success'];
 		$this->assertSame($expectedResponse, $response);
@@ -546,7 +557,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$response = $this->lostController->setPassword('TheOnlyAndOnlyOneTokenToResetThePassword', 'ValidTokenUser', 'NewPassword', true);
 		$expectedResponse = [
 			'status' => 'error',
-			'msg' => 'Couldn\'t reset password because the token is expired',
+			'msg' => 'Could not reset password because the token expired',
 		];
 		$this->assertSame($expectedResponse, $response);
 	}
@@ -568,7 +579,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$response = $this->lostController->setPassword('TheOnlyAndOnlyOneTokenToResetThePassword', 'ValidTokenUser', 'NewPassword', true);
 		$expectedResponse = [
 			'status' => 'error',
-			'msg' => 'Couldn\'t reset password because the token is invalid',
+			'msg' => 'Could not reset password because the token is invalid',
 		];
 		$this->assertSame($expectedResponse, $response);
 	}
@@ -598,7 +609,7 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$response = $this->lostController->setPassword('TheOnlyAndOnlyOneTokenToResetThePassword', 'ValidTokenUser', 'NewPassword', true);
 		$expectedResponse = [
 			'status' => 'error',
-			'msg' => 'Couldn\'t reset password because the token is expired',
+			'msg' => 'Could not reset password because the token expired',
 		];
 		$this->assertSame($expectedResponse, $response);
 	}
@@ -613,9 +624,8 @@ class LostControllerTest extends \PHPUnit_Framework_TestCase {
 		$response = $this->lostController->setPassword('', 'ValidTokenUser', 'NewPassword', true);
 		$expectedResponse = [
 			'status' => 'error',
-			'msg' => 'Couldn\'t reset password because the token is invalid'
+			'msg' => 'Could not reset password because the token is invalid'
 			];
 		$this->assertSame($expectedResponse, $response);
 	}
-
 }

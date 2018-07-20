@@ -6,7 +6,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@
  */
 namespace OCA\FederatedFileSharing\Tests;
 
-
 use OCA\FederatedFileSharing\AddressHandler;
 use OCA\FederatedFileSharing\FederatedShareProvider;
 use OCA\FederatedFileSharing\Notifications;
@@ -36,6 +35,7 @@ use OCP\IL10N;
 use OCP\ILogger;
 use OCP\IUserManager;
 use OCP\Share\IManager;
+use OCP\Share\IShare;
 
 /**
  * Class FederatedShareProviderTest
@@ -69,7 +69,6 @@ class FederatedShareProviderTest extends \Test\TestCase {
 	/** @var FederatedShareProvider */
 	protected $provider;
 
-
 	public function setUp() {
 		parent::setUp();
 
@@ -82,8 +81,8 @@ class FederatedShareProviderTest extends \Test\TestCase {
 			->getMock();
 		$this->l = $this->createMock('OCP\IL10N');
 		$this->l->method('t')
-			->will($this->returnCallback(function($text, $parameters = []) {
-				return vsprintf($text, $parameters);
+			->will($this->returnCallback(function ($text, $parameters = []) {
+				return \vsprintf($text, $parameters);
 			}));
 		$this->logger = $this->createMock('OCP\ILogger');
 		$this->rootFolder = $this->createMock('OCP\Files\IRootFolder');
@@ -344,7 +343,6 @@ class FederatedShareProviderTest extends \Test\TestCase {
 		$node->method('getId')->willReturn(42);
 		$node->method('getName')->willReturn('myFile');
 
-
 		$this->addressHandler->expects($this->any())->method('splitUserRemote')
 			->willReturn(['user', 'server.com']);
 
@@ -388,7 +386,6 @@ class FederatedShareProviderTest extends \Test\TestCase {
 	 *
 	 */
 	public function testUpdate($owner, $sharedBy) {
-
 		$this->provider = $this->getMockBuilder('OCA\FederatedFileSharing\FederatedShareProvider')
 			->setConstructorArgs(
 				[
@@ -409,7 +406,6 @@ class FederatedShareProviderTest extends \Test\TestCase {
 		$node = $this->createMock('\OCP\Files\File');
 		$node->method('getId')->willReturn(42);
 		$node->method('getName')->willReturn('myFile');
-
 
 		$this->addressHandler->expects($this->any())->method('splitUserRemote')
 			->willReturn(['user', 'server.com']);
@@ -437,7 +433,7 @@ class FederatedShareProviderTest extends \Test\TestCase {
 				$sharedBy . '@http://localhost/'
 			)->willReturn(true);
 
-		if($owner === $sharedBy) {
+		if ($owner === $sharedBy) {
 			$this->provider->expects($this->never())->method('sendPermissionUpdate');
 		} else {
 			$this->provider->expects($this->once())->method('sendPermissionUpdate');
@@ -462,6 +458,10 @@ class FederatedShareProviderTest extends \Test\TestCase {
 		];
 	}
 
+	public function testGetAllSharedWith() {
+		$shares = $this->provider->getAllSharedWith('shared', null);
+		$this->assertCount(0, $shares);
+	}
 
 	public function testGetAllSharesByNodes() {
 		$node = $this->createMock('\OCP\Files\File');
@@ -529,10 +529,10 @@ class FederatedShareProviderTest extends \Test\TestCase {
 			->setNode($node);
 		$this->provider->create($share2);
 
-		for($i = 0; $i < 200; $i++) {
-			$receiver = strval($i)."user2@server.com";
+		for ($i = 0; $i < 200; $i++) {
+			$receiver = \strval($i)."user2@server.com";
 			$share2 = $this->shareManager->newShare();
-			$share2->setSharedWith(strval($receiver))
+			$share2->setSharedWith(\strval($receiver))
 				->setSharedBy('sharedBy')
 				->setShareOwner('shareOwner')
 				->setPermissions(19)
@@ -668,7 +668,7 @@ class FederatedShareProviderTest extends \Test\TestCase {
 					return ['user', 'server.com'];
 				}
 				return ['user2', 'server.com'];
-		});
+			});
 
 		$this->tokenHandler->method('generateToken')->willReturn('token');
 		$this->notifications
@@ -784,5 +784,12 @@ class FederatedShareProviderTest extends \Test\TestCase {
 			['yes', true],
 			['no', false]
 		];
+	}
+
+	public function testUpdateForRecipientReturnsShare() {
+		$share = $this->createMock(IShare::class);
+		$returnedShare = $this->provider->updateForRecipient($share, 'recipient1');
+
+		$this->assertEquals($share, $returnedShare);
 	}
 }

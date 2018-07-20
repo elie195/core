@@ -15,7 +15,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -35,10 +35,11 @@
 namespace OCA\DAV\Connector\Sabre;
 
 use OC\Files\Mount\MoveableMount;
+use OCA\DAV\Connector\Sabre\Exception\Forbidden;
 use OCA\DAV\Connector\Sabre\Exception\InvalidPath;
+use OCP\Files\ForbiddenException;
 use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager;
-
 
 abstract class Node implements \Sabre\DAV\INode {
 
@@ -126,15 +127,30 @@ abstract class Node implements \Sabre\DAV\INode {
 			throw new \Sabre\DAV\Exception\Forbidden();
 		}
 
-		list($parentPath,) = \Sabre\HTTP\URLUtil::splitPath($this->path);
+		// verify path of the source
+		$this->verifyPath();
+
+		list($parentPath, ) = \Sabre\HTTP\URLUtil::splitPath($this->path);
 		list(, $newName) = \Sabre\HTTP\URLUtil::splitPath($name);
 
-		// verify path of the target
-		$this->verifyPath();
+		// verify path of target
+		if (\OC\Files\Filesystem::isForbiddenFileOrDir($parentPath . '/' . $newName)) {
+			throw new \Sabre\DAV\Exception\Forbidden();
+		}
+
+		try {
+			$this->fileView->verifyPath($parentPath, $newName);
+		} catch (\OCP\Files\InvalidPathException $ex) {
+			throw new InvalidPath($ex->getMessage());
+		}
 
 		$newPath = $parentPath . '/' . $newName;
 
-		$this->fileView->rename($this->path, $newPath);
+		try {
+			$this->fileView->rename($this->path, $newPath);
+		} catch (ForbiddenException $ex) {
+			throw new Forbidden($ex->getMessage(), $ex->getRetry());
+		}
 
 		$this->path = $newPath;
 
@@ -164,6 +180,7 @@ abstract class Node implements \Sabre\DAV\INode {
 	 *  Even if the modification time is set to a custom value the access time is set to now.
 	 */
 	public function touch($mtime) {
+		$mtime = $this->sanitizeMtime($mtime);
 		$this->fileView->touch($this->path, $mtime);
 		$this->refreshInfo();
 	}
@@ -213,12 +230,23 @@ abstract class Node implements \Sabre\DAV\INode {
 	}
 
 	/**
+	 * Returns the node's full id
+	 *
+	 * The full id is the numerical id padded with zeroes concatenated with
+	 * the instance id.
+	 *
+	 * Warning: Users of the full id may depend on its particular format, be
+	 * careful about changes.
+	 *
+	 * The contract is that taking the substring up until the first character
+	 * and converting to an integer yields the numerical id.
+	 *
 	 * @return string|null
 	 */
 	public function getFileId() {
 		if ($this->info->getId()) {
 			$instanceId = \OC_Util::getInstanceId();
-			$id = sprintf('%08d', $this->info->getId());
+			$id = \sprintf('%08d', $this->info->getId());
 			return $id . $instanceId;
 		}
 
@@ -266,8 +294,8 @@ abstract class Node implements \Sabre\DAV\INode {
 		$mountpoint = $this->info->getMountPoint();
 		if (!($mountpoint instanceof MoveableMount)) {
 			$mountpointpath = $mountpoint->getMountPoint();
-			if (substr($mountpointpath, -1) === '/') {
-				$mountpointpath = substr($mountpointpath, 0, -1);
+			if (\substr($mountpointpath, -1) === '/') {
+				$mountpointpath = \substr($mountpointpath, 0, -1);
 			}
 
 			if ($mountpointpath === $this->info->getPath()) {
@@ -327,7 +355,7 @@ abstract class Node implements \Sabre\DAV\INode {
 		}
 
 		try {
-			$fileName = basename($this->info->getPath());
+			$fileName = \basename($this->info->getPath());
 			$this->fileView->verifyPath($this->path, $fileName);
 		} catch (\OCP\Files\InvalidPathException $ex) {
 			throw new InvalidPath($ex->getMessage());
@@ -350,12 +378,29 @@ abstract class Node implements \Sabre\DAV\INode {
 
 	/**
 	 * @param int $type \OCP\Lock\ILockingProvider::LOCK_SHARED or \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE
+	 *
+	 * @throws \OCP\Lock\LockedException
 	 */
 	public function changeLock($type) {
 		$this->fileView->changeLock($this->path, $type);
 	}
 
+	/**
+	 * @return \OCP\Files\FileInfo
+	 */
 	public function getFileInfo() {
 		return $this->info;
+	}
+
+	protected function sanitizeMtime($mtimeFromRequest) {
+		$mtime = (float) $mtimeFromRequest;
+		if ($mtime >= PHP_INT_MAX) {
+			$mtime = PHP_INT_MAX;
+		} elseif ($mtime <= (PHP_INT_MAX*-1)) {
+			$mtime = (PHP_INT_MAX*-1);
+		} else {
+			$mtime = (int) $mtimeFromRequest;
+		}
+		return $mtime;
 	}
 }

@@ -5,7 +5,7 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -58,13 +58,15 @@ interface IEncryptionModule {
 	 * @param string $mode php stream open mode
 	 * @param array $header contains the header data read from the file
 	 * @param array $accessList who has access to the file contains the key 'users' and 'public'
+	 * @param string|null $sourceFileOfRename contains false or the rename source file. This is required
+	 * 						for version increment.
 	 *
 	 * $return array $header contain data as key-value pairs which should be
 	 *                       written to the header, in case of a write operation
 	 *                       or if no additional data is needed return a empty array
 	 * @since 8.1.0
 	 */
-	public function begin($path, $user, $mode, array $header, array $accessList);
+	public function begin($path, $user, $mode, array $header, array $accessList, $sourceFileOfRename);
 
 	/**
 	 * last chunk received. This is the place where you can perform some final
@@ -180,5 +182,4 @@ interface IEncryptionModule {
 	 * @since 9.1.0
 	 */
 	public function isReadyForUser($user);
-
 }

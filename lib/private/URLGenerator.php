@@ -12,7 +12,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Thomas Tanghus <thomas@tanghus.net>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -30,7 +30,7 @@
  */
 
 namespace OC;
-use OC\Theme\Theme;
+use OCP\Theme\ITheme;
 use OC_Defaults;
 use OCP\ICacheFactory;
 use OCP\IConfig;
@@ -48,11 +48,8 @@ class URLGenerator implements IURLGenerator {
 	private $cacheFactory;
 	/** @var IRouter */
 	private $router;
-<<<<<<< HEAD
-=======
-	/** @var Theme */
+	/** @var ITheme */
 	private $theme;
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
 	/**
 	 * @param IConfig $config
@@ -65,10 +62,7 @@ class URLGenerator implements IURLGenerator {
 		$this->config = $config;
 		$this->cacheFactory = $cacheFactory;
 		$this->router = $router;
-<<<<<<< HEAD
-=======
 		$this->theme = \OC_Util::getTheme();
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 
 	/**
@@ -106,15 +100,14 @@ class URLGenerator implements IURLGenerator {
 	 *
 	 * Returns a url to the given app and file.
 	 */
-	public function linkTo( $app, $file, $args = []) {
-		$frontControllerActive = (getenv('front_controller_active') === 'true');
+	public function linkTo($app, $file, $args = []) {
+		$frontControllerActive = (\getenv('front_controller_active') === 'true');
 
-		if( $app != '' ) {
+		if ($app != '') {
 			$app_path = \OC_App::getAppPath($app);
 			// Check if the app is in the app folder
-			if ($app_path && file_exists($app_path . '/' . $file)) {
-				if (substr($file, -3) == 'php') {
-
+			if ($app_path && \file_exists($app_path . '/' . $file)) {
+				if (\substr($file, -3) == 'php') {
 					$urlLinkTo = \OC::$WEBROOT . '/index.php/apps/' . $app;
 					if ($frontControllerActive) {
 						$urlLinkTo = \OC::$WEBROOT . '/apps/' . $app;
@@ -127,7 +120,7 @@ class URLGenerator implements IURLGenerator {
 				$urlLinkTo = \OC::$WEBROOT . '/' . $app . '/' . $file;
 			}
 		} else {
-			if (file_exists(\OC::$SERVERROOT . '/core/' . $file)) {
+			if (\file_exists(\OC::$SERVERROOT . '/core/' . $file)) {
 				$urlLinkTo = \OC::$WEBROOT . '/core/' . $file;
 			} else {
 				if ($frontControllerActive && $file === 'index.php') {
@@ -138,7 +131,7 @@ class URLGenerator implements IURLGenerator {
 			}
 		}
 
-		if ($args && $query = http_build_query($args, '', '&')) {
+		if ($args && $query = \http_build_query($args, '', '&')) {
 			$urlLinkTo .= '?' . $query;
 		}
 
@@ -157,58 +150,13 @@ class URLGenerator implements IURLGenerator {
 	public function imagePath($app, $image) {
 		$cache = $this->cacheFactory->create('imagePath');
 		$cacheKey = $this->theme->getName().'-'.$app.'-'.$image;
-		if($key = $cache->get($cacheKey)) {
+		if ($key = $cache->get($cacheKey)) {
 			return $key;
 		}
 
-<<<<<<< HEAD
-		/** @var Theme $theme */
-		$theme = \OC_Util::getTheme();
-		$themeName = $theme->getName();
-
-		//if a theme has a png but not an svg always use the png
-		$basename = substr(basename($image),0,-4);
-
-		$appPath = \OC_App::getAppPath($app);
-
-		// Check if the app is in the app folder
-		$path = '';
-		if (file_exists(\OC::$SERVERROOT . "/themes/$themeName/apps/$app/img/$image")) {
-			$path = \OC::$WEBROOT . "/themes/$themeName/apps/$app/img/$image";
-		} elseif (!file_exists(\OC::$SERVERROOT . "/themes/$themeName/apps/$app/img/$basename.svg")
-			&& file_exists(\OC::$SERVERROOT . "/themes/$themeName/apps/$app/img/$basename.png")) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/apps/$app/img/$basename.png";
-		} elseif (!empty($app) and file_exists(\OC::$SERVERROOT . "/themes/$themeName/$app/img/$image")) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/$app/img/$image";
-		} elseif (!empty($app) and (!file_exists(\OC::$SERVERROOT . "/themes/$themeName/$app/img/$basename.svg")
-			&& file_exists(\OC::$SERVERROOT . "/themes/$themeName/$app/img/$basename.png"))) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/$app/img/$basename.png";
-		} elseif (file_exists(\OC::$SERVERROOT . "/themes/$themeName/core/img/$image")) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/core/img/$image";
-		} elseif (!file_exists(\OC::$SERVERROOT . "/themes/$themeName/core/img/$basename.svg")
-			&& file_exists(\OC::$SERVERROOT . "/themes/$themeName/core/img/$basename.png")) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/core/img/$basename.png";
-		} elseif ($appPath && file_exists($appPath . "/img/$image")) {
-			$path =  \OC_App::getAppWebPath($app) . "/img/$image";
-		} elseif ($appPath && !file_exists($appPath . "/img/$basename.svg")
-			&& file_exists($appPath . "/img/$basename.png")) {
-			$path =  \OC_App::getAppWebPath($app) . "/img/$basename.png";
-		} elseif (!empty($app) and file_exists(\OC::$SERVERROOT . "/$app/img/$image")) {
-			$path =  \OC::$WEBROOT . "/$app/img/$image";
-		} elseif (!empty($app) and (!file_exists(\OC::$SERVERROOT . "/$app/img/$basename.svg")
-				&& file_exists(\OC::$SERVERROOT . "/$app/img/$basename.png"))) {
-			$path =  \OC::$WEBROOT . "/$app/img/$basename.png";
-		} elseif (file_exists(\OC::$SERVERROOT . "/core/img/$image")) {
-			$path =  \OC::$WEBROOT . "/core/img/$image";
-		} elseif (!file_exists(\OC::$SERVERROOT . "/core/img/$basename.svg")
-			&& file_exists(\OC::$SERVERROOT . "/core/img/$basename.png")) {
-			$path =  \OC::$WEBROOT . "/themes/$themeName/core/img/$basename.png";
-		}
-=======
 		$path = $this->getImagePath($app, $image);
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 
-		if($path !== '' && !is_null($path)) {
+		if ($path !== '' && $path !== null) {
 			$cache->set($cacheKey, $path);
 			return $path;
 		} else {
@@ -222,29 +170,32 @@ class URLGenerator implements IURLGenerator {
 	 * @return string
 	 */
 	private function getImagePath($app, $imageName) {
-		$appWebPath = \OC_App::getAppWebPath($app);
-		$appPath = substr($appWebPath, strlen(\OC::$WEBROOT));
+		if ($app !== '') {
+			$appWebPath = \OC_App::getAppWebPath($app);
+		} else {
+			$appWebPath = \OC::$WEBROOT;
+		}
+		$appPath = \substr($appWebPath, \strlen(\OC::$WEBROOT));
 
 		$directories = ["/core", ""];
 
 		if ($app) {
-			array_unshift($directories, "$appPath", "/$app");
+			\array_unshift($directories, "$appPath", "/$app");
 		}
 
-		foreach($directories as $directory) {
+		$themeDirectory = $this->theme->getDirectory();
+		foreach ($directories as $directory) {
 			$directory = $directory . "/img/";
-			$themeDirectory = $this->theme->getDirectory();
-
 			$file = $directory . $imageName;
 
-			if (!empty($themeDirectory)) {
-				if ($imagePath = $this->getImagePathOrFallback('/' . $this->theme->getDirectory() . '/' . $file)) {
-					return $imagePath;
-				}
+			if ($themeDirectory !== ''
+				&& $imagePath = $this->getImagePathOrFallback($this->theme->getBaseDirectory() . '/' . $themeDirectory . $file)
+			) {
+				return $this->theme->getWebPath() . $file;
 			}
 
-			if ($imagePath = $this->getImagePathOrFallback($file)) {
-				return $imagePath;
+			if ($imagePath = $this->getImagePathOrFallback(\OC::$SERVERROOT . $file)) {
+				return \OC::$WEBROOT . $file;
 			}
 		}
 	}
@@ -254,15 +205,12 @@ class URLGenerator implements IURLGenerator {
 	 * @return string
 	 */
 	private function getImagePathOrFallback($file) {
-
-		if (file_exists(\OC::$SERVERROOT . $file)) {
-			return \OC::$WEBROOT . $file;
-		}
-
-		$fallback = substr($file, 0, -3) . 'png';
-
-		if (file_exists(\OC::$SERVERROOT . $fallback)) {
-			return \OC::$WEBROOT . $fallback;
+		$fallback = \substr($file, 0, -3) . 'png';
+		$locations = [ $file, $fallback ];
+		foreach ($locations as $location) {
+			if (\file_exists($location)) {
+				return $location;
+			}
 		}
 	}
 
@@ -274,12 +222,12 @@ class URLGenerator implements IURLGenerator {
 	public function getAbsoluteURL($url) {
 		$separator = $url[0] === '/' ? '' : '/';
 
-		if (\OC::$CLI && !defined('PHPUNIT_RUN')) {
-			return rtrim($this->config->getSystemValue('overwrite.cli.url'), '/') . '/' . ltrim($url, '/');
+		if (\OC::$CLI && !\defined('PHPUNIT_RUN')) {
+			return \rtrim($this->config->getSystemValue('overwrite.cli.url'), '/') . '/' . \ltrim($url, '/');
 		}
 
 		// The ownCloud web root can already be prepended.
-		$webRoot = substr($url, 0, strlen(\OC::$WEBROOT)) === \OC::$WEBROOT
+		$webRoot = \substr($url, 0, \strlen(\OC::$WEBROOT)) === \OC::$WEBROOT
 			? ''
 			: \OC::$WEBROOT;
 

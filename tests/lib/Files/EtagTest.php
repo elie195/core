@@ -10,7 +10,6 @@ namespace Test\Files;
 
 use OC\Files\Filesystem;
 use OC\Files\Utils\Scanner;
-use OCP\Share;
 use Test\Traits\UserTrait;
 
 /**
@@ -21,7 +20,6 @@ use Test\Traits\UserTrait;
  * @package Test\Files
  */
 class EtagTest extends \Test\TestCase {
-
 	use UserTrait;
 
 	private $datadir;

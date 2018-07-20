@@ -1,5 +1,6 @@
 <?php
 vendor_script('core', 'handlebars/handlebars');
+vendor_script('core', 'showdown/dist/showdown');
 script('settings', 'admin-apps');
 /**
  * @var array $_
@@ -16,11 +17,9 @@ script('settings', 'admin-apps');
 		</li>
 		{{/each}}
 
-		<?php if($_['appstoreEnabled']): ?>
-			<li>
-				<a class="app-external" target="_blank" rel="noreferrer" href="https://owncloud.org/dev"><?php p($l->t('Developer documentation'));?> ↗</a>
-			</li>
-		<?php endif; ?>
+		<li>
+			<a class="app-external" target="_blank" rel="noreferrer" href="https://owncloud.org/dev"><?php p($l->t('Developer documentation'));?> ↗</a>
+		</li>
 	</script>
 
 	<script id="app-template" type="text/x-handlebars">
@@ -53,7 +52,7 @@ script('settings', 'admin-apps');
 		<div class="app-detailpage"></div>
 
 		<div class="app-description-container hidden">
-			<div class="app-description"><pre>{{description}}</pre></div>
+			<div class="app-description"><pre>{{md description}}</pre></div>
 			<!--<div class="app-changed">{{changed}}</div>-->
 			{{#if documentation}}
 			<p class="documentation">

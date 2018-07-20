@@ -3,7 +3,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -53,7 +53,8 @@ class CoreCapabilities implements ICapability {
 			'core' => [
 				'pollinterval' => $this->config->getSystemValue('pollinterval', 60),
 				'webdav-root' => $this->config->getSystemValue('webdav-root', 'remote.php/webdav'),
-				'status' => Util::getStatusInfo(true),
+				# show version details, hide server hostname
+				'status' => Util::getStatusInfo(true, true),
 			]
 		];
 	}

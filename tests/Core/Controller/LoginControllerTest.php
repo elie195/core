@@ -1,8 +1,9 @@
 <?php
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
+ * @author Semih Serhat Karakaya <karakayasemi@itu.edu.tr>
  *
- * @copyright Copyright (c) 2016, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -134,6 +135,23 @@ class LoginControllerTest extends TestCase {
 
 		$expectedResponse = new RedirectResponse(\OC_Util::getDefaultPageUrl());
 		$this->assertEquals($expectedResponse, $this->loginController->showLoginForm('', '', ''));
+	}
+
+	public function testResponseForNotLoggedinUser() {
+		$params = [
+			'messages' =>  [],
+			'loginName' => '',
+			'user_autofocus' => true,
+			'redirect_url' => '%2Findex.php%2Ff%2F17',
+			'canResetPassword' => true,
+			'resetPasswordLink' => null,
+			'alt_login' =>  [],
+			'rememberLoginAllowed' => false,
+			'rememberLoginState' => 0
+		];
+
+		$expectedResponse = new TemplateResponse('core', 'login', $params, 'guest');
+		$this->assertEquals($expectedResponse, $this->loginController->showLoginForm('', '%2Findex.php%2Ff%2F17', ''));
 	}
 
 	public function testShowLoginFormWithErrorsInSession() {
@@ -286,23 +304,24 @@ class LoginControllerTest extends TestCase {
 	}
 
 	public function testLoginWithInvalidCredentials() {
-		$user = $this->createMock(IUser::class);
+		$user = 'unknown';
 		$password = 'secret';
 		$loginPageUrl = 'some url';
 
-		$this->userManager->expects($this->once())
-			->method('checkPassword')
+		$this->userSession->expects($this->once())
+			->method('login')
 			->will($this->returnValue(false));
 		$this->urlGenerator->expects($this->once())
 			->method('linkToRoute')
-			->with('core.login.showLoginForm')
+			->with('core.login.showLoginForm', ['user' => $user, 'redirect_url' => '/foo'])
 			->will($this->returnValue($loginPageUrl));
 
 		$this->userSession->expects($this->never())
 			->method('createSessionToken');
+		$this->userManager->expects($this->any())->method('getByEmail')->willReturn([]);
 
 		$expected = new RedirectResponse($loginPageUrl);
-		$this->assertEquals($expected, $this->loginController->tryLogin($user, $password, ''));
+		$this->assertEquals($expected, $this->loginController->tryLogin($user, $password, '/foo'));
 	}
 
 	public function testLoginWithValidCredentials() {
@@ -311,12 +330,13 @@ class LoginControllerTest extends TestCase {
 		$password = 'secret';
 		$indexPageUrl = 'some url';
 
-		$this->userManager->expects($this->once())
-			->method('checkPassword')
-			->will($this->returnValue($user));
 		$this->userSession->expects($this->once())
 			->method('login')
-			->with($user, $password);
+			->with($user, $password)
+			->will($this->returnValue(true));
+		$this->userSession->expects($this->once())
+			->method('getUser')
+			->will($this->returnValue($user));
 		$this->userSession->expects($this->once())
 			->method('createSessionToken')
 			->with($this->request, $user->getUID(), $user, $password);
@@ -327,7 +347,7 @@ class LoginControllerTest extends TestCase {
 
 		$expected = new RedirectResponse($indexPageUrl);
 
-		$this->loginController = $this->getMockBuilder('OC\Core\Controller\LoginController')
+		$this->loginController = $this->getMockBuilder(LoginController::class)
 			->setMethods(['getDefaultUrl'])
 			->setConstructorArgs([
 				'core',
@@ -357,9 +377,12 @@ class LoginControllerTest extends TestCase {
 		$originalUrl = 'another%20url';
 		$redirectUrl = 'http://localhost/another url';
 
-		$this->userManager->expects($this->once())
-			->method('checkPassword')
+		$this->userSession->expects($this->once())
+			->method('login')
 			->with('Jane', $password)
+			->will($this->returnValue(true));
+		$this->userSession->expects($this->once())
+			->method('getUser')
 			->will($this->returnValue($user));
 		$this->userSession->expects($this->once())
 			->method('createSessionToken')
@@ -370,10 +393,10 @@ class LoginControllerTest extends TestCase {
 			->will($this->returnValue(true));
 		$this->urlGenerator->expects($this->once())
 			->method('getAbsoluteURL')
-			->with(urldecode($originalUrl))
+			->with(\urldecode($originalUrl))
 			->will($this->returnValue($redirectUrl));
 
-		$expected = new RedirectResponse(urldecode($redirectUrl));
+		$expected = new RedirectResponse(\urldecode($redirectUrl));
 		$this->assertEquals($expected, $this->loginController->tryLogin('Jane', $password, $originalUrl));
 	}
 	
@@ -386,8 +409,11 @@ class LoginControllerTest extends TestCase {
 		$password = 'secret';
 		$challengeUrl = 'challenge/url';
 
-		$this->userManager->expects($this->once())
-			->method('checkPassword')
+		$this->userSession->expects($this->once())
+			->method('login')
+			->will($this->returnValue(true));
+		$this->userSession->expects($this->once())
+			->method('getUser')
 			->will($this->returnValue($user));
 		$this->userSession->expects($this->once())
 			->method('login')
@@ -418,12 +444,12 @@ class LoginControllerTest extends TestCase {
 			->method('getUID')
 			->will($this->returnValue('john'));
 
-		$this->userManager->expects($this->exactly(2))
-			->method('checkPassword')
+		$this->userSession->expects($this->exactly(2))
+			->method('login')
 			->withConsecutive(
 				['john@doe.com', 'just wrong'],
 				['john', 'just wrong']
-				)
+			)
 			->willReturn(false);
 		
 		$this->userManager->expects($this->once())

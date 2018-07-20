@@ -1,12 +1,8 @@
 <?php
-<<<<<<< HEAD
-
-=======
 /**
- * @author Philipp Schaffrath <github@philippschaffrath.de>
  * @author Philipp Schaffrath <github@philipp.schaffrath.email>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -20,17 +16,22 @@
  *
  * You should have received a copy of the GNU Affero General Public License, version 3,
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
- *
  */
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 namespace OC\Theme;
 
-class Theme {
+use OCP\Theme\ITheme;
+
+class Theme implements ITheme {
 
 	/**
 	 * @var string
 	 */
 	private $name;
+
+	/**
+	 * @var string
+	 */
+	private $baseDirectory;
 
 	/**
 	 * @var string
@@ -43,14 +44,14 @@ class Theme {
 	private $webPath;
 
 	/**
-	 * Theme constructor.
-	 *
 	 * @param string $name
 	 * @param string $directory
+	 * @param string $webPath
 	 */
-	public function __construct($name = '', $directory = '') {
+	public function __construct($name = '', $directory = '', $webPath = '') {
 		$this->name = $name;
 		$this->directory = $directory;
+		$this->webPath = $webPath;
 	}
 
 	/**
@@ -61,16 +62,21 @@ class Theme {
 	}
 
 	/**
-<<<<<<< HEAD
-=======
-	 * @param $name
+	 * @param string $baseDirectory
+	 * @return string
 	 */
-	public function setName($name) {
-		$this->name = $name;
+	public function setBaseDirectory($baseDirectory) {
+		$this->baseDirectory = $baseDirectory;
 	}
 
 	/**
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+	 * @return string
+	 */
+	public function getBaseDirectory() {
+		return $this->baseDirectory;
+	}
+
+	/**
 	 * @return string
 	 */
 	public function getDirectory() {
@@ -78,17 +84,24 @@ class Theme {
 	}
 
 	/**
-	 * @param string $directory
-	 */
-	public function setDirectory($directory) {
-		$this->directory = $directory;
-	}
-
-	/**
 	 * @return string
 	 */
 	public function getWebPath() {
 		return $this->webPath;
+	}
+
+	/**
+	 * @param string $name
+	 */
+	public function setName($name) {
+		$this->name = $name;
+	}
+
+	/**
+	 * @param string $directory
+	 */
+	public function setDirectory($directory) {
+		$this->directory = $directory;
 	}
 
 	/**

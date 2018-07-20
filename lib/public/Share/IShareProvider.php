@@ -2,7 +2,7 @@
 /**
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -42,7 +42,7 @@ interface IShareProvider {
 
 	/**
 	 * Create a share
-	 * 
+	 *
 	 * @param \OCP\Share\IShare $share
 	 * @return \OCP\Share\IShare The share object
 	 * @since 9.0.0
@@ -87,6 +87,7 @@ interface IShareProvider {
 	 * @param string $recipient userId of recipient
 	 * @return \OCP\Share\IShare
 	 * @since 9.0.0
+	 * @deprecated 10.0.9 use updateForRecipient() instead
 	 */
 	public function move(\OCP\Share\IShare $share, $recipient);
 
@@ -105,7 +106,7 @@ interface IShareProvider {
 	public function getSharesBy($userId, $shareType, $node, $reshares, $limit, $offset);
 
 	/**
-	 * Get all shares by the given user for specified shareTypes array
+	 * Get all shares by the given user for specified shareTypes array (ref. \OC\Share\Constants)
 	 *
 	 * @param string $userId
 	 * @param int[] $shareTypes
@@ -138,7 +139,19 @@ interface IShareProvider {
 	public function getSharesByPath(Node $path);
 
 	/**
-	 * Get shared with the given user
+	 * Get shared with the given user for shares of all supported share types for this share provider,
+	 * with file_source predicate specified ($node is Node) or
+	 * without ($node is null and scan over file_source is performed).
+	 *
+	 * @param string $userId get shares where this user is the recipient
+	 * @param Node|null $node
+	 * @return \OCP\Share\IShare[]
+	 * @since 10.0.0
+	 */
+	public function getAllSharedWith($userId, $node);
+	
+	/**
+	 * Get shared with the given user specifying share type predicate for this specific share provider
 	 *
 	 * @param string $userId get shares where this user is the recipient
 	 * @param int $shareType
@@ -190,4 +203,18 @@ interface IShareProvider {
 	 * @since 9.1.0
 	 */
 	public function userDeletedFromGroup($uid, $gid);
+
+	/**
+	 * Updates the share entry of the given recipient
+	 *
+	 * For group shares, only the state for the given recipient is changed,
+	 * not for the whole group share.
+	 *
+	 * @param \OCP\Share\IShare $share
+	 * @param string $recipient userId of recipient
+	 * @param int $state state to set
+	 * @return \OCP\Share\IShare
+	 * @since 10.0.9
+	 */
+	public function updateForRecipient(\OCP\Share\IShare $share, $recipient);
 }

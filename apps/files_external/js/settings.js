@@ -496,7 +496,7 @@ MountOptionsDropdown.prototype = {
 		}
 
 		var $el = $(template({
-			mountOptionsEncodingLabel: t('files_external', 'Compatibility with Mac NFD encoding (slow)')
+			mountOptionsEncodingLabel: t('files_external', 'Compatibility with Mac NFD encoding (slow)'),
 		}));
 		this.$el = $el;
 
@@ -654,7 +654,6 @@ MountConfigListView.prototype = _.extend({
 	 * @param {int} [options.userListLimit] page size in applicable users dropdown
 	 */
 	initialize: function($el, options) {
-		var self = this;
 		this.$el = $el;
 		this._isPersonal = ($el.data('admin') !== true);
 		if (this._isPersonal) {
@@ -668,13 +667,12 @@ MountConfigListView.prototype = _.extend({
 		}
 
 		this._encryptionEnabled = options.encryptionEnabled;
+		this._allowUserMountSharing = options.allowUserMountSharing;
 
 		// read the backend config that was carefully crammed
 		// into the data-configurations attribute of the select
 		this._allBackends = this.$el.find('.selectBackend').data('configurations');
 		this._allAuthMechanisms = this.$el.find('#addMountPoint .authentication').data('mechanisms');
-
-		this._initEvents();
 	},
 
 	/**
@@ -692,7 +690,11 @@ MountConfigListView.prototype = _.extend({
 		var self = this;
 		this.$el.find('tbody tr:not(#addMountPoint)').each(function(i, tr) {
 			var authMechanism = $(tr).find('.selectAuthMechanism').val();
-			callback($(tr), authMechanism, self._allAuthMechanisms[authMechanism]['scheme']);
+			if (authMechanism !== undefined) {
+				var onCompletion = jQuery.Deferred();
+				callback($(tr), authMechanism, self._allAuthMechanisms[authMechanism]['scheme'], onCompletion);
+				onCompletion.resolve();
+			}
 		});
 		this.on('selectAuthMechanism', callback);
 	},
@@ -775,6 +777,41 @@ MountConfigListView.prototype = _.extend({
 	},
 
 	/**
+	 * Execute the target callback when all the deferred objects have been
+	 * finished, either resolved or rejected
+	 *
+	 * @param {Deferred[]} deferreds array with all the deferred objects to check
+	 * this will usually be a list of ajax requests, but other deferred
+	 * objects can be included
+	 * @param {callback} callback the callback to be executed after all the
+	 * deferred object have finished
+	 */
+	_executeCallbackWhenFinished: function(deferreds, callback) {
+		var self = this;
+
+		$.when.apply($, deferreds).always(function() {
+			var pendingDeferreds = [];
+
+			// some deferred objects can still be pending to be resolved
+			// or rejected. Get all of those which are still pending so we can
+			// make another call
+			if (deferreds.length > 0) {
+				for (i = 0 ; i < deferreds.length ; i++) {
+					if (deferreds[i].state() === 'pending') {
+						pendingDeferreds.push(deferreds[i]);
+					}
+				}
+			}
+
+			if (pendingDeferreds.length > 0) {
+				self._executeCallbackWhenFinished(pendingDeferreds, callback);
+			} else {
+				callback();
+			}
+		});
+	},
+
+	/**
 	 * Configure the storage config with a new authentication mechanism
 	 *
 	 * @param {jQuery} $tr config row
@@ -805,10 +842,25 @@ MountConfigListView.prototype = _.extend({
 	newStorage: function(storageConfig, onCompletion) {
 		var mountPoint = storageConfig.mountPoint;
 		var backend = this._allBackends[storageConfig.backend];
+		var isInvalidAuth = false;
+
+		if (!backend) {
+			backend = {
+				name: 'Unknown backend: ' + storageConfig.backend,
+				invalid: true
+			};
+		}
+		if (backend && storageConfig.authMechanism && !this._allAuthMechanisms[storageConfig.authMechanism]) {
+			// mark invalid to prevent editing
+			backend.invalid = true;
+			isInvalidAuth = true;
+		}
 
 		// FIXME: Replace with a proper Handlebar template
 		var $tr = this.$el.find('tr#addMountPoint');
-		this.$el.find('tbody').append($tr.clone());
+		var $trCloned = $tr.clone();
+		$trCloned.find('td.mountPoint input').removeAttr('disabled');
+		this.$el.find('tbody').append($trCloned);
 
 		$tr.data('storageConfig', storageConfig);
 		$tr.show();
@@ -816,7 +868,6 @@ MountConfigListView.prototype = _.extend({
 		$tr.find('td.mountOptionsToggle').removeClass('hidden');
 		$tr.find('td').last().removeAttr('style');
 		$tr.removeAttr('id');
-		$tr.find('select#selectBackend');
 		addSelect2($tr.find('.applicableUsers'), this._userListLimit);
 
 		if (storageConfig.id) {
@@ -830,6 +881,26 @@ MountConfigListView.prototype = _.extend({
 		$tr.find('.mountPoint input').val(mountPoint);
 		$tr.addClass(backend.identifier);
 		$tr.find('.backend').data('identifier', backend.identifier);
+
+		if (backend.invalid || isInvalidAuth) {
+			$tr.addClass('invalid');
+			$tr.find('[name=mountPoint]').prop('disabled', true);
+			$tr.find('.applicable,.mountOptionsToggle').empty();
+			this.updateStatus($tr, false, 'Unknown backend: ' + backend.name);
+			if (isInvalidAuth) {
+				$tr.find('td.authentication').append('<span class="error-invalid">' +
+					t('files_external', 'Unknown auth backend "{b}"', {b: storageConfig.authMechanism}) +
+					'</span>'
+				);
+			}
+
+			$tr.find('td.configuration').append('<span class="error-invalid">' +
+				t('files_external', 'Please make sure that the app that provides this backend is installed and enabled') +
+				'</span>'
+			);
+
+			return $tr;
+		}
 
 		var selectAuthMechanism = $('<select class="selectAuthMechanism"></select>');
 		var neededVisibility = (this._isPersonal) ? StorageConfig.Visibility.PERSONAL : StorageConfig.Visibility.ADMIN;
@@ -904,10 +975,11 @@ MountConfigListView.prototype = _.extend({
 	 */
 	loadStorages: function() {
 		var self = this;
+		var ajaxRequests = [];
 
 		if (this._isPersonal) {
 			// load userglobal storages
-			$.ajax({
+			var fixedStoragesRequest = $.ajax({
 				type: 'GET',
 				url: OC.generateUrl('apps/files_external/userglobalstorages'),
 				data: {'testOnly' : true},
@@ -945,14 +1017,14 @@ MountConfigListView.prototype = _.extend({
 						}
 					});
 					onCompletion.resolve();
-					$("#body-settings").trigger("mountConfigLoaded");
 				}
 			});
+			ajaxRequests.push(fixedStoragesRequest);
 		}
 
 		var url = this._storageConfigClass.prototype._url;
 
-		$.ajax({
+		var changeableStoragesRequest = $.ajax({
 			type: 'GET',
 			url: OC.generateUrl(url),
 			contentType: 'application/json',
@@ -966,8 +1038,12 @@ MountConfigListView.prototype = _.extend({
 					self.recheckStorageConfig($tr);
 				});
 				onCompletion.resolve();
-				$("#body-settings").trigger("mountConfigLoaded");
 			}
+		});
+		ajaxRequests.push(changeableStoragesRequest);
+
+		this._executeCallbackWhenFinished(ajaxRequests, function() {
+			$('#body-settings').trigger('mountConfigLoaded');
 		});
 	},
 
@@ -1268,12 +1344,15 @@ MountConfigListView.prototype = _.extend({
 		var visibleOptions = [
 			'previews',
 			'filesystem_check_changes',
-			'enable_sharing',
 			'encoding_compatibility'
 		];
 		if (this._encryptionEnabled) {
 			visibleOptions.push('encrypt');
 		}
+		if (!this._isPersonal || this._allowUserMountSharing) {
+			visibleOptions.push('enable_sharing');
+		}
+
 		dropDown.show($toggle, storage.mountOptions || [], visibleOptions);
 		$('body').on('mouseup.mountOptionsDropdown', function(event) {
 			var $target = $(event.target);
@@ -1304,7 +1383,13 @@ $(document).ready(function() {
 	var enabled = $('#files_external').attr('data-encryption-enabled');
 	var encryptionEnabled = (enabled ==='true')? true: false;
 	var mountConfigListView = new MountConfigListView($('#externalStorage'), {
-		encryptionEnabled: encryptionEnabled
+		encryptionEnabled: encryptionEnabled,
+		allowUserMountSharing: (parseInt($('#allowUserMountSharing').val(), 10) === 1)
+	});
+
+	// init the mountConfigListView events after the storages are loaded
+	$('#body-settings').on('mountConfigLoaded', function() {
+		mountConfigListView._initEvents();
 	});
 	mountConfigListView.loadStorages();
 
@@ -1322,6 +1407,13 @@ $(document).ready(function() {
 			$('#userMountingBackends').addClass('hidden');
 		}
 		OC.msg.finishedSaving('#userMountingMsg', {status: 'success', data: {message: t('files_external', 'Saved')}});
+	});
+
+	var $allowUserMountSharing = $('#allowUserMountSharing');
+	$allowUserMountSharing.bind('change', function() {
+		OC.msg.startSaving('#userMountSharingMsg');
+		OC.AppConfig.setValue('core', 'allow_user_mount_sharing', this.checked ? 'yes' : 'no');
+		OC.msg.finishedSaving('#userMountSharingMsg', {status: 'success', data: {message: t('files_external', 'Saved')}});
 	});
 
 	$('input[name="allowUserMountingBackends\\[\\]"]').bind('change', function() {
@@ -1402,5 +1494,111 @@ OCA.External.Settings = OCA.External.Settings || {};
 OCA.External.Settings.GlobalStorageConfig = GlobalStorageConfig;
 OCA.External.Settings.UserStorageConfig = UserStorageConfig;
 OCA.External.Settings.MountConfigListView = MountConfigListView;
+
+/**
+ * @namespace OAuth2 namespace which is used to verify a storage adapter
+ *            using AuthMechanism as oauth2::oauth2
+ */
+OCA.External.Settings.OAuth2 = OCA.External.Settings.OAuth2 || {};
+
+/**
+ * This function sends a request to the given backendUrl and gets the OAuth2 URL
+ * for any given backend storage, executes the callback if any, set the data-* parameters
+ * of the storage and REDIRECTS the client to Authentication page
+ *
+ * @param  {String}   backendUrl The backend URL to which request will be sent
+ * @param  {Object}   data       Keys -> (backend_id, client_id, client_secret, redirect, tr)
+ */
+OCA.External.Settings.OAuth2.getAuthUrl = function (backendUrl, data) {
+	var $tr = data['tr'];
+	var configured = $tr.find('[data-parameter="configured"]');
+	var token = $tr.find('.configuration [data-parameter="token"]');
+
+	$.post(backendUrl, {
+			step: 1,
+			client_id: data['client_id'],
+			client_secret: data['client_secret'],
+			redirect: data['redirect'],
+		}, function (result) {
+			if (result && result.status == 'success') {
+				$(configured).val('false');
+				$(token).val('false');
+
+				OCA.External.Settings.mountConfig.saveStorageConfig($tr, function(status) {
+					if (!result.data.url) {
+						OC.dialogs.alert('Auth URL not set',
+							t('files_external', 'No URL provided by backend ' + data['backend_id'])
+						);
+						$tr.trigger('oauth_step1_finished', [{
+							success: false,
+							tr: $tr,
+							data: data
+						}]);
+					} else {
+						$tr.trigger('oauth_step1_finished', [{
+							success: true,
+							tr: $tr,
+							data: data
+						}]);
+						window.location = result.data.url;
+					}
+				});
+			} else {
+				OC.dialogs.alert(result.data.message,
+					t('files_external', 'Error getting OAuth2 URL for ' + data['backend_id'])
+				);
+				$tr.trigger('oauth_step1_finished', [{
+					success: false,
+					tr: $tr,
+					data: data
+				}]);
+			}
+		}
+	);
+}
+
+/**
+ * This function verifies the OAuth2 code returned to the client after verification
+ * by sending request to the backend with the given CODE and if the code is verified
+ * it sets the data-* params to configured and disables the authorize buttons
+ *
+ * @param  {String}   backendUrl The backend URL to which request will be sent
+ * @param  {Object}   data       Keys -> (backend_id, client_id, client_secret, redirect, tr, code)
+ * @return {Promise} jQuery Deferred Promise object
+ */
+OCA.External.Settings.OAuth2.verifyCode = function (backendUrl, data) {
+	var $tr = data['tr'];
+	var configured = $tr.find('[data-parameter="configured"]');
+	var token = $tr.find('.configuration [data-parameter="token"]');
+	var statusSpan = $tr.find('.status span');
+	statusSpan.removeClass().addClass('waiting');
+
+	var deferredObject = $.Deferred();
+	$.post(backendUrl, {
+			step: 2,
+			client_id: data['client_id'],
+			client_secret: data['client_secret'],
+			redirect: data['redirect'],
+			code: data['code'],
+		}, function (result) {
+			if (result && result.status == 'success') {
+				$(token).val(result.data.token);
+				$(configured).val('true');	
+				
+				OCA.External.Settings.mountConfig.saveStorageConfig($tr, function(status) {
+					if (status) {
+						$tr.find('.configuration input.auth-param')
+							.attr('disabled', 'disabled')
+							.addClass('disabled-success')
+					}
+					deferredObject.resolve(status);
+				});
+			} else {
+				deferredObject.reject(result.data.message);
+			}
+		}
+	);
+	return deferredObject.promise();
+}
 
 })();

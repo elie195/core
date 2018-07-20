@@ -2,7 +2,7 @@
 /**
  * @author Joas Schilling <coding@schilljs.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -45,7 +45,6 @@ class FakeDBLockingProvider extends \OC\Lock\DBLockingProvider {
 		$this->db = $connection;
 	}
 
-
 	/**
 	 * @param string $path
 	 * @param int $type self::LOCK_SHARED or self::LOCK_EXCLUSIVE
@@ -60,6 +59,16 @@ class FakeDBLockingProvider extends \OC\Lock\DBLockingProvider {
 		}
 
 		parent::releaseLock($path, $type);
+	}
+
+	/**
+	 * sets all locks in the file_locks table to "0"
+	 * @return void
+	 */
+	public function releaseAllGlobally() {
+		$this->db->executeUpdate(
+			'UPDATE `*PREFIX*file_locks` SET `lock` = 0'
+		);
 	}
 
 	public function __destruct() {

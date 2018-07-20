@@ -1,24 +1,6 @@
 $(document).ready(function(){
 	var params = OC.Util.History.parseUrlQuery();
 
-	// Hack to add a trusted domain
-	if (params.trustDomain) {
-		OC.dialogs.confirm(t('settings', 'Are you really sure you want add "{domain}" as trusted domain?',
-				{domain: params.trustDomain}),
-			t('settings', 'Add trusted domain'), function(answer) {
-				if(answer) {
-					$.ajax({
-						type: 'POST',
-						url: OC.generateUrl('settings/admin/security/trustedDomains'),
-						data: { newTrustedDomain: params.trustDomain }
-					}).done(function() {
-						window.location.replace(OC.generateUrl('settings/admin/security'));
-					});
-				}
-			});
-	}
-
-
 	$('#excludedGroups').each(function (index, element) {
 		OC.Settings.setupGroupsSelect($(element));
 		$(element).change(function(ev) {
@@ -75,7 +57,7 @@ $(document).ready(function(){
 		}
 	});
 
-	$('#shareAPI input:not(#excludedGroups)').change(function() {
+	$('#shareAPI input:not(.noautosave)').change(function() {
 		var value = $(this).val();
 		if ($(this).attr('type') === 'checkbox') {
 			if (this.checked) {
@@ -96,6 +78,19 @@ $(document).ready(function(){
 		$('#setDefaultExpireDate').toggleClass('hidden', !(this.checked && $('#shareapiDefaultExpireDate')[0].checked));
 	});
 
+	$('#allowPublicMailNotification').change(function() {
+		$("#publicMailNotificationLang").toggleClass('hidden', !this.checked);
+	});
+
+	$('#shareapiPublicNotificationLang').change(function() {
+		var value = $(this).val();
+		if (value === 'owner') {
+			OC.AppConfig.deleteKey('core', $(this).attr('name'));
+		} else {
+			OC.AppConfig.setValue('core', $(this).attr('name'), $(this).val());
+		}
+	});
+
 
 	$('#allowGroupSharing').change(function() {
 		$('#allowGroupSharing').toggleClass('hidden', !this.checked);
@@ -105,5 +100,32 @@ $(document).ready(function(){
 		$("#selectExcludedGroups").toggleClass('hidden', !this.checked);
 	});
 
+	$('#shareApiDefaultPermissionsSection input').change(function(ev) {
+		var $el = $('#shareApiDefaultPermissions');
+		var $target = $(ev.target);
 
+		var value = $el.val();
+		if ($target.is(':checked')) {
+			value = value | $target.val();
+		} else {
+			value = value & ~$target.val();
+		}
+
+		// always set read permission
+		value |= OC.PERMISSION_READ;
+
+		// this will trigger the field's change event and will save it
+		$el.val(value).change();
+
+		ev.preventDefault();
+
+		return false;
+	});
+
+	var $additionalInfo = $('#coreUserAdditionalInfo');
+	$additionalInfo.val($additionalInfo.attr('data-value'));
+	$additionalInfo.change(function(ev) {
+		$(this).attr('data-value', $(this).val());
+		OC.AppConfig.setValue('core', $(this).attr('name'), $(this).val());
+	});
 });

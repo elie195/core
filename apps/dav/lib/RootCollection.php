@@ -4,7 +4,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -34,7 +34,6 @@ use Sabre\CalDAV\Principal\Collection;
 use Sabre\DAV\SimpleCollection;
 
 class RootCollection extends SimpleCollection {
-
 	public function __construct() {
 		$config = \OC::$server->getConfig();
 		$random = \OC::$server->getSecureRandom();
@@ -59,7 +58,7 @@ class RootCollection extends SimpleCollection {
 		$systemPrincipals->disableListing = $disableListing;
 		$filesCollection = new Files\RootCollection($userPrincipalBackend, 'principals/users');
 		$filesCollection->disableListing = $disableListing;
-		$caldavBackend = new CalDavBackend($db, $userPrincipalBackend, $config, $random);
+		$caldavBackend = new CalDavBackend($db, $userPrincipalBackend, $groupPrincipalBackend, $random);
 		$calendarRoot = new CalendarRoot($userPrincipalBackend, $caldavBackend, 'principals/users');
 		$calendarRoot->disableListing = $disableListing;
 		$publicCalendarRoot = new PublicCalendarRoot($caldavBackend);
@@ -78,11 +77,11 @@ class RootCollection extends SimpleCollection {
 			\OC::$server->getRootFolder()
 		);
 
-		$usersCardDavBackend = new CardDavBackend($db, $userPrincipalBackend, $dispatcher);
+		$usersCardDavBackend = new CardDavBackend($db, $userPrincipalBackend, $groupPrincipalBackend, $dispatcher);
 		$usersAddressBookRoot = new AddressBookRoot($userPrincipalBackend, $usersCardDavBackend, 'principals/users');
 		$usersAddressBookRoot->disableListing = $disableListing;
 
-		$systemCardDavBackend = new CardDavBackend($db, $userPrincipalBackend, $dispatcher);
+		$systemCardDavBackend = new CardDavBackend($db, $userPrincipalBackend, $groupPrincipalBackend, $dispatcher);
 		$systemAddressBookRoot = new AddressBookRoot(new SystemPrincipalBackend(), $systemCardDavBackend, 'principals/system');
 		$systemAddressBookRoot->disableListing = $disableListing;
 
@@ -106,10 +105,10 @@ class RootCollection extends SimpleCollection {
 				$systemTagCollection,
 				$systemTagRelationsCollection,
 				$uploadCollection,
-				$avatarCollection
+				$avatarCollection,
+				new \OCA\DAV\Meta\RootCollection(\OC::$server->getRootFolder())
 		];
 
 		parent::__construct('root', $children);
 	}
-
 }

@@ -9,7 +9,7 @@
  * @author Ujjwal Bhardwaj <ujjwalb1996@gmail.com>
  * @author Victor Dubiniuk <dubiniuk@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -40,6 +40,7 @@ use OCP\IUserManager;
 use OCP\Mail\IMailer;
 use OCP\Security\ISecureRandom;
 use \OC_Defaults;
+use OC\User\Session;
 
 /**
  * Class LostController
@@ -73,6 +74,8 @@ class LostController extends Controller {
 	protected $timeFactory;
 	/** @var ILogger */
 	protected $logger;
+	/** @var Session */
+	private $userSession;
 
 	/**
 	 * @param string $appName
@@ -88,6 +91,7 @@ class LostController extends Controller {
 	 * @param IMailer $mailer
 	 * @param ITimeFactory $timeFactory
 	 * @param ILogger $logger
+	 * @param Session $userSession
 	 */
 	public function __construct($appName,
 								IRequest $request,
@@ -101,7 +105,8 @@ class LostController extends Controller {
 								$isDataEncrypted,
 								IMailer $mailer,
 								ITimeFactory $timeFactory,
-								ILogger $logger) {
+								ILogger $logger,
+								Session $userSession) {
 		parent::__construct($appName, $request);
 		$this->urlGenerator = $urlGenerator;
 		$this->userManager = $userManager;
@@ -114,6 +119,7 @@ class LostController extends Controller {
 		$this->mailer = $mailer;
 		$this->timeFactory = $timeFactory;
 		$this->logger = $logger;
+		$this->userSession = $userSession;
 	}
 
 	/**
@@ -156,21 +162,21 @@ class LostController extends Controller {
 	private function checkPasswordResetToken($token, $userId) {
 		$user = $this->userManager->get($userId);
 
-		$splittedToken = explode(':', $this->config->getUserValue($userId, 'owncloud', 'lostpassword', null));
-		if(count($splittedToken) !== 2) {
+		$splittedToken = \explode(':', $this->config->getUserValue($userId, 'owncloud', 'lostpassword', null));
+		if (\count($splittedToken) !== 2) {
 			$this->config->deleteUserValue($userId, 'owncloud', 'lostpassword');
-			throw new \Exception($this->l10n->t('Couldn\'t reset password because the token is invalid'));
+			throw new \Exception($this->l10n->t('Could not reset password because the token is invalid'));
 		}
 
 		if ($splittedToken[0] < ($this->timeFactory->getTime() - 60*60*12) ||
 			$user->getLastLogin() > $splittedToken[0]) {
 			$this->config->deleteUserValue($userId, 'owncloud', 'lostpassword');
-			throw new \Exception($this->l10n->t('Couldn\'t reset password because the token is expired'));
+			throw new \Exception($this->l10n->t('Could not reset password because the token expired'));
 		}
 
-		if (!hash_equals($splittedToken[1], $token)) {
+		if (!\hash_equals($splittedToken[1], $token)) {
 			$this->config->deleteUserValue($userId, 'owncloud', 'lostpassword');
-			throw new \Exception($this->l10n->t('Couldn\'t reset password because the token is invalid'));
+			throw new \Exception($this->l10n->t('Could not reset password because the token does not match'));
 		}
 	}
 
@@ -180,7 +186,7 @@ class LostController extends Controller {
 	 * @return array
 	 */
 	private function error($message, array $additional= []) {
-		return array_merge(['status' => 'error', 'msg' => $message], $additional);
+		return \array_merge(['status' => 'error', 'msg' => $message], $additional);
 	}
 
 	/**
@@ -196,11 +202,11 @@ class LostController extends Controller {
 	 * @param string $user
 	 * @return array
 	 */
-	public function email($user){
+	public function email($user) {
 		// FIXME: use HTTP error codes
 		try {
 			$this->sendEmail($user);
-		} catch (\Exception $e){
+		} catch (\Exception $e) {
 			return $this->error($e->getMessage());
 		}
 
@@ -230,19 +236,20 @@ class LostController extends Controller {
 
 			\OC_Hook::emit('\OC\Core\LostPassword\Controller\LostController', 'post_passwordReset', ['uid' => $userId, 'password' => $password]);
 			@\OC_User::unsetMagicInCookie();
-		} catch (\Exception $e){
+		} catch (\Exception $e) {
 			return $this->error($e->getMessage());
 		}
 
 		try {
 			$this->sendNotificationMail($userId);
-		} catch (\Exception $e){
+		} catch (\Exception $e) {
 			return $this->error($e->getMessage());
 		}
 
+		$this->logout();
+
 		return $this->success();
 	}
-
 
 	/**
 	 * @param string $userId
@@ -288,7 +295,7 @@ class LostController extends Controller {
 		} else {
 			$users = $this->userManager->getByEmail($user);
 
-			switch (count($users)) {
+			switch (\count($users)) {
 				case 0:
 					$this->logger->error('Could not send reset email because User does not exist. User: {user}', ['app' => 'core', 'user' => $user]);
 					return false;
@@ -305,8 +312,8 @@ class LostController extends Controller {
 
 		$token = $this->config->getUserValue($user, 'owncloud', 'lostpassword');
 		if ($token !== '') {
-			$splittedToken = explode(':', $token);
-			if ((count($splittedToken)) === 2 && $splittedToken[0] > ($this->timeFactory->getTime() - 60 * 5)) {
+			$splittedToken = \explode(':', $token);
+			if ((\count($splittedToken)) === 2 && $splittedToken[0] > ($this->timeFactory->getTime() - 60 * 5)) {
 				$this->logger->alert('The email is not sent because a password reset email was sent recently.');
 				return false;
 			}
@@ -323,12 +330,16 @@ class LostController extends Controller {
 		$tmpl = new \OC_Template('core', 'lostpassword/email');
 		$tmpl->assign('link', $link);
 		$msg = $tmpl->fetchPage();
+		$tmplAlt = new \OC_Template('core', 'lostpassword/altemail');
+		$tmplAlt->assign('link', $link);
+		$msgAlt = $tmplAlt->fetchPage();
 
 		try {
 			$message = $this->mailer->createMessage();
 			$message->setTo([$email => $user]);
 			$message->setSubject($this->l10n->t('%s password reset', [$this->defaults->getName()]));
-			$message->setPlainBody($msg);
+			$message->setPlainBody($msgAlt);
+			$message->setHtmlBody($msg);
 			$message->setFrom([$this->from => $this->defaults->getName()]);
 			$this->mailer->send($message);
 		} catch (\Exception $e) {
@@ -340,4 +351,11 @@ class LostController extends Controller {
 		return true;
 	}
 
+	private function logout() {
+		$loginToken = $this->request->getCookie('oc_token');
+		if ($loginToken !== null) {
+			$this->config->deleteUserValue($this->userSession->getUser()->getUID(), 'login_token', $loginToken);
+		}
+		$this->userSession->logout();
+	}
 }

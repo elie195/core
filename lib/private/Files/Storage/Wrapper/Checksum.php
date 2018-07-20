@@ -2,7 +2,7 @@
 /**
  * @author Ilja Neumann <ineumann@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,10 +21,7 @@
 namespace OC\Files\Storage\Wrapper;
 
 use Icewind\Streams\CallbackWrapper;
-use OC\Cache\CappedMemoryCache;
 use OC\Files\Stream\Checksum as ChecksumStream;
-use OC\OCS\Exception;
-use OCP\ILogger;
 use OCP\Files\IHomeStorage;
 
 /**
@@ -40,6 +37,8 @@ use OCP\Files\IHomeStorage;
  */
 class Checksum extends Wrapper {
 
+	/** Format of checksum field in filecache */
+	const CHECKSUMS_DB_FORMAT = 'SHA1:%s MD5:%s ADLER32:%s';
 
 	const NOT_REQUIRED = 0;
 	/** Calculate checksum on write (to be stored in oc_filecache) */
@@ -57,8 +56,8 @@ class Checksum extends Wrapper {
 	 */
 	public function fopen($path, $mode) {
 		$stream = $this->getWrapperStorage()->fopen($path, $mode);
-		if (!is_resource($stream)) {
-			// don't wrap on error
+		if (!\is_resource($stream) || $this->isReadWriteStream($mode)) {
+			// don't wrap on error or mixed mode streams (could cause checksum corruption)
 			return $stream;
 		}
 
@@ -95,7 +94,7 @@ class Checksum extends Wrapper {
 		$isNormalFile = true;
 		if ($this->instanceOfStorage(IHomeStorage::class)) {
 			// home storage stores files in "files"
-			$isNormalFile = substr($path, 0, 6) === 'files/';
+			$isNormalFile = \substr($path, 0, 6) === 'files/';
 		}
 		$fileIsWritten = $mode !== 'r' && $mode !== 'rb';
 
@@ -111,12 +110,20 @@ class Checksum extends Wrapper {
 
 		// Cache entry is sometimes an array (partial) when encryption is enabled without id so
 		// we ignore it.
-		if ($cacheEntry && empty($cacheEntry['checksum']) && is_object($cacheEntry)) {
+		if ($cacheEntry && empty($cacheEntry['checksum']) && \is_object($cacheEntry)) {
 			$this->pathsInCacheWithoutChecksum[$cacheEntry->getId()] = $path;
 			return self::PATH_IN_CACHE_WITHOUT_CHECKSUM;
 		}
 
 		return self::NOT_REQUIRED;
+	}
+
+	/**
+	 * @param $mode
+	 * @return bool
+	 */
+	private function isReadWriteStream($mode) {
+		return \strpos($mode, '+') !== false;
 	}
 
 	/**
@@ -136,16 +143,37 @@ class Checksum extends Wrapper {
 
 	/**
 	 * @param $path
-	 * Format like "SHA1:abc MD5:def ADLER32:ghi"
-	 * @return string
+	 * @return string Format like "SHA1:abc MD5:def ADLER32:ghi"
 	 */
 	private static function getChecksumsInDbFormat($path) {
-		$checksumString = '';
-		foreach (ChecksumStream::getChecksums($path) as $algo => $checksum) {
-			$checksumString .= sprintf('%s:%s ', strtoupper($algo), $checksum);
+		$checksums = ChecksumStream::getChecksums($path);
+
+		if (empty($checksums)) {
+			return '';
 		}
 
-		return rtrim($checksumString);
+		return \sprintf(
+			self::CHECKSUMS_DB_FORMAT,
+			$checksums['sha1'],
+			$checksums['md5'],
+			$checksums['adler32']
+		);
+	}
+
+	/**
+	 * check if the file metadata should not be fetched
+	 * NOTE: files with a '.part' extension are ignored as well!
+	 *       prevents unfinished put requests to fetch metadata which does not exists
+	 *
+	 * @param string $file
+	 * @return boolean
+	 */
+	public static function isPartialFile($file) {
+		if (\pathinfo($file, PATHINFO_EXTENSION) === 'part') {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -154,11 +182,11 @@ class Checksum extends Wrapper {
 	 * @return bool
 	 */
 	public function file_put_contents($path, $data) {
-		$memoryStream = fopen('php://memory', 'r+');
+		$memoryStream = \fopen('php://memory', 'r+');
 		$checksumStream = \OC\Files\Stream\Checksum::wrap($memoryStream, $path);
 
-		fwrite($checksumStream, $data);
-		fclose($checksumStream);
+		\fwrite($checksumStream, $data);
+		\fclose($checksumStream);
 
 		return $this->getWrapperStorage()->file_put_contents($path, $data);
 	}
@@ -168,7 +196,15 @@ class Checksum extends Wrapper {
 	 * @return array
 	 */
 	public function getMetaData($path) {
-		$parentMetaData = $this->getWrapperStorage()->getMetaData($path);
+		// Check if it is partial file. Partial file metadata are only checksums
+		$parentMetaData = [];
+		if (!self::isPartialFile($path)) {
+			$parentMetaData = $this->getWrapperStorage()->getMetaData($path);
+			// can be null if entry does not exist
+			if ($parentMetaData === null) {
+				return null;
+			}
+		}
 		$parentMetaData['checksum'] = self::getChecksumsInDbFormat($path);
 
 		if (!isset($parentMetaData['mimetype'])) {

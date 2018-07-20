@@ -3,7 +3,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -61,7 +61,7 @@ class UpdateOutdatedOcsIds implements IRepairStep {
 	public function fixOcsId($appName, $oldId, $newId) {
 		$existingId = $this->config->getAppValue($appName, 'ocsid');
 
-		if($existingId === $oldId) {
+		if ($existingId === $oldId) {
 			$this->config->setAppValue($appName, 'ocsid', $newId);
 			return true;
 		}
@@ -96,7 +96,7 @@ class UpdateOutdatedOcsIds implements IRepairStep {
 			]
 		];
 
-		foreach($appsToUpdate as $appName => $ids) {
+		foreach ($appsToUpdate as $appName => $ids) {
 			if ($this->fixOcsId($appName, $ids['old'], $ids['new'])) {
 				$output->info("Fixed invalid $appName OCS id");
 			}

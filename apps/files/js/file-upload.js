@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014
+ * Copyright (c) 2018
  *
  * This file is licensed under the Affero General Public License version 3
  * or later.
@@ -37,12 +37,11 @@ OC.FileUpload = function(uploader, data) {
 	if (!data) {
 		throw 'Missing "data" argument in OC.FileUpload constructor';
 	}
-	var path = '';
+	var basePath = '';
 	if (this.uploader.fileList) {
-		path = OC.joinPaths(this.uploader.fileList.getCurrentDirectory(), this.getFile().name);
-	} else {
-		path = this.getFile().name;
+		basePath = this.uploader.fileList.getCurrentDirectory();
 	}
+	var path = OC.joinPaths(basePath, this.getFile().relativePath || '', this.getFile().name);
 	this.id = 'web-file-upload-' + md5(path) + '-' + (new Date()).getTime();
 };
 OC.FileUpload.CONFLICT_MODE_DETECT = 0;
@@ -244,13 +243,17 @@ OC.FileUpload.prototype = {
 			this.data.headers['X-OC-Mtime'] = file.lastModified / 1000;
 		}
 
-		var userName = this.uploader.filesClient.getUserName();
-		var password = this.uploader.filesClient.getPassword();
+		var userName = this.uploader.davClient.getUserName();
+		var password = this.uploader.davClient.getPassword();
 		if (userName) {
 			// copy username/password from DAV client
 			this.data.headers['Authorization'] =
 				'Basic ' + btoa(userName + ':' + (password || ''));
 		}
+		this.data.headers['requesttoken'] = OC.requestToken;
+
+		// prevent global error handler to kick in on timeout
+		this.data.allowAuthErrors = true;
 
 		var chunkFolderPromise;
 		if ($.support.blobSlice
@@ -258,8 +261,8 @@ OC.FileUpload.prototype = {
 			&& this.getFile().size > this.uploader.fileUploadParam.maxChunkSize
 		) {
 			data.isChunked = true;
-			chunkFolderPromise = this.uploader.filesClient.createDirectory(
-				'uploads/' + encodeURIComponent(OC.getCurrentUser().uid) + '/' + encodeURIComponent(this.getId())
+			chunkFolderPromise = this.uploader.davClient.createDirectory(
+				'uploads/' + OC.getCurrentUser().uid + '/' + this.getId()
 			);
 			// TODO: if fails, it means same id already existed, need to retry
 		} else {
@@ -284,9 +287,29 @@ OC.FileUpload.prototype = {
 		}
 
 		var uid = OC.getCurrentUser().uid;
-		return this.uploader.filesClient.move(
-			'uploads/' + encodeURIComponent(uid) + '/' + encodeURIComponent(this.getId()) + '/.file',
-			'files/' + encodeURIComponent(uid) + '/' + OC.joinPaths(this.getFullPath(), this.getFileName())
+		var mtime = this.getFile().lastModified;
+		var size = this.getFile().size;
+		var headers = {};
+		if (mtime) {
+			headers['X-OC-Mtime'] = mtime / 1000;
+		}
+		if (size) {
+			headers['OC-Total-Length'] = size;
+
+		}
+
+		return this.uploader.davClient.move(
+			'uploads/' + uid + '/' + this.getId() + '/.file',
+			'files/' + uid + '/' + OC.joinPaths(this.getFullPath(), this.getFileName()),
+			true,
+			headers
+		);
+	},
+
+	_deleteChunkFolder: function() {
+		// delete transfer directory for this upload
+		this.uploader.davClient.remove(
+			'uploads/' + OC.getCurrentUser().uid + '/' + this.getId()
 		);
 	},
 
@@ -295,12 +318,32 @@ OC.FileUpload.prototype = {
 	 */
 	abort: function() {
 		if (this.data.isChunked) {
-			// delete transfer directory for this upload
-			this.uploader.filesClient.remove(
-				'uploads/' + encodeURIComponent(OC.getCurrentUser().uid) + '/' + encodeURIComponent(this.getId())
-			);
+			this._deleteChunkFolder();
 		}
+		this.data.stalled = false;
 		this.data.abort();
+		this.deleteUpload();
+	},
+
+	/**
+	 * retry the upload
+	 */
+	retry: function() {
+		if (!this.data.stalled) {
+			console.log('Retrying upload ' + this.id);
+			this.data.stalled = true;
+			this.data.abort();
+		}
+	},
+
+	/**
+	 * Fail the upload
+	 */
+	fail: function() {
+		this.deleteUpload();
+		if (this.data.isChunked) {
+			this._deleteChunkFolder();
+		}
 	},
 
 	/**
@@ -310,15 +353,50 @@ OC.FileUpload.prototype = {
 	 */
 	getResponse: function() {
 		var response = this.data.response();
-		if (typeof response.result !== 'string') {
+		if (response.errorThrown) {
+			if (response.errorThrown === 'timeout') {
+				return {
+					status: 0,
+					message: t('core', 'Upload timeout for file "{file}"', {file: this.getFileName()})
+				};
+			}
+
+			// attempt parsing Sabre exception is available
+			var xml = response.jqXHR.responseXML;
+			if (xml.documentElement.localName === 'error' && xml.documentElement.namespaceURI === 'DAV:') {
+				var messages = xml.getElementsByTagNameNS('http://sabredav.org/ns', 'message');
+				var exceptions = xml.getElementsByTagNameNS('http://sabredav.org/ns', 'exception');
+				if (messages.length) {
+					response.message = messages[0].textContent;
+				}
+				if (exceptions.length) {
+					response.exception = exceptions[0].textContent;
+				}
+				return response;
+			}
+		}
+
+		if (typeof response.result !== 'string' && response.result) {
 			//fetch response from iframe
 			response = $.parseJSON(response.result[0].body.innerText);
 			if (!response) {
 				// likely due to internal server error
 				response = {status: 500};
 			}
-		} else {
+		} else if (response.result) {
 			response = response.result;
+		} else {
+			if (response.jqXHR.status === 0 && response.jqXHR.statusText === 'error') {
+				// timeout (IE11)
+				return {
+					status: 0,
+					message: t('core', 'Upload timeout for file "{file}"', {file: this.getFileName()})
+				};
+			}
+			return {
+				status: response.jqXHR.status,
+				message: t('core', 'Unknown error "{error}" uploading file "{file}"', {error: response.jqXHR.statusText, file: this.getFileName()})
+			};
 		}
 		return response;
 	},
@@ -399,6 +477,24 @@ OC.Uploader.prototype = _.extend({
 	 */
 	filesClient: null,
 
+	/**
+	 * Webdav client pointing at the root "dav" endpoint
+	 *
+	 * @type OC.Files.Client
+	 */
+	davClient: null,
+
+	/**
+	 * Upload progressbar element
+	 *
+	 * @type Object
+	 */
+	$uploadprogressbar: null,
+
+	/**
+	 * @type int
+	 */
+	_uploadStallTimeout: 60,
 	/**
 	 * Function that will allow us to know if Ajax uploads are supported
 	 * @link https://github.com/New-Bamboo/example-ajax-upload/blob/master/public/index.html
@@ -548,7 +644,13 @@ OC.Uploader.prototype = _.extend({
 	 * Clear uploads
 	 */
 	clear: function() {
-		this._uploads = {};
+		var remainingUploads = {};
+		_.each(this._uploads, function(upload, key) {
+			if (!upload.isDone) {
+				remainingUploads[key] = upload;
+			}
+		});
+		this._uploads = remainingUploads;
 		this._knownDirs = {};
 	},
 	/**
@@ -713,15 +815,44 @@ OC.Uploader.prototype = _.extend({
 
 	_hideProgressBar: function() {
 		var self = this;
+		window.clearInterval(this._progressBarInterval);
 		$('#uploadprogresswrapper .stop').fadeOut();
-		$('#uploadprogressbar').fadeOut(function() {
+		this.$uploadprogressbar.fadeOut(function() {
 			self.$uploadEl.trigger(new $.Event('resized'));
 		});
 	},
 
 	_showProgressBar: function() {
-		$('#uploadprogressbar').fadeIn();
+		this.$uploadprogressbar.fadeIn();
 		this.$uploadEl.trigger(new $.Event('resized'));
+		if (this._progressBarInterval) {
+			window.clearInterval(this._progressBarInterval);
+		}
+		this._progressBarInterval = window.setInterval(_.bind(this._updateProgressBar, this), 1000);
+		this._lastProgress = 0;
+	},
+
+	_updateProgressBar: function() {
+		var progress = parseInt(this.$uploadprogressbar.attr('data-loaded'), 10);
+		var total = parseInt(this.$uploadprogressbar.attr('data-total'), 10);
+		if (progress !== this._lastProgress) {
+			this._lastProgress = progress;
+			this._lastProgressTime = new Date().getTime();
+		} else {
+			if (progress >= total) {
+				// change message if we stalled at 100%
+				this.$uploadprogressbar.find('.label .desktop').text(t('core', 'Processing files...'));
+			} else if (new Date().getTime() - this._lastProgressTime >= this._uploadStallTimeout * 1000 ) {
+				// TODO: move to "fileuploadprogress" event instead and use data.uploadedBytes
+				// stalling needs to be checked here because the file upload no longer triggers events
+				// restart upload
+				this.log('progress stalled'); // retry chunk (and prevent IE from dying)
+				_.each(this._uploads, function(upload) {
+					// FIXME: harden by only retry pending, not the finished ones
+					upload.retry();
+				});
+			}
+		}
 	},
 
 	/**
@@ -756,15 +887,30 @@ OC.Uploader.prototype = _.extend({
 		var self = this;
 		options = options || {};
 
+		this._uploads = {};
+		this._knownDirs = {};
+
 		this.fileList = options.fileList;
 		this.filesClient = options.filesClient || OC.Files.getClient();
+		this.davClient = new OC.Files.Client({
+			host: this.filesClient.getHost(),
+			root: OC.linkToRemoteBase('dav'),
+			useHTTPS: OC.getProtocol() === 'https',
+			userName: this.filesClient.getUserName(),
+			password: this.filesClient.getPassword()
+		});
 
 		if (options.url) {
 			this.url = options.url;
 		}
+		if (options.uploadStallTimeout) {
+			this._uploadStallTimeout = options.uploadStallTimeout;
+		}
 
 		$uploadEl = $($uploadEl);
 		this.$uploadEl = $uploadEl;
+
+		this.$uploadprogressbar = $('#uploadprogressbar');
 
 		if ($uploadEl.exists()) {
 			$('#uploadprogresswrapper .stop').on('click', function() {
@@ -776,10 +922,12 @@ OC.Uploader.prototype = _.extend({
 				dropZone: options.dropZone, // restrict dropZone to content div
 				autoUpload: false,
 				sequentialUploads: true,
+				maxRetries: options.uploadStallRetries || 3,
+				retryTimeout: 500,
 				//singleFileUploads is on by default, so the data.files array will always have length 1
 				/**
 				 * on first add of every selection
-				 * - check all files of originalFiles array with files in dir
+
 				 * - on conflict show dialog
 				 *   - skip all -> remember as single skip action for all conflicting files
 				 *   - replace all -> remember as single replace action for all conflicting files
@@ -940,11 +1088,59 @@ OC.Uploader.prototype = _.extend({
 				},
 				fail: function(e, data) {
 					var upload = self.getUpload(data);
+					if (upload && upload.data && upload.data.stalled) {
+						self.log('retry', e, upload);
+						// jQuery Widget Factory uses "namespace-widgetname" since version 1.10.0:
+						var fu = $(this).data('blueimp-fileupload') || $(this).data('fileupload'),
+							retries = upload.data.retries || 0,
+							retry = function () {
+								var uid = OC.getCurrentUser().uid;
+								upload.uploader.davClient.getFolderContents(
+									'uploads/' + uid + '/' + upload.getId()
+								)
+								.done(function (status, files) {
+									data.uploadedBytes = 0;
+									_.each(files, function(file) {
+										// only count numeric file names to omit .file and .file.zsync
+										if (!isNaN(parseFloat(file.name))
+											&& isFinite(file.name)
+											// only count full chunks
+											&& file.size === fu.options.maxChunkSize
+										) {
+											data.uploadedBytes += file.size;
+										}
+									});
+
+									// clear the previous data:
+									data.data = null;
+									// overwrite chunk
+									delete data.headers['If-None-Match'];
+									data.submit();
+								})
+								.fail(function (status, ex) {
+									self.log('failed to retry', status, ex);
+									fu._trigger('fail', e, data);
+								});
+							};
+						if (upload && upload.data && upload.data.stalled &&
+							data.uploadedBytes < data.files[0].size &&
+							retries < fu.options.maxRetries) {
+							retries += 1;
+							upload.data.retries = retries;
+							window.setTimeout(retry, retries * fu.options.retryTimeout);
+							return;
+						}
+						fu.prototype
+							.options.fail.call(this, e, data);
+						return;
+					}
+
 					var status = null;
 					if (upload) {
 						status = upload.getResponseStatus();
 					}
 					self.log('fail', e, upload);
+					self._hideProgressBar();
 
 					if (data.textStatus === 'abort') {
 						self.showUploadCancelMessage();
@@ -966,11 +1162,16 @@ OC.Uploader.prototype = _.extend({
 						self.cancelUploads();
 					} else {
 						// HTTP connection problem or other error
-						OC.Notification.show(data.errorThrown, {type: 'error'});
+						var message = '';
+						if (upload) {
+							var response = upload.getResponse();
+							message = response.message;
+						}
+						OC.Notification.show(message || data.errorThrown, {type: 'error'});
 					}
 
 					if (upload) {
-						upload.deleteUpload();
+						upload.fail();
 					}
 				},
 				/**
@@ -982,6 +1183,7 @@ OC.Uploader.prototype = _.extend({
 					var upload = self.getUpload(data);
 					var that = $(this);
 					self.log('done', e, upload);
+					upload.isDone = true;
 
 					var status = upload.getResponseStatus();
 					if (status < 200 || status >= 300) {
@@ -1000,6 +1202,10 @@ OC.Uploader.prototype = _.extend({
 					self.log('stop', e, data);
 				}
 			};
+
+			if (options.maxChunkSize) {
+				this.fileUploadParam.maxChunkSize = options.maxChunkSize;
+			}
 
 			// initialize jquery fileupload (blueimp)
 			var fileupload = this.$uploadEl.fileupload(this.fileUploadParam);
@@ -1026,14 +1232,14 @@ OC.Uploader.prototype = _.extend({
 					self.log('progress handle fileuploadstart', e, data);
 					$('#uploadprogresswrapper .stop').show();
 					$('#uploadprogresswrapper .label').show();
-					$('#uploadprogressbar').progressbar({value: 0});
-					$('#uploadprogressbar .ui-progressbar-value').
+					self.$uploadprogressbar.progressbar({value: 0});
+					self.$uploadprogressbar.find('.ui-progressbar-value').
 						html('<em class="label inner"><span class="desktop">'
 							+ t('files', 'Uploading...')
 							+ '</span><span class="mobile">'
 							+ t('files', '...')
 							+ '</span></em>');
-                    $('#uploadprogressbar').tipsy({gravity:'n', fade:true, live:true});
+					self.$uploadprogressbar.tipsy({gravity:'n', fade:true, live:true});
 					self._showProgressBar();
 					self.trigger('start', e, data);
 				});
@@ -1052,30 +1258,31 @@ OC.Uploader.prototype = _.extend({
 					lastSize = data.loaded;
 					diffSize = diffSize / diffUpdate; // apply timing factor, eg. 1mb/2s = 0.5mb/s
 					var remainingSeconds = ((data.total - data.loaded) / diffSize);
-					if(remainingSeconds >= 0) {
+					if (isFinite(remainingSeconds) && remainingSeconds >= 0) {
 						bufferTotal = bufferTotal - (buffer[bufferIndex]) + remainingSeconds;
 						buffer[bufferIndex] = remainingSeconds; //buffer to make it smoother
 						bufferIndex = (bufferIndex + 1) % bufferSize;
 					}
 					var smoothRemainingSeconds = (bufferTotal / bufferSize); //seconds
 					var h = moment.duration(smoothRemainingSeconds, "seconds").humanize();
-					$('#uploadprogressbar .label .mobile').text(h);
-					$('#uploadprogressbar .label .desktop').text(h);
-					$('#uploadprogressbar').attr('original-title',
+					self.$uploadprogressbar.attr('data-loaded', data.loaded);
+					self.$uploadprogressbar.attr('data-total', data.total);
+					self.$uploadprogressbar.find('.label .mobile').text(h);
+					self.$uploadprogressbar.find('.label .desktop').text(h);
+					self.$uploadprogressbar.attr('original-title',
 						t('files', '{loadedSize} of {totalSize} ({bitrate})' , {
 							loadedSize: humanFileSize(data.loaded),
 							totalSize: humanFileSize(data.total),
 							bitrate: humanFileSize(data.bitrate) + '/s'
 						})
 					);
-					$('#uploadprogressbar').progressbar('value', progress);
+					self.$uploadprogressbar.progressbar('value', progress);
 					self.trigger('progressall', e, data);
 				});
 				fileupload.on('fileuploadstop', function(e, data) {
 					self.log('progress handle fileuploadstop', e, data);
 
 					self.clear();
-					self._hideProgressBar();
 					self.trigger('stop', e, data);
 				});
 				fileupload.on('fileuploadfail', function(e, data) {
@@ -1091,7 +1298,7 @@ OC.Uploader.prototype = _.extend({
 					// modify the request to adjust it to our own chunking
 					var upload = self.getUpload(data);
 					var range = data.contentRange.split(' ')[1];
-					var chunkId = range.split('/')[0];
+					var chunkId = range.split('/')[0].split('-')[0];
 					data.url = OC.getRootPath() +
 						'/remote.php/dav/uploads' +
 						'/' + encodeURIComponent(OC.getCurrentUser().uid) +
@@ -1099,11 +1306,38 @@ OC.Uploader.prototype = _.extend({
 						'/' + encodeURIComponent(chunkId);
 					delete data.contentRange;
 					delete data.headers['Content-Range'];
+
+					// reset retries
+					upload.data.retries = 0;
+				});
+				fileupload.on('fileuploadchunkdone', function(e, data) {
+					$(data.xhr().upload).unbind('progress');
 				});
 				fileupload.on('fileuploaddone', function(e, data) {
 					var upload = self.getUpload(data);
 					upload.done().then(function() {
 						self.trigger('done', e, upload);
+						// defer because sometimes the current upload is still in pending
+						// state but frees itself afterwards
+						_.defer(function() {
+							// don't hide if there are more files to process
+							if (!self.isProcessing()) {
+								self._hideProgressBar();
+							}
+						});
+					}).fail(function(status, response) {
+						var message = response.message;
+						self._hideProgressBar();
+						if (status === 507) {
+							// not enough space
+							OC.Notification.show(message || t('files', 'Not enough free space'), {type: 'error'});
+							self.cancelUploads();
+						} else if (status === 409) {
+							OC.Notification.show(message || t('files', 'Target folder does not exist any more'), {type: 'error'});
+						} else {
+							OC.Notification.show(message || t('files', 'Error when assembling chunks, status code {status}', {status: status}), {type: 'error'});
+						}
+						self.trigger('fail', e, data);
 					});
 				});
 				fileupload.on('fileuploaddrop', function(e, data) {

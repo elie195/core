@@ -3,7 +3,7 @@
  * ownCloud
  *
  * @author Robin Appelman
- * @copyright 2012 Robin Appelman icewind@owncloud.com
+ * @copyright Copyright (c) 2012 Robin Appelman icewind@owncloud.com
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -34,7 +34,6 @@ use Test\TestCase;
 use Test\Traits\UserTrait;
 
 class DummyMountProvider implements IMountProvider {
-
 	private $mounts = [];
 
 	/**
@@ -51,7 +50,7 @@ class DummyMountProvider implements IMountProvider {
 	 * @param IStorageFactory $loader
 	 * @return \OCP\Files\Mount\IMountPoint[]
 	 */
-	public function  getMountsForUser(IUser $user, IStorageFactory $loader) {
+	public function getMountsForUser(IUser $user, IStorageFactory $loader) {
 		return isset($this->mounts[$user->getUID()]) ? $this->mounts[$user->getUID()] : [];
 	}
 }
@@ -64,7 +63,6 @@ class DummyMountProvider implements IMountProvider {
  * @package Test\Files
  */
 class FilesystemTest extends TestCase {
-
 	use UserTrait;
 
 	const TEST_FILESYSTEM_USER1 = "test-filesystem-user1";
@@ -86,16 +84,8 @@ class FilesystemTest extends TestCase {
 
 	protected function setUp() {
 		parent::setUp();
-<<<<<<< HEAD
-		\OC_User::clearBackends();
-		$userBackend = new \Test\Util\User\Dummy();
-		$userBackend->createUser(self::TEST_FILESYSTEM_USER1, self::TEST_FILESYSTEM_USER1);
-		$userBackend->createUser(self::TEST_FILESYSTEM_USER2, self::TEST_FILESYSTEM_USER2);
-		\OC::$server->getUserManager()->registerBackend($userBackend);
-=======
 		$this->createUser(self::TEST_FILESYSTEM_USER1, self::TEST_FILESYSTEM_USER1);
 		$this->createUser(self::TEST_FILESYSTEM_USER2, self::TEST_FILESYSTEM_USER2);
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		$this->loginAsUser();
 	}
 
@@ -301,20 +291,16 @@ class FilesystemTest extends TestCase {
 	}
 
 	/**
-	 * The parameter array can be redesigned if filesystem.php will get a constructor where it is possible to 
+	 * The parameter array can be redesigned if filesystem.php will get a constructor where it is possible to
 	 * define the excluded directories for unit tests
 	 * @dataProvider isExcludedData
 	 */
 	public function testIsExcluded($path, $expected) {
-<<<<<<< HEAD
-		$this->assertSame($expected, \OC\Files\Filesystem::isForbiddenFileOrDir($path, ['.snapshot']));
-=======
 		$this->assertSame($expected, Filesystem::isForbiddenFileOrDir($path, ['.snapshot']));
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	}
 
 	public function testNormalizePathUTF8() {
-		if (!class_exists('Patchwork\PHP\Shim\Normalizer')) {
+		if (!\class_exists('Patchwork\PHP\Shim\Normalizer')) {
 			$this->markTestSkipped('UTF8 normalizer Patchwork was not found');
 		}
 
@@ -331,7 +317,6 @@ class FilesystemTest extends TestCase {
 			$userObj = \OC::$server->getUserManager()->get($user);
 			\OC::$server->getUserSession()->setUser($userObj);
 			Filesystem::init($user, '/' . $user . '/files');
-
 		}
 		\OC_Hook::clear('OC_Filesystem');
 		\OC_Hook::connect('OC_Filesystem', 'post_write', $this, 'dummyHook');
@@ -347,8 +332,8 @@ class FilesystemTest extends TestCase {
 //		\OC\Files\Filesystem::file_put_contents('/bar//foo', 'foo');
 
 		$tmpFile = \OC::$server->getTempManager()->getTemporaryFile();
-		file_put_contents($tmpFile, 'foo');
-		$fh = fopen($tmpFile, 'r');
+		\file_put_contents($tmpFile, 'foo');
+		$fh = \fopen($tmpFile, 'r');
 //		\OC\Files\Filesystem::file_put_contents('/bar//foo', $fh);
 	}
 
@@ -410,43 +395,21 @@ class FilesystemTest extends TestCase {
 	public function testUserNameCasing() {
 		$this->logout();
 		$userId = $this->getUniqueID('user_');
-<<<<<<< HEAD
-
-		\OC_User::clearBackends();
-		// needed for loginName2UserName mapping
-		$userBackend = $this->createMock(\OC\User\Database::class);
-		\OC::$server->getUserManager()->registerBackend($userBackend);
-
-		$userBackend->expects($this->once())
-			->method('userExists')
-			->with(strtoupper($userId))
-			->will($this->returnValue(true));
-		$userBackend->expects($this->once())
-			->method('loginName2UserName')
-			->with(strtoupper($userId))
-			->will($this->returnValue($userId));
-
-		$view = new \OC\Files\View();
-		$this->assertFalse($view->file_exists('/' . $userId));
-
-		\OC\Files\Filesystem::initMountPoints(strtoupper($userId));
-=======
 		$this->createUser($userId);
 
 		$view = new View();
 		$this->assertFalse($view->file_exists('/' . $userId));
 
-		Filesystem::initMountPoints(strtoupper($userId));
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+		Filesystem::initMountPoints(\strtoupper($userId));
 
 		list($storage1, $path1) = $view->resolvePath('/' . $userId);
-		list($storage2, $path2) = $view->resolvePath('/' . strtoupper($userId));
+		list($storage2, $path2) = $view->resolvePath('/' . \strtoupper($userId));
 
 		$this->assertTrue($storage1->instanceOfStorage('\OCP\Files\IHomeStorage'));
 		$this->assertEquals('', $path1);
 
 		// not mounted, still on the local root storage
-		$this->assertEquals(strtoupper($userId), $path2);
+		$this->assertEquals(\strtoupper($userId), $path2);
 	}
 
 	/**
@@ -462,7 +425,7 @@ class FilesystemTest extends TestCase {
 		$homeMount = Filesystem::getStorage('/' . $userId . '/');
 
 		$this->assertTrue($homeMount->instanceOfStorage('\OCP\Files\IHomeStorage'));
-		if (getenv('RUN_OBJECTSTORE_TESTS')) {
+		if ($this->runsWithPrimaryObjectstorage()) {
 			$this->assertTrue($homeMount->instanceOfStorage('\OC\Files\ObjectStore\HomeObjectStoreStorage'));
 			$this->assertEquals('object::user:' . $userId, $homeMount->getId());
 		} else {
@@ -471,7 +434,9 @@ class FilesystemTest extends TestCase {
 		}
 
 		$user = \OC::$server->getUserManager()->get($userId);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 	}
 
 	public function dummyHook($arguments) {
@@ -500,7 +465,9 @@ class FilesystemTest extends TestCase {
 		$this->assertTrue($storage->instanceOfStorage('\OCP\Files\IHomeStorage'));
 		$this->assertEquals('cache', $internalPath);
 		$user = \OC::$server->getUserManager()->get($userId);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 
 		$config->setSystemValue('cache_path', $oldCachePath);
 	}
@@ -529,7 +496,9 @@ class FilesystemTest extends TestCase {
 		$this->assertTrue($storage->instanceOfStorage('\OC\Files\Storage\Local'));
 		$this->assertEquals('', $internalPath);
 		$user = \OC::$server->getUserManager()->get($userId);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 
 		$config->setSystemValue('cache_path', $oldCachePath);
 	}

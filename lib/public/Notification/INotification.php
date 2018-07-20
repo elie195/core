@@ -2,7 +2,7 @@
 /**
  * @author Joas Schilling <coding@schilljs.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -220,4 +220,18 @@ interface INotification {
 	 * @since 9.0.0
 	 */
 	public function isValidParsed();
+
+	/**
+	 * Icon is an absolute URL to an image to be displayed in the notifications
+	 *
+	 * @return string
+	 * @since 10.0.3
+	 */
+	public function getIcon();
+
+	/**
+	 * @param string $icon
+	 * @since 10.0.3
+	 */
+	public function setIcon($icon);
 }

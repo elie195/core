@@ -8,26 +8,19 @@
 
 namespace Test;
 
-
 use OC\Installer;
 
 class InstallerTest extends TestCase {
-
 	private static $appid = 'testapp';
-	private $appstore;
 
 	protected function setUp() {
 		parent::setUp();
 
-		$config = \OC::$server->getConfig();
-		$this->appstore = $config->setSystemValue('appstoreenabled', true);
-		$config->setSystemValue('appstoreenabled', true);
 		Installer::removeApp(self::$appid);
 	}
 
 	protected function tearDown() {
 		Installer::removeApp(self::$appid);
-		\OC::$server->getConfig()->setSystemValue('appstoreenabled', $this->appstore);
 
 		parent::tearDown();
 	}

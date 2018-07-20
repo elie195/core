@@ -7,7 +7,7 @@
  * @author Tom Needham <tom@owncloud.com>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 namespace OCA\Files_Sharing\Tests\API;
 
 use OCA\Files_Sharing\Controller\ShareesController;
+use OCA\Files_Sharing\SharingBlacklist;
 use OCA\Files_Sharing\Tests\TestCase;
 use OCP\AppFramework\Http;
 use OCP\Contacts\IManager;
@@ -73,32 +74,13 @@ class ShareesTest extends TestCase {
 	/** @var \OCP\Share\IManager|\PHPUnit_Framework_MockObject_MockObject */
 	protected $shareManager;
 
+	/** @var SharingBlacklist|\PHPUnit_Framework_MockObject_MockObject */
+	protected $sharingBlacklist;
+
 	protected function setUp() {
 		parent::setUp();
 
 		$this->userManager = $this->getMockBuilder(IUserManager::class)
-<<<<<<< HEAD
-			->disableOriginalConstructor()
-			->getMock();
-
-		$this->groupManager = $this->getMockBuilder(IGroupManager::class)
-			->disableOriginalConstructor()
-			->getMock();
-
-		$this->contactsManager = $this->getMockBuilder(IManager::class)
-			->disableOriginalConstructor()
-			->getMock();
-
-		$this->session = $this->getMockBuilder(IUserSession::class)
-			->disableOriginalConstructor()
-			->getMock();
-
-		$this->request = $this->getMockBuilder(IRequest::class)
-			->disableOriginalConstructor()
-			->getMock();
-
-		$this->shareManager = $this->getMockBuilder(\OCP\Share\IManager::class)
-=======
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -123,7 +105,10 @@ class ShareesTest extends TestCase {
 			->getMock();
 
 		$this->config = $this->getMockBuilder(IConfig::class)
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
+			->disableOriginalConstructor()
+			->getMock();
+
+		$this->sharingBlacklist = $this->getMockBuilder(SharingBlacklist::class)
 			->disableOriginalConstructor()
 			->getMock();
 
@@ -133,24 +118,23 @@ class ShareesTest extends TestCase {
 			$this->groupManager,
 			$this->userManager,
 			$this->contactsManager,
-<<<<<<< HEAD
-			$this->getMockBuilder(IConfig::class)->disableOriginalConstructor()->getMock(),
-=======
 			$this->config,
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 			$this->session,
 			$this->getMockBuilder(IURLGenerator::class)->disableOriginalConstructor()->getMock(),
 			$this->getMockBuilder(ILogger::class)->disableOriginalConstructor()->getMock(),
-			$this->shareManager
+			$this->shareManager,
+			$this->sharingBlacklist
 		);
 	}
 
 	/**
 	 * @param string $uid
 	 * @param string $displayName
+	 * @param string $email
+	 * @param array $terms Search terms for the user
 	 * @return \OCP\IUser|\PHPUnit_Framework_MockObject_MockObject
 	 */
-	protected function getUserMock($uid, $displayName) {
+	protected function getUserMock($uid, $displayName, $email = null, $terms = []) {
 		$user = $this->getMockBuilder(IUser::class)
 			->disableOriginalConstructor()
 			->getMock();
@@ -163,6 +147,14 @@ class ShareesTest extends TestCase {
 			->method('getDisplayName')
 			->willReturn($displayName);
 
+		$user->expects($this->any())
+			->method('getEMailAddress')
+			->willReturn($email);
+
+		$user->expects($this->any())
+			->method('getSearchTerms')
+			->willReturn($terms);
+
 		return $user;
 	}
 
@@ -170,11 +162,7 @@ class ShareesTest extends TestCase {
 	 * @param string $gid
 	 * @return \OCP\IGroup|\PHPUnit_Framework_MockObject_MockObject
 	 */
-<<<<<<< HEAD
-	protected function getGroupMock($gid) {
-=======
 	protected function getGroupMock($gid, $displayName = null) {
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 		$group = $this->getMockBuilder(IGroup::class)
 			->disableOriginalConstructor()
 			->getMock();
@@ -183,7 +171,7 @@ class ShareesTest extends TestCase {
 			->method('getGID')
 			->willReturn($gid);
 
-		if (is_null($displayName)) {
+		if ($displayName === null) {
 			// note: this is how the Group class behaves
 			$displayName = $gid;
 		}
@@ -464,11 +452,19 @@ class ShareesTest extends TestCase {
 				[],
 				// fuzzy match expected
 				[
-					['label' => 'Another One', 'value' => ['shareType' => Share::SHARE_TYPE_USER, 'shareWith' => 'another1']],
+					[
+						'label' => 'Another One',
+						'value' => [
+							'shareType' => Share::SHARE_TYPE_USER,
+							'shareWith' => 'another1',
+							'shareWithAdditionalInfo' => 'another1'
+						]
+					],
 				],
 				true,
 				false,
 				true,
+				'id'
 			],
 			[
 				// pick user directly by name
@@ -485,13 +481,21 @@ class ShareesTest extends TestCase {
 				],
 				// exact expected
 				[
-					['label' => 'Another One', 'value' => ['shareType' => Share::SHARE_TYPE_USER, 'shareWith' => 'another1']],
+					[
+						'label' => 'Another One',
+						'value' => [
+							'shareType' => Share::SHARE_TYPE_USER,
+							'shareWith' => 'another1',
+							'shareWithAdditionalInfo' => 'email@example.com'
+						]
+					],
 				],
 				// fuzzy match expected
 				[],
 				true,
-				$this->getUserMock('another1', 'Another One'),
+				$this->getUserMock('another1', 'Another One', 'email@example.com'),
 				true,
+				'email'
 			],
 		];
 	}
@@ -509,6 +513,7 @@ class ShareesTest extends TestCase {
 	 * @param bool $reachedEnd
 	 * @param mixed $singleUser false for testing search or user mock when we are testing a direct match
 	 * @param mixed $shareeEnumerationGroupMembers restrict enumeration to group members
+	 * @param mixed $additionalUserInfoField
 	 */
 	public function testGetUsers(
 		$searchTerm,
@@ -520,8 +525,27 @@ class ShareesTest extends TestCase {
 		$expected,
 		$reachedEnd,
 		$singleUser,
-		$shareeEnumerationGroupMembers = false
+		$shareeEnumerationGroupMembers = false,
+		$additionalUserInfoField = null
 	) {
+		$this->config->expects($this->once())
+			->method('getAppValue')
+			->with('core', 'user_additional_info_field', '')
+			->willReturn($additionalUserInfoField);
+
+		$this->sharees = new ShareesController(
+			'files_sharing',
+			$this->request,
+			$this->groupManager,
+			$this->userManager,
+			$this->contactsManager,
+			$this->config,
+			$this->session,
+			$this->getMockBuilder(IURLGenerator::class)->disableOriginalConstructor()->getMock(),
+			$this->getMockBuilder(ILogger::class)->disableOriginalConstructor()->getMock(),
+			$this->shareManager,
+			$this->sharingBlacklist
+		);
 		$this->invokePrivate($this->sharees, 'limit', [2]);
 		$this->invokePrivate($this->sharees, 'offset', [0]);
 		$this->invokePrivate($this->sharees, 'shareWithGroupOnly', [$shareWithGroupOnly]);
@@ -557,7 +581,7 @@ class ShareesTest extends TestCase {
 					->willReturn($groupResponse);
 			}
 
-			$this->groupManager->expects($this->exactly(sizeof($groupResponse)))
+			$this->groupManager->expects($this->exactly(\sizeof($groupResponse)))
 				->method('findUsersInGroup')
 				->with($this->anything(), $searchTerm, $this->invokePrivate($this->sharees, 'limit'), $this->invokePrivate($this->sharees, 'offset'))
 				->willReturnMap($userResponse);
@@ -580,8 +604,8 @@ class ShareesTest extends TestCase {
 
 	public function dataGetGroups() {
 		return [
-			['test', false, true, [], [], [], [], true, false],
-			['test', false, false, [], [], [], [], true, false],
+			['test', false, true, [], [], [], [], true],
+			['test', false, false, [], [], [], [], true],
 			// group without display name
 			[
 				'test', false, true,
@@ -590,7 +614,6 @@ class ShareesTest extends TestCase {
 				[],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
 				true,
-				false,
 			],
 			// group with display name, search by id
 			[
@@ -600,7 +623,6 @@ class ShareesTest extends TestCase {
 				[],
 				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
 				true,
-				false,
 			],
 			// group with display name, search by display name
 			[
@@ -610,7 +632,6 @@ class ShareesTest extends TestCase {
 				[],
 				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
 				true,
-				false,
 			],
 			// group with display name, search by display name, exact expected
 			[
@@ -620,7 +641,6 @@ class ShareesTest extends TestCase {
 				[['label' => 'Test One', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', false, false,
@@ -629,7 +649,6 @@ class ShareesTest extends TestCase {
 				[],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', false, true,
@@ -641,7 +660,6 @@ class ShareesTest extends TestCase {
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
 				false,
-				false,
 			],
 			[
 				'test', false, false,
@@ -653,7 +671,6 @@ class ShareesTest extends TestCase {
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', false, true,
@@ -668,7 +685,6 @@ class ShareesTest extends TestCase {
 					['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']],
 				],
 				false,
-				null,
 			],
 			[
 				'test', false, false,
@@ -680,7 +696,6 @@ class ShareesTest extends TestCase {
 				[],
 				[],
 				true,
-				null,
 			],
 			[
 				'test', false, true,
@@ -689,15 +704,12 @@ class ShareesTest extends TestCase {
 					$this->getGroupMock('test1'),
 				],
 				[],
-				[
-					['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']],
-				],
+				[],
 				[
 					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
 					['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']],
 				],
 				false,
-				$this->getGroupMock('test'),
 			],
 			[
 				'test', false, false,
@@ -706,15 +718,12 @@ class ShareesTest extends TestCase {
 					$this->getGroupMock('test1'),
 				],
 				[],
-				[
-					['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']],
-				],
+				[],
 				[],
 				true,
-				$this->getGroupMock('test'),
 			],
-			['test', true, true, [], [], [], [], true, false],
-			['test', true, false, [], [], [], [], true, false],
+			['test', true, true, [], [], [], [], true],
+			['test', true, false, [], [], [], [], true],
 			[
 				'test', true, true,
 				[
@@ -724,7 +733,6 @@ class ShareesTest extends TestCase {
 				[$this->getGroupMock('test1')],
 				[],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
-				false,
 				false,
 			],
 			[
@@ -737,7 +745,6 @@ class ShareesTest extends TestCase {
 				[],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', true, true,
@@ -748,7 +755,6 @@ class ShareesTest extends TestCase {
 				[$this->getGroupMock('test')],
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[],
-				false,
 				false,
 			],
 			[
@@ -761,7 +767,6 @@ class ShareesTest extends TestCase {
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', true, true,
@@ -772,7 +777,6 @@ class ShareesTest extends TestCase {
 				[$this->getGroupMock('test1')],
 				[],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
-				false,
 				false,
 			],
 			[
@@ -785,7 +789,6 @@ class ShareesTest extends TestCase {
 				[],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', true, true,
@@ -796,7 +799,6 @@ class ShareesTest extends TestCase {
 				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']]],
-				false,
 				false,
 			],
 			[
@@ -809,7 +811,6 @@ class ShareesTest extends TestCase {
 				[['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']]],
 				[],
 				true,
-				false,
 			],
 			[
 				'test', true, true,
@@ -824,7 +825,6 @@ class ShareesTest extends TestCase {
 					['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']],
 				],
 				false,
-				null,
 			],
 			[
 				'test', true, false,
@@ -836,7 +836,6 @@ class ShareesTest extends TestCase {
 				[],
 				[],
 				true,
-				null,
 			],
 			[
 				'test', true, true,
@@ -845,15 +844,12 @@ class ShareesTest extends TestCase {
 					$this->getGroupMock('test1'),
 				],
 				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
-				[
-					['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']],
-				],
+				[],
 				[
 					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
 					['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']],
 				],
 				false,
-				$this->getGroupMock('test'),
 			],
 			[
 				'test', true, false,
@@ -862,12 +858,9 @@ class ShareesTest extends TestCase {
 					$this->getGroupMock('test1'),
 				],
 				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
-				[
-					['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']],
-				],
+				[],
 				[],
 				true,
-				$this->getGroupMock('test'),
 			],
 			// group enumeration restricted to group memberships
 			[
@@ -886,14 +879,13 @@ class ShareesTest extends TestCase {
 					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
 				],
 				true,
-				false,
 				true
 			],
 			[
 				// exact match
 				'test0', false, true,
 				// group results
-				[],
+				[$this->getGroupMock('test0')],
 				// user group memberships
 				[$this->getGroupMock('test')],
 				// exact expected
@@ -903,9 +895,61 @@ class ShareesTest extends TestCase {
 				// non-exact expected
 				[],
 				true,
-				// exact match to test for
-				$this->getGroupMock('test0'),
 				true
+			],
+			[
+				// check with group blacklist (not exact match)
+				'test', false, true,
+				[
+					$this->getGroupMock('test'),
+					$this->getGroupMock('test0'),
+					$this->getGroupMock('test1'),
+				],
+				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
+				[
+					['label' => 'test', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test']],
+				],
+				[
+					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
+				],
+				false,
+				false,
+				['test1']
+			],
+			[
+				// check with group blacklist (exact match)
+				'test', false, true,
+				[
+					$this->getGroupMock('test'),
+					$this->getGroupMock('test0'),
+					$this->getGroupMock('test1'),
+				],
+				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
+				[],
+				[
+					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
+					['label' => 'test1', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test1']],
+				],
+				false,
+				false,
+				['test']
+			],
+			[
+				// check with group blacklist (both exact and not)
+				'test', false, true,
+				[
+					$this->getGroupMock('test'),
+					$this->getGroupMock('test0'),
+					$this->getGroupMock('test1'),
+				],
+				[$this->getGroupMock('test'), $this->getGroupMock('test0'), $this->getGroupMock('test1')],
+				[],
+				[
+					['label' => 'test0', 'value' => ['shareType' => Share::SHARE_TYPE_GROUP, 'shareWith' => 'test0']],
+				],
+				false,
+				false,
+				['test', 'test1']
 			],
 		];
 	}
@@ -921,23 +965,24 @@ class ShareesTest extends TestCase {
 	 * @param array $exactExpected
 	 * @param array $expected
 	 * @param bool $reachedEnd
-	 * @param mixed $singleGroup false when testing a search or group mock when testing direct match
+	 * @param bool $shareeEnumerationGroupMembers
+	 * @param array $blacklistedGroupNames list with the names of the blacklisted groups
 	 */
 	public function testGetGroups(
 		$searchTerm,
-		$shareWithGroupOnly,
+		$shareWithMembershipGroupOnly,
 		$shareeEnumeration,
 		$groupResponse,
 		$userGroupsResponse,
 		$exactExpected,
 		$expected,
 		$reachedEnd,
-		$singleGroup,
-		$shareeEnumerationGroupMembers = false
+		$shareeEnumerationGroupMembers = false,
+		$blacklistedGroupNames = []
 	) {
 		$this->invokePrivate($this->sharees, 'limit', [2]);
 		$this->invokePrivate($this->sharees, 'offset', [0]);
-		$this->invokePrivate($this->sharees, 'shareWithGroupOnly', [$shareWithGroupOnly]);
+		$this->invokePrivate($this->sharees, 'shareWithMembershipGroupOnly', [$shareWithMembershipGroupOnly]);
 		$this->invokePrivate($this->sharees, 'shareeEnumeration', [$shareeEnumeration]);
 		$this->invokePrivate($this->sharees, 'shareeEnumerationGroupMembers', [$shareeEnumerationGroupMembers]);
 
@@ -946,14 +991,14 @@ class ShareesTest extends TestCase {
 			->with($searchTerm, $this->invokePrivate($this->sharees, 'limit'), $this->invokePrivate($this->sharees, 'offset'))
 			->willReturn($groupResponse);
 
-		if ($singleGroup !== false) {
-			$this->groupManager->expects($this->once())
-				->method('get')
-				->with($searchTerm)
-				->willReturn($singleGroup);
-		}
+		$getGroupValueMap = \array_map(function ($group) {
+			return [$group->getGID(), $group];
+		}, $groupResponse);
 
-		if ($shareWithGroupOnly || $shareeEnumerationGroupMembers) {
+		$this->groupManager->method('get')
+			->will($this->returnValueMap($getGroupValueMap));
+
+		if ($shareWithMembershipGroupOnly || $shareeEnumerationGroupMembers) {
 			$user = $this->getUserMock('admin', 'Administrator');
 			$this->session->expects($this->any())
 				->method('getUser')
@@ -965,6 +1010,13 @@ class ShareesTest extends TestCase {
 				->with($user)
 				->willReturn($userGroupsResponse);
 		}
+
+		// don't care about the particular implementation of the method
+		// just mark the group as blacklisted based on the displayname
+		$this->sharingBlacklist->method('isGroupBlacklisted')
+			->will($this->returnCallback(function (IGroup $group) use ($blacklistedGroupNames) {
+				return \in_array($group->getDisplayName(), $blacklistedGroupNames, true);
+			}));
 
 		$this->invokePrivate($this->sharees, 'getGroups', [$searchTerm]);
 		$result = $this->invokePrivate($this->sharees, 'result');
@@ -1264,6 +1316,34 @@ class ShareesTest extends TestCase {
 					]
 				]
 			],
+			// #16 check email property is matched for remote users
+			[
+				'user@example.com',
+				[
+					[
+						'FN' => 'User3 @ Localhost',
+					],
+					[
+						'FN' => 'User2 @ Localhost',
+						'CLOUD' => [
+						],
+					],
+					[
+						'FN' => 'User @ Localhost',
+						'CLOUD' => [
+							'username@localhost',
+						],
+						'EMAIL' => 'user@example.com'
+					],
+				],
+				true,
+				[
+					['label' => 'User @ Localhost', 'value' => ['shareType' => Share::SHARE_TYPE_REMOTE, 'shareWith' => 'username@localhost', 'server' => 'localhost']],
+					['label' => 'user@example.com', 'value' => ['shareType' => Share::SHARE_TYPE_REMOTE, 'shareWith' => 'user@example.com']]
+				],
+				[],
+				true,
+			],
 		];
 	}
 
@@ -1279,6 +1359,11 @@ class ShareesTest extends TestCase {
 	 * @param array $previousExact
 	 */
 	public function testGetRemote($searchTerm, $contacts, $shareeEnumeration, $exactExpected, $expected, $reachedEnd, $previousExact = []) {
+
+		// Set the limit and offset for remote user searching
+		$this->invokePrivate($this->sharees, 'limit', [2]);
+		$this->invokePrivate($this->sharees, 'offset', [0]);
+
 		$this->config->expects($this->any())
 			->method('getSystemValue')
 			->with('trusted_domains')
@@ -1286,14 +1371,19 @@ class ShareesTest extends TestCase {
 		// inject previous results if needed
 		if (!empty($previousExact)) {
 			$result = $this->invokePrivate($this->sharees, 'result');
-			$result['exact'] = array_merge($result['exact'], $previousExact);
+			$result['exact'] = \array_merge($result['exact'], $previousExact);
 			$this->invokePrivate($this->sharees, 'result', [$result]);
 		}
+
+		$this->config->expects($this->once())
+			->method('getAppValue')
+			->with('dav', 'remote_search_properties')
+			->willReturn('EMAIL,CLOUD,FN');
 
 		$this->invokePrivate($this->sharees, 'shareeEnumeration', [$shareeEnumeration]);
 		$this->contactsManager->expects($this->any())
 			->method('search')
-			->with($searchTerm, ['CLOUD', 'FN'])
+			->with($searchTerm, ['EMAIL', 'CLOUD', 'FN'], [], 2, 0)
 			->willReturn($contacts);
 
 		$this->invokePrivate($this->sharees, 'getRemote', [$searchTerm]);
@@ -1420,16 +1510,6 @@ class ShareesTest extends TestCase {
 	 * @param string $message
 	 */
 	public function testSearchInvalid($message, $search = '', $itemType = null, $page = 1, $perPage = 200) {
-<<<<<<< HEAD
-		$config = $this->getMockBuilder(IConfig::class)
-			->disableOriginalConstructor()
-			->getMock();
-		$config->expects($this->never())
-=======
-		$this->config->expects($this->never())
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
-			->method('getAppValue');
-
 		/** @var ShareesController | \PHPUnit_Framework_MockObject_MockObject $sharees */
 		$sharees = $this->getMockBuilder(ShareesController::class)
 			->setConstructorArgs([
@@ -1442,7 +1522,8 @@ class ShareesTest extends TestCase {
 				$this->session,
 				$this->getMockBuilder('OCP\IURLGenerator')->disableOriginalConstructor()->getMock(),
 				$this->getMockBuilder('OCP\ILogger')->disableOriginalConstructor()->getMock(),
-				$this->shareManager
+				$this->shareManager,
+				$this->sharingBlacklist
 			])
 			->setMethods(['searchSharees', 'isRemoteSharingAllowed'])
 			->getMock();
@@ -1587,22 +1668,19 @@ class ShareesTest extends TestCase {
 				$this->groupManager,
 				$this->userManager,
 				$this->contactsManager,
-<<<<<<< HEAD
-				$this->getMockBuilder(IConfig::class)->disableOriginalConstructor()->getMock(),
-=======
 				$this->config,
->>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 				$this->session,
 				$this->getMockBuilder(IURLGenerator::class)->disableOriginalConstructor()->getMock(),
 				$this->getMockBuilder(ILogger::class)->disableOriginalConstructor()->getMock(),
-				$this->shareManager
+				$this->shareManager,
+				$this->sharingBlacklist
 			])
 			->setMethods(['getShareesForShareIds', 'getUsers', 'getGroups', 'getRemote'])
 			->getMock();
 		$sharees->expects(($mockedUserResult === null) ? $this->never() : $this->once())
 			->method('getUsers')
 			->with($searchTerm)
-			->willReturnCallback(function() use ($sharees, $mockedUserResult) {
+			->willReturnCallback(function () use ($sharees, $mockedUserResult) {
 				$result = $this->invokePrivate($sharees, 'result');
 				$result['users'] = $mockedUserResult;
 				$this->invokePrivate($sharees, 'result', [$result]);
@@ -1610,7 +1688,7 @@ class ShareesTest extends TestCase {
 		$sharees->expects(($mockedGroupsResult === null) ? $this->never() : $this->once())
 			->method('getGroups')
 			->with($searchTerm)
-			->willReturnCallback(function() use ($sharees, $mockedGroupsResult) {
+			->willReturnCallback(function () use ($sharees, $mockedGroupsResult) {
 				$result = $this->invokePrivate($sharees, 'result');
 				$result['groups'] = $mockedGroupsResult;
 				$this->invokePrivate($sharees, 'result', [$result]);
@@ -1618,7 +1696,7 @@ class ShareesTest extends TestCase {
 		$sharees->expects(($mockedRemotesResult === null) ? $this->never() : $this->once())
 			->method('getRemote')
 			->with($searchTerm)
-			->willReturnCallback(function() use ($sharees, $mockedRemotesResult) {
+			->willReturnCallback(function () use ($sharees, $mockedRemotesResult) {
 				$result = $this->invokePrivate($sharees, 'result');
 				$result['remotes'] = $mockedRemotesResult;
 				$this->invokePrivate($sharees, 'result', [$result]);
@@ -1788,5 +1866,39 @@ class ShareesTest extends TestCase {
 			['http://localhost/index.php', 'http://localhost'],
 			['http://localhost/index.php/s/AShareToken', 'http://localhost'],
 		];
+	}
+
+	public function testGetUserWithSearchAttributes() {
+		$this->invokePrivate($this->sharees, 'limit', [2]);
+		$this->invokePrivate($this->sharees, 'offset', [0]);
+		$this->invokePrivate($this->sharees, 'shareWithGroupOnly', [false]);
+		$this->invokePrivate($this->sharees, 'shareeEnumeration', [false]);
+		$this->invokePrivate($this->sharees, 'shareeEnumerationGroupMembers', [false]);
+
+		// User with more search term
+		$user = $this->getUserMock('testBob', 'Bob', 'bob@example.com', ['alt@example.com']);
+		$this->session->expects($this->any())
+			->method('getUser')
+			->willReturn($user);
+
+		// Do an exact search for a search term
+		$searchTerm = 'alt@example.com';
+
+		$this->userManager->expects($this->once())
+			->method('find')
+			->with(
+				$searchTerm,
+					$this->invokePrivate($this->sharees, 'limit'),
+					$this->invokePrivate($this->sharees, 'offset'))
+			->willReturn([$user]);
+
+		$exactExpected = [['label' => 'Bob', 'value' => ['shareType' => Share::SHARE_TYPE_USER, 'shareWith' => 'testBob']]];
+		$expected = [];
+		
+		$this->invokePrivate($this->sharees, 'getUsers', [$searchTerm]);
+		$result = $this->invokePrivate($this->sharees, 'result');
+		$this->assertEquals($exactExpected, $result['exact']['users']);
+		$this->assertEquals($expected, $result['users']);
+		$this->assertCount((int) 1, $this->invokePrivate($this->sharees, 'reachedEndFor'));
 	}
 }

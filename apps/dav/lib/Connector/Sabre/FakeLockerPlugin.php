@@ -3,7 +3,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -22,14 +22,14 @@
 
 namespace OCA\DAV\Connector\Sabre;
 
+use Sabre\DAV\INode;
 use Sabre\DAV\Locks\LockInfo;
+use Sabre\DAV\PropFind;
 use Sabre\DAV\ServerPlugin;
 use Sabre\DAV\Xml\Property\LockDiscovery;
 use Sabre\DAV\Xml\Property\SupportedLock;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
-use Sabre\DAV\PropFind;
-use Sabre\DAV\INode;
 
 /**
  * Class FakeLockerPlugin is a plugin only used when connections come in from
@@ -74,7 +74,7 @@ class FakeLockerPlugin extends ServerPlugin {
 	 *
 	 * @return integer[]
 	 */
-	function getFeatures() {
+	public function getFeatures() {
 		return [2];
 	}
 
@@ -85,11 +85,11 @@ class FakeLockerPlugin extends ServerPlugin {
 	 * @param INode $node
 	 * @return void
 	 */
-	function propFind(PropFind $propFind, INode $node) {
-		$propFind->handle('{DAV:}supportedlock', function() {
+	public function propFind(PropFind $propFind, INode $node) {
+		$propFind->handle('{DAV:}supportedlock', function () {
 			return new SupportedLock(true);
 		});
-		$propFind->handle('{DAV:}lockdiscovery', function() use ($propFind) {
+		$propFind->handle('{DAV:}lockdiscovery', function () use ($propFind) {
 			return new LockDiscovery([]);
 		});
 	}
@@ -101,11 +101,11 @@ class FakeLockerPlugin extends ServerPlugin {
 	 * @param array $conditions
 	 */
 	public function validateTokens(RequestInterface $request, &$conditions) {
-		foreach($conditions as &$fileCondition) {
-			if(isset($fileCondition['tokens'])) {
-				foreach($fileCondition['tokens'] as &$token) {
-					if(isset($token['token'])) {
-						if(substr($token['token'], 0, 16) === 'opaquelocktoken:') {
+		foreach ($conditions as &$fileCondition) {
+			if (isset($fileCondition['tokens'])) {
+				foreach ($fileCondition['tokens'] as &$token) {
+					if (isset($token['token'])) {
+						if (\substr($token['token'], 0, 16) === 'opaquelocktoken:') {
 							$token['validToken'] = true;
 						}
 					}
@@ -123,9 +123,8 @@ class FakeLockerPlugin extends ServerPlugin {
 	 */
 	public function fakeLockProvider(RequestInterface $request,
 									 ResponseInterface $response) {
-
 		$lockInfo = new LockInfo();
-		$lockInfo->token = md5($request->getPath());
+		$lockInfo->token = \md5($request->getPath());
 		$lockInfo->uri = $request->getPath();
 		$lockInfo->depth = \Sabre\DAV\Server::DEPTH_INFINITY;
 		$lockInfo->timeout = 1800;
@@ -135,6 +134,7 @@ class FakeLockerPlugin extends ServerPlugin {
 						new LockDiscovery([$lockInfo])
 		]);
 
+		$response->setStatus(200);
 		$response->setBody($body);
 
 		return false;

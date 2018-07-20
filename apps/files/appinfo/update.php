@@ -4,7 +4,7 @@
  * @author Joas Schilling <coding@schilljs.com>
  * @author Stefan Weil <sw@weilnetz.de>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  *
  */
 $installedVersion = \OC::$server->getConfig()->getAppValue('files', 'installed_version');
-$ocVersion = explode('.', \OC::$server->getSystemConfig()->getValue('version'));
+$ocVersion = \explode('.', \OC::$server->getSystemConfig()->getValue('version'));
 
 /**
  * In case encryption was not enabled, we accidentally set encrypted = 1 for

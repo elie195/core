@@ -10,7 +10,7 @@
  * @author Stefan Weil <sw@weilnetz.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -30,9 +30,12 @@
 namespace OCA\Files_Sharing\External;
 
 use OC\Files\Filesystem;
-use OCA\FederatedFileSharing\DiscoveryManager;
 use OCP\Files;
 use OCP\Notification\IManager;
+use OCP\Share\Events\AcceptShare;
+use OCP\Share\Events\DeclineShare;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\EventDispatcher\GenericEvent;
 
 class Manager {
 	const STORAGE = '\OCA\Files_Sharing\External\Storage';
@@ -58,40 +61,35 @@ class Manager {
 	private $storageLoader;
 
 	/**
-	 * @var \OC\HTTPHelper
-	 */
-	private $httpHelper;
-
-	/**
 	 * @var IManager
 	 */
 	private $notificationManager;
-	/** @var DiscoveryManager */
-	private $discoveryManager;
+
+	/**
+	 * @var EventDispatcherInterface
+	 */
+	private $eventDispatcher;
 
 	/**
 	 * @param \OCP\IDBConnection $connection
 	 * @param \OC\Files\Mount\Manager $mountManager
 	 * @param \OCP\Files\Storage\IStorageFactory $storageLoader
-	 * @param \OC\HTTPHelper $httpHelper
 	 * @param IManager $notificationManager
-	 * @param DiscoveryManager $discoveryManager
+	 * @param EventDispatcherInterface $eventDispatcher
 	 * @param string $uid
 	 */
 	public function __construct(\OCP\IDBConnection $connection,
 								\OC\Files\Mount\Manager $mountManager,
 								\OCP\Files\Storage\IStorageFactory $storageLoader,
-								\OC\HTTPHelper $httpHelper,
 								IManager $notificationManager,
-								DiscoveryManager $discoveryManager,
+								EventDispatcherInterface $eventDispatcher,
 								$uid) {
 		$this->connection = $connection;
 		$this->mountManager = $mountManager;
 		$this->storageLoader = $storageLoader;
-		$this->httpHelper = $httpHelper;
 		$this->uid = $uid;
 		$this->notificationManager = $notificationManager;
-		$this->discoveryManager = $discoveryManager;
+		$this->eventDispatcher = $eventDispatcher;
 	}
 
 	/**
@@ -108,7 +106,6 @@ class Manager {
 	 * @return Mount|null
 	 */
 	public function addShare($remote, $token, $password, $name, $owner, $accepted=false, $user = null, $remoteId = -1) {
-
 		$user = $user ? $user : $this->uid;
 		$accepted = $accepted ? 1 : 0;
 		$name = Filesystem::normalizePath('/' . $name);
@@ -120,7 +117,7 @@ class Manager {
 			// using the original share item name.
 			$tmpMountPointName = '{{TemporaryMountPointName#' . $name . '}}';
 			$mountPoint = $tmpMountPointName;
-			$hash = md5($tmpMountPointName);
+			$hash = \md5($tmpMountPointName);
 			$data = [
 				'remote'		=> $remote,
 				'share_token'	=> $token,
@@ -138,7 +135,7 @@ class Manager {
 			while (!$this->connection->insertIfNotExist('*PREFIX*share_external', $data, ['user', 'mountpoint_hash'])) {
 				// The external share already exists for the user
 				$data['mountpoint'] = $tmpMountPointName . '-' . $i;
-				$data['mountpoint_hash'] = md5($data['mountpoint']);
+				$data['mountpoint_hash'] = \md5($data['mountpoint']);
 				$i++;
 			}
 			return null;
@@ -146,7 +143,7 @@ class Manager {
 
 		$mountPoint = Files::buildNotExistingFileName('/', $name);
 		$mountPoint = Filesystem::normalizePath('/' . $mountPoint);
-		$hash = md5($mountPoint);
+		$hash = \md5($mountPoint);
 
 		$query = $this->connection->prepare('
 				INSERT INTO `*PREFIX*share_external`
@@ -188,13 +185,12 @@ class Manager {
 	 * @return bool True if the share could be accepted, false otherwise
 	 */
 	public function acceptShare($id) {
-
 		$share = $this->getShare($id);
 
 		if ($share) {
 			$mountPoint = Files::buildNotExistingFileName('/', $share['name']);
 			$mountPoint = Filesystem::normalizePath('/' . $mountPoint);
-			$hash = md5($mountPoint);
+			$hash = \md5($mountPoint);
 
 			$acceptShare = $this->connection->prepare('
 				UPDATE `*PREFIX*share_external`
@@ -203,7 +199,10 @@ class Manager {
 					`mountpoint_hash` = ?
 				WHERE `id` = ? AND `user` = ?');
 			$acceptShare->execute([1, $mountPoint, $hash, $id, $this->uid]);
-			$this->sendFeedbackToRemote($share['remote'], $share['share_token'], $share['remote_id'], 'accept');
+
+			$this->eventDispatcher->dispatch(
+				AcceptShare::class, new AcceptShare($share)
+			);
 
 			\OC_Hook::emit('OCP\Share', 'federated_share_added', ['server' => $share['remote']]);
 
@@ -221,14 +220,17 @@ class Manager {
 	 * @return bool True if the share could be declined, false otherwise
 	 */
 	public function declineShare($id) {
-
 		$share = $this->getShare($id);
 
 		if ($share) {
 			$removeShare = $this->connection->prepare('
 				DELETE FROM `*PREFIX*share_external` WHERE `id` = ? AND `user` = ?');
 			$removeShare->execute([$id, $this->uid]);
-			$this->sendFeedbackToRemote($share['remote'], $share['share_token'], $share['remote_id'], 'decline');
+
+			$this->eventDispatcher->dispatch(
+				DeclineShare::class,
+				new DeclineShare($share)
+			);
 
 			$this->processNotification($id);
 			return true;
@@ -249,26 +251,6 @@ class Manager {
 	}
 
 	/**
-	 * inform remote server whether server-to-server share was accepted/declined
-	 *
-	 * @param string $remote
-	 * @param string $token
-	 * @param int $remoteId Share id on the remote host
-	 * @param string $feedback
-	 * @return boolean
-	 */
-	private function sendFeedbackToRemote($remote, $token, $remoteId, $feedback) {
-
-		$url = rtrim($remote, '/') . $this->discoveryManager->getShareEndpoint($remote) . '/' . $remoteId . '/' . $feedback . '?format=' . \OCP\Share::RESPONSE_FORMAT;
-		$fields = ['token' => $token];
-
-		$result = $this->httpHelper->post($url, $fields);
-		$status = json_decode($result['result'], true);
-
-		return ($result['success'] && ($status['ocs']['meta']['statuscode'] === 100 || $status['ocs']['meta']['statuscode'] === 200));
-	}
-
-	/**
 	 * remove '/user/files' from the path and trailing slashes
 	 *
 	 * @param string $path
@@ -276,7 +258,7 @@ class Manager {
 	 */
 	protected function stripPath($path) {
 		$prefix = '/' . $this->uid . '/files';
-		return rtrim(substr($path, strlen($prefix)), '/');
+		return \rtrim(\substr($path, \strlen($prefix)), '/');
 	}
 
 	public function getMount($data) {
@@ -312,8 +294,8 @@ class Manager {
 	public function setMountPoint($source, $target) {
 		$source = $this->stripPath($source);
 		$target = $this->stripPath($target);
-		$sourceHash = md5($source);
-		$targetHash = md5($target);
+		$sourceHash = \md5($source);
+		$targetHash = \md5($target);
 
 		$query = $this->connection->prepare('
 			UPDATE `*PREFIX*share_external`
@@ -327,12 +309,11 @@ class Manager {
 	}
 
 	public function removeShare($mountPoint) {
-
 		$mountPointObj = $this->mountManager->find($mountPoint);
 		$id = $mountPointObj->getStorage()->getCache()->getId('');
 
 		$mountPoint = $this->stripPath($mountPoint);
-		$hash = md5($mountPoint);
+		$hash = \md5($mountPoint);
 
 		$getShare = $this->connection->prepare('
 			SELECT `remote`, `share_token`, `remote_id`
@@ -342,7 +323,10 @@ class Manager {
 
 		if ($result) {
 			$share = $getShare->fetch();
-			$this->sendFeedbackToRemote($share['remote'], $share['share_token'], $share['remote_id'], 'decline');
+			$this->eventDispatcher->dispatch(
+				DeclineShare::class,
+				new DeclineShare($share)
+			);
 		}
 		$getShare->closeCursor();
 
@@ -353,8 +337,10 @@ class Manager {
 		');
 		$result = (bool)$query->execute([$hash, $this->uid]);
 
-		if($result) {
+		if ($result) {
 			$this->removeReShares($id);
+			$event = new GenericEvent(null, ['user' => $this->uid, 'targetmount' => $mountPoint]);
+			$this->eventDispatcher->dispatch('\OCA\Files_Sharing::unshareEvent', $event);
 		}
 
 		return $result;
@@ -362,7 +348,7 @@ class Manager {
 
 	/**
 	 * remove re-shares from share table and mapping in the federated_reshares table
-	 * 
+	 *
 	 * @param $mountPointId
 	 */
 	protected function removeReShares($mountPointId) {
@@ -371,7 +357,6 @@ class Manager {
 		$selectQuery->select('id')->from('share')
 			->where($selectQuery->expr()->eq('file_source', $query->createNamedParameter($mountPointId)));
 		$select = $selectQuery->getSQL();
-
 
 		$query->delete('federated_reshares')
 			->where($query->expr()->in('share_id', $query->createFunction('(' . $select . ')')));
@@ -398,8 +383,11 @@ class Manager {
 
 		if ($result) {
 			$shares = $getShare->fetchAll();
-			foreach($shares as $share) {
-				$this->sendFeedbackToRemote($share['remote'], $share['share_token'], $share['remote_id'], 'decline');
+			foreach ($shares as $share) {
+				$this->eventDispatcher->dispatch(
+					DeclineShare::class,
+					new DeclineShare($share)
+				);
 			}
 		}
 
@@ -441,7 +429,7 @@ class Manager {
 		          FROM `*PREFIX*share_external` 
 				  WHERE `user` = ?';
 		$parameters = [$this->uid];
-		if (!is_null($accepted)) {
+		if ($accepted !== null) {
 			$query .= ' AND `accepted` = ?';
 			$parameters[] = (int) $accepted;
 		}

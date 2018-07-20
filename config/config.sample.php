@@ -35,7 +35,7 @@ $CONFIG = array(
  * This is a unique identifier for your ownCloud installation, created
  * automatically by the installer. This example is for documentation only,
  * and you should never use it because it will not work. A valid ``instanceid``
- * is created when you install ownCloud.
+ * is created when you install ownCloud. Needs to start with a letter.
  *
  * 'instanceid' => 'd3c944a9a',
  */
@@ -57,7 +57,9 @@ $CONFIG = array(
 /**
  * Your list of trusted domains that users can log into. Specifying trusted
  * domains prevents host header poisoning. Do not remove this, as it performs
- * necessary security checks.
+ * necessary security checks. Please consider that for backend processes like 
+ * background jobs or occ commands, the url parameter in key ``overwrite.cli.url``
+ * is used. For more details please see that key.
  */
 'trusted_domains' =>
   array (
@@ -65,6 +67,13 @@ $CONFIG = array(
     'otherdomain.example.org',
   ),
 
+/**
+ * The global list of CORS domains. All users can use tools running CORS
+ * requests from the listed domains.
+ */
+'cors.allowed-domains' => [
+	'https://foo.example.org',
+],
 
 /**
  * Where user files are stored; this defaults to ``data/`` in the ownCloud
@@ -84,6 +93,11 @@ $CONFIG = array(
  * can be a legitimate step. Please consult the documentation before enabling this.
  */
 'version.hide' => false,
+
+/**
+ * Optionally, show the hostname of the server in status.php. Defaults to hidden
+ */
+'show_server_hostname' => false,
 
 /**
  * Identifies the database used with this installation. See also config option
@@ -152,7 +166,7 @@ $CONFIG = array(
  * or shared items. User's language preferences configured under "personal ->
  * language" override this setting after they have logged in.
  */
-'default_language' => 'en',
+'default_language' => 'en_GB',
 
 /**
  * Set the default app to open on login. Use the app names as they appear in the
@@ -202,9 +216,10 @@ $CONFIG = array(
 'session_keepalive' => true,
 
 /**
- * Enforce token authentication for clients, which blocks requests using the user
- * password for enhanced security. Users need to generate tokens in personal settings
- * which can be used as passwords on their clients.
+ * Enforces token only authentication for apps and clients connecting to ownCloud. 
+ * If enabled, all access requests using the users password are blocked for enhanced security. 
+ * Users have to generate special app-passwords (tokens) for their apps or clients in their personal 
+ * settings which are further used for app or client authentication. Browser logon is not affected. 
  */
 'token_auth_enforced' => false,
 
@@ -259,9 +274,20 @@ $CONFIG = array(
 /**
  * Allow medial search on account properties like display name, user id, email,
  * and other search terms. Allows finding 'Alice' when searching for 'lic'.
- * May slow down user search.
+ * May slow down user search. Disable this if you encounter slow username search
+ * in the sharing dialog.
  */
-'accounts.enable_medial_search' => false,
+'accounts.enable_medial_search' => true,
+
+/**
+ * Defines the minimum characters entered before a search returns results for 
+ * users or groups in the share autocomplete form. Lower values increase search
+ * time especially for large backends.
+ * Any exact matches to a user or group will be returned, even though less than 
+ * the minimum characters have been entered. The search is case insensitive.
+ * e.g. entering "tom" will always return "Tom" if there is an exact match.
+ */
+'user.search_min_length' => 2,
 
 /**
  * Mail Parameters
@@ -389,9 +415,10 @@ $CONFIG = array(
 
 /**
  * This option allows you to define a manual override condition as a regular
- * expression for the remote IP address. For example, defining a range of IP
- * addresses starting with ``10.0.0.`` and ending with 1 to 3:
- * ``^10\.0\.0\.[1-3]$``
+ * expression for the remote IP address. The keys ``overwritewebroot``,
+ * ``overwriteprotocol``, and ``overwritehost`` are subject to this condition.
+ * For example, defining a range of IP  addresses starting with ``10.0.0.``
+ * and ending with 1 to 3: * ``^10\.0\.0\.[1-3]$``
  */
 'overwritecondaddr' => '',
 
@@ -400,6 +427,10 @@ $CONFIG = array(
  * are generated within ownCloud using any kind of command line tools (cron or
  * occ). The value should contain the full base URL:
  * ``https://www.example.com/owncloud``
+ * As an example, alerts shown in the browser to upgrade an app are triggered by
+ * a cron background process and therefore uses the url of this key, even if the user
+ * has logged on via a different domain defined in key ``trusted_domains``. When the 
+ * user clicks an alert like this, he will be redirected to that URL and must logon again.
  */
 'overwrite.cli.url' => '',
 
@@ -462,9 +493,9 @@ $CONFIG = array(
  * Available values:
  *
  * * ``auto``
- *     default setting. keeps files and folders in the trash bin for 30 days
- *     and automatically deletes anytime after that if space is needed (note:
- *     files may not be deleted if space is not needed).
+ *     default setting. Keeps files and folders in the deleted files for up to
+ *     30 days, automatically deleting them (at any time) if space is needed.
+ *     Note: files may not be removed if space is not required.
  * * ``D, auto``
  *     keeps files and folders in the trash bin for D+ days, delete anytime if
  *     space needed (note: files may not be deleted if space is not needed)
@@ -479,6 +510,11 @@ $CONFIG = array(
  */
 'trashbin_retention_obligation' => 'auto',
 
+/**
+ * This setting defines percentage of free space occupied by deleted files
+ * that triggers auto purging of deleted files for this user
+ */
+'trashbin_purge_limit' => 50,
 
 /**
  * File versions
@@ -503,7 +539,7 @@ $CONFIG = array(
  *
  * * ``auto``
  *     default setting. Automatically expire versions according to expire
- *     rules. Please refer to :doc:`../configuration_files/file_versioning` for
+ *     rules. Please refer to :doc:`../configuration/files/file_versioning` for
  *     more information.
  * * ``D, auto``
  *     keep versions at least for D days, apply expire rules to all versions
@@ -526,15 +562,9 @@ $CONFIG = array(
  */
 
 /**
- * Checks an app before install whether it uses private APIs instead of the
- * proper public APIs. If this is set to true it will only allow to install or
- * enable apps that pass this check.
- */
-'appcodechecker' => true,
-
-/**
  * Check if ownCloud is up-to-date and shows a notification if a new version is
- * available.
+ * available. This option is only applicable to ownCloud core. It is not
+ * applicable to app updates.
  */
 'updatechecker' => true,
 
@@ -549,26 +579,11 @@ $CONFIG = array(
 'has_internet_connection' => true,
 
 /**
- * Allows ownCloud to verify a working WebDAV connection. This is done by
- * attempting to make a WebDAV request from PHP.
- */
-'check_for_working_webdav' => true,
-
-/**
  * Allows ownCloud to verify a working .well-known URL redirects. This is done
  * by attempting to make a request from JS to
  * https://your-domain.com/.well-known/caldav/
  */
 'check_for_working_wellknown_setup' => true,
-
-/**
- * This is a crucial security check on Apache servers that should always be set
- * to ``true``. This verifies that the ``.htaccess`` file is writable and works.
- * If it is not, then any options controlled by ``.htaccess``, such as large
- * file uploads, will not work. It also runs checks on the ``data/`` directory,
- * which verifies that it can't be accessed directly through the Web server.
- */
-'check_for_working_htaccess' => true,
 
 /**
  * In certain environments it is desired to have a read-only configuration file.
@@ -581,7 +596,21 @@ $CONFIG = array(
 'config_is_read_only' => false,
 
 /**
+ * This defines the mode of operations. The default value is 'single-instance'
+ * which means that ownCloud is running on a single node, which might be the
+ * most common operations mode. The only other possible value for now is
+ * 'clustered-instance' which means that ownCloud is running on at least 2
+ * nodes. The mode of operations has various impact on the behavior of ownCloud.
+ */
+'operation.mode' => 'single-instance',
+
+/**
  * Logging
+ * 
+ * These parameters configure the logging options.
+ * For additional information or advanced configuration, please see the logging 
+ * section in the documentation.
+ * 
  */
 
 /**
@@ -612,6 +641,13 @@ $CONFIG = array(
  * The default value is ``ownCloud``.
  */
 'syslog_tag' => 'ownCloud',
+
+/**
+ * The syslog format can be changed to remove or add information.
+ * In addition to the %replacements% below %level% can be used, but it is used
+ * as a dedicated parameter to the syslog logging facility anyway.
+ */
+'log.syslog.format' => '[%reqId%][%remoteAddr%][%user%][%app%][%method%][%url%] %message%',
 
 /**
  * Log condition for log level increase based on conditions. Once one of these
@@ -658,22 +694,18 @@ $CONFIG = array(
 'logtimezone' => 'Europe/Berlin',
 
 /**
- * Append all database queries and parameters to the log file. Use this only for
- * debugging, as your logfile will become huge.
- */
-'log_query' => false,
-
-/**
  * Log successful cron runs.
  */
 'cron_log' => true,
 
 /**
- * Enables log rotation and limits the total size of logfiles. The default is 0,
- * or no rotation. Specify a size in bytes, for example 104857600 (100 megabytes
- * = 100 * 1024 * 1024 bytes). A new logfile is created with a new name when the
- * old logfile reaches your limit. If a rotated log file is already present, it
- * will be overwritten.
+ * Enables log rotation and limits the total size of the logfiles. 
+ * The default is 0 or false which disables log rotation. 
+ * Specify a size in bytes, for example 104857600 
+ * (100 megabytes = 100 * 1024 * 1024 bytes). 
+ * A new logfile is created with a new name when the old logfile reaches the defined limit. 
+ * If a rotated log file is already present, it will be overwritten.
+ * If enabled, only the active log file and one rotated file are stored.
  */
 'log_rotate_size' => false,
 
@@ -696,51 +728,36 @@ $CONFIG = array(
 	'https://itunes.apple.com/us/app/owncloud/id543672169?mt=8',
 
 /**
- * Apps
+ * If you want to store apps in a custom directory instead of ownCloud’s default 
+ * ``/app``, you need to modify the ``apps_paths`` key. There, you need to add a 
+ * new associative array that contains three elements. These are:
  *
- * Options for the Apps folder, Apps store, and App code checker.
- */
-
-/**
- * When enabled, admins may install apps from the ownCloud app store.
- */
-'appstoreenabled' => true,
-
-/**
- * The URL of the appstore to use.
- */
-'appstoreurl' => 'https://api.owncloud.com/v1',
-
-/**
- * Whether to show experimental apps in the appstore interface
+ * - ``path``     The absolute file system path to the custom app folder.
+ * - ``url``      The request path to that folder relative to the ownCloud web root, prefixed with /.
+ * - ``writable`` Whether users can install apps in that folder. After the configuration is added, 
+ *                new apps will only install in a directory where writable is set to true.
  *
- * Experimental apps are not checked for security issues and are new or known
- * to be unstable and under heavy development. Installing these can cause data
- * loss or security breaches.
+ * The configuration example shows how to add a second directory, called ``/apps-external``.
+ * Here, new apps and updates are only writen to the ``/apps-external`` directory.
+ * This eases upgrade procedures of owncloud where shipped apps are delivered to apps/ by default.
+ * ``OC::$SERVERROOT`` points to the web root of your instance.
+ * Please see the Apps Management description on how to move custom apps properly.
  */
-'appstore.experimental.enabled' => false,
-
-/**
- * Use the ``apps_paths`` parameter to set the location of the Apps directory,
- * which should be scanned for available apps, and where user-specific apps
- * should be installed from the Apps store. The ``path`` defines the absolute
- * file system path to the app folder. The key ``url`` defines the HTTP Web path
- * to that folder, starting from the ownCloud webroot. The key ``writable``
- * indicates if a Web server can write files to that folder.
- */
- 'apps_paths' =>
-   array (
-     array (
-       'path' => OC::$SERVERROOT.'/apps',
-       'url' => '/apps',
-       'writable' => true,
-     )
-   ),
-
-/**
- * @see appcodechecker
- */
-
+'apps_paths' =>
+    array (
+      0 => 
+      array (
+        'path' => OC::$SERVERROOT.'/apps',
+        'url' => '/apps',
+        'writable' => false,
+      ),
+      1 => 
+      array (
+        'path' => OC::$SERVERROOT.'/apps-external',
+        'url' => '/apps-external',
+        'writable' => true,
+      ),
+    ),
 
 /**
  * Previews
@@ -833,7 +850,7 @@ $CONFIG = array(
  *  - OC\Preview\Font
  *
  * .. note:: Troubleshooting steps for the MS Word previews are available
- *    at the :doc:`../configuration_files/collaborative_documents_configuration`
+ *    at the :doc:`../configuration/files/collaborative_documents_configuration`
  *    section of the Administrators Manual.
  *
  * The following providers are not available in Microsoft Windows:
@@ -855,20 +872,6 @@ $CONFIG = array(
 	'OC\Preview\TXT',
 	'OC\Preview\MarkDown'
 ),
-
-/**
- * LDAP
- *
- * Global settings used by LDAP User and Group Backend
- */
-
-/**
- * defines the interval in minutes for the background job that checks user
- * existence and marks them as ready to be cleaned up. The number is always
- * minutes. Setting it to 0 disables the feature.
- * See command line (occ) methods ldap:show-remnants and user:delete
- */
-'ldapUserCleanupInterval' => 51,
 
 /**
  * Comments
@@ -1057,54 +1060,12 @@ $CONFIG = array(
 'cache_chunk_gc_ttl' => 86400, // 60*60*24 = 1 day
 
 /**
- * Using Object Store with ownCloud
+ * Location of the chunk folder, defaults to ``data/$user/uploads`` where
+ * ``$user`` is the current user. When specified, the format will change to
+ * ``$dav.chunk_base_dir/$user`` where ``$dav.chunk_base_dir`` is the configured
+ * cache directory and ``$user`` is the user.
  */
-
-/**
- * This example shows how to configure ownCloud to store all files in a
- * swift object storage.
- *
- * It is important to note that ownCloud in object store mode will expect
- * exclusive access to the object store container because it only stores the
- * binary data for each file. The metadata is currently kept in the local
- * database for performance reasons.
- *
- * WARNING: The current implementation is incompatible with any app that uses
- * direct file IO and circumvents our virtual filesystem. That includes
- * Encryption and Gallery. Gallery will store thumbnails directly in the
- * filesystem and encryption will cause severe overhead because key files need
- * to be fetched in addition to any requested file.
- *
- * One way to test is applying for a trystack account at http://trystack.org/
- */
-'objectstore' => [
-	'class' => 'OC\\Files\\ObjectStore\\Swift',
-	'arguments' => [
-		// trystack will use your facebook id as the user name
-		'username' => 'facebook100000123456789',
-		// in the trystack dashboard go to user -> settings -> API Password to
-		// generate a password
-		'password' => 'Secr3tPaSSWoRdt7',
-		// must already exist in the objectstore, name can be different
-		'container' => 'owncloud',
-		// prefix to prepend to the fileid, default is 'oid:urn:'
-		'objectPrefix' => 'oid:urn:',
-		// create the container if it does not exist. default is false
-		'autocreate' => true,
-		// required, dev-/trystack defaults to 'RegionOne'
-		'region' => 'RegionOne',
-		// The Identity / Keystone endpoint
-		'url' => 'http://8.21.28.222:5000/v2.0',
-		// required on dev-/trystack
-		'tenantName' => 'facebook100000123456789',
-		// dev-/trystack uses swift by default, the lib defaults to 'cloudFiles'
-		// if omitted
-		'serviceName' => 'swift',
-		// The Interface / url Type, optional
-		'urlType' => 'internal'
-	],
-],
-
+'dav.chunk_base_dir' => '',
 
 /**
  * Sharing
@@ -1119,6 +1080,11 @@ $CONFIG = array(
  */
 'sharing.managerFactory' => '\OC\Share20\ProviderFactory',
 
+/**
+ * When talking with federated sharing server, allow falling back to HTTP
+ * instead of hard forcing HTTPS
+ */
+'sharing.federation.allowHttpFallback' => false,
 
 
 /**
@@ -1200,8 +1166,10 @@ $CONFIG = array(
 'tempdirectory' => '/tmp/owncloudtemp',
 
 /**
- * The hashing cost used by hashes generated by ownCloud
- * Using a higher value requires more time and CPU power to calculate the hashes
+ * The hashing cost used by hashes generated by ownCloud.
+ * Using a higher value requires more time and CPU power to calculate the hashes.
+ * As this number grows, the amount of work (typically CPU time or memory) necessary
+ * to compute the hash increases exponentially.
  */
 'hashingCost' => 10,
 
@@ -1227,15 +1195,33 @@ $CONFIG = array(
 		'~snapshot',
 	),
 /**
+ * Exclude files from the integrity checker command
+ */
+'integrity.excluded.files' =>
+	array (
+		'.DS_Store',
+		'Thumbs.db',
+		'.directory',
+		'.webapp',
+		'.htaccess',
+		'.user.ini',
+	),
+/**
+ * The list of apps that are allowed to have no signature.json. Besides
+ * ownCloud apps, this is particularly useful when creating ownCloud themes,
+ * because themes are treated as apps. The app is identified with it´s app-id. 
+ * The following example allows app-1 and theme-2 to have no signature.
+ */
+'integrity.ignore.missing.app.signature' =>
+	array(
+		'app-id of app-1',
+		'app-id of theme-2',
+	),
+
+/**
  * Define a default folder for shared files and folders other than root.
  */
 'share_folder' => '/',
-
-/**
- * If you are applying a theme to ownCloud, enter the name of the theme here.
- * The default location for themes is ``owncloud/themes/``.
- */
-'theme' => '',
 
 /**
  * The default cipher for encrypting files. Currently AES-128-CFB and
@@ -1253,7 +1239,7 @@ $CONFIG = array(
  * client may not function as expected, and could lead to permanent data loss for
  * clients or other unexpected results.
  */
-'minimum.supported.desktop.version' => '2.0.0',
+'minimum.supported.desktop.version' => '2.2.4',
 
 /**
  * EXPERIMENTAL: option whether to include external storage in quota
@@ -1366,10 +1352,20 @@ $CONFIG = array(
 'upgrade.disable-web' => false,
 
 /**
+ * Automatic update of market apps, set to "false" to disable.
+ */
+'upgrade.automatic-app-update' => true,
+
+/**
  * Set this ownCloud instance to debugging mode
  *
  * Only enable this for local development and not in production environments
  * This will disable the minifier and outputs some additional debug information
+ *
+ * .. warning::
+ *    Be warned that, if you set this to ``true``, exceptions display
+ *    stack traces on the web interface, *including passwords*, — **in plain text!**.
+ *    We strongly encourage you never to use it in production.
  */
 'debug' => false,
 
@@ -1401,5 +1397,10 @@ $CONFIG = array(
  *
  */
 'files_external_allow_create_new_local' => false,
+
+/**
+ * Set this property to true if you want to enable debug logging for SMB access.
+ */
+'smb.logging.enable' => false, 
 
 );

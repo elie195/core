@@ -8,7 +8,7 @@
  * @author Robin Appelman <icewind@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -42,14 +42,14 @@ class Internal extends Session {
 	 * @throws \Exception
 	 */
 	public function __construct($name) {
-		session_name($name);
-		set_error_handler([$this, 'trapError']);
+		\session_name($name);
+		\set_error_handler([$this, 'trapError']);
 		try {
-			session_start();
+			\session_start();
 		} catch (\Exception $e) {
-			setcookie(session_name(), null, -1, \OC::$WEBROOT ? : '/');
+			\setcookie(\session_name(), null, -1, \OC::$WEBROOT ? : '/');
 		}
-		restore_error_handler();
+		\restore_error_handler();
 		if (!isset($_SESSION)) {
 			throw new \Exception('Failed to start session');
 		}
@@ -93,14 +93,15 @@ class Internal extends Session {
 	}
 
 	public function clear() {
-		session_unset();
+		\session_unset();
 		$this->regenerateId();
-		@session_start();
+		@\session_destroy();
+		@\session_start();
 		$_SESSION = [];
 	}
 
 	public function close() {
-		session_write_close();
+		\session_write_close();
 		parent::close();
 	}
 
@@ -111,7 +112,7 @@ class Internal extends Session {
 	 * @return void
 	 */
 	public function regenerateId($deleteOldSession = true) {
-		@session_regenerate_id($deleteOldSession);
+		@\session_regenerate_id($deleteOldSession);
 	}
 
 	/**
@@ -122,7 +123,7 @@ class Internal extends Session {
 	 * @since 9.1.0
 	 */
 	public function getId() {
-		$id = @session_id();
+		$id = @\session_id();
 		if ($id === '') {
 			throw new SessionNotAvailableException();
 		}

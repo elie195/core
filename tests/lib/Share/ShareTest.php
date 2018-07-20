@@ -3,7 +3,7 @@
 * ownCloud
 *
 * @author Michael Gapczynski
-* @copyright 2012 Michael Gapczynski mtgap@owncloud.com
+* @copyright Copyright (c) 2012 Michael Gapczynski mtgap@owncloud.com
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -21,6 +21,7 @@
 
 namespace Test\Share;
 
+use OCP\IConfig;
 use Test\Traits\UserTrait;
 
 /**
@@ -29,7 +30,6 @@ use Test\Traits\UserTrait;
  * @group DB
  */
 class ShareTest extends \Test\TestCase {
-
 	use UserTrait;
 
 	protected $itemType;
@@ -87,10 +87,10 @@ class ShareTest extends \Test\TestCase {
 		\OC::$server->getAppConfig()->setValue('core', 'shareapi_allow_resharing', 'yes');
 
 		// 20 Minutes in the past, 20 minutes in the future.
-		$now = time();
+		$now = \time();
 		$dateFormat = 'Y-m-d H:i:s';
-		$this->dateInPast = date($dateFormat, $now - 20 * 60);
-		$this->dateInFuture = date($dateFormat, $now + 20 * 60);
+		$this->dateInPast = \date($dateFormat, $now - 20 * 60);
+		$this->dateInFuture = \date($dateFormat, $now + 20 * 60);
 	}
 
 	protected function tearDown() {
@@ -99,26 +99,46 @@ class ShareTest extends \Test\TestCase {
 		\OC::$server->getAppConfig()->setValue('core', 'shareapi_allow_resharing', $this->resharing);
 
 		$user = \OC::$server->getUserManager()->get($this->user1);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->user2);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->user3);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->user4);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->user5);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->user6);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 		$user = \OC::$server->getUserManager()->get($this->groupAndUser);
-		if ($user !== null) { $user->delete(); }
+		if ($user !== null) {
+			$user->delete();
+		}
 
 		$g = \OC::$server->getGroupManager()->get($this->group1);
-		if ($g !== null) { $g->delete(); }
+		if ($g !== null) {
+			$g->delete();
+		}
 		$g = \OC::$server->getGroupManager()->get($this->group2);
-		if ($g !== null) { $g->delete(); }
+		if ($g !== null) {
+			$g->delete();
+		}
 		$g = \OC::$server->getGroupManager()->get($this->groupAndUser);
-		if ($g !== null) { $g->delete(); }
+		if ($g !== null) {
+			$g->delete();
+		}
 
 		$this->logout();
 		parent::tearDown();
@@ -208,7 +228,7 @@ class ShareTest extends \Test\TestCase {
 	protected function shareUserTestFileAsLink() {
 		\OC_User::setUserId($this->user1);
 		$result = \OCP\Share::shareItem('test', 'test.txt', \OCP\Share::SHARE_TYPE_LINK, null, \OCP\Constants::PERMISSION_READ);
-		$this->assertTrue(is_string($result));
+		$this->assertInternalType('string', $result);
 	}
 
 	/**
@@ -364,9 +384,9 @@ class ShareTest extends \Test\TestCase {
 
 		\OC_User::setUserId($this->user2);
 		$to_test = \OCP\Share::getItemsSharedWith('test', Backend::FORMAT_TARGET);
-		$this->assertEquals(2, count($to_test));
-		$this->assertTrue(in_array('test.txt', $to_test));
-		$this->assertTrue(in_array('test1.txt', $to_test));
+		$this->assertCount(2, $to_test);
+		$this->assertContains('test.txt', $to_test);
+		$this->assertContains('test1.txt', $to_test);
 
 		// Unshare from self
 		$this->assertTrue(\OCP\Share::unshareFromSelf('test', 'test.txt'));
@@ -383,9 +403,9 @@ class ShareTest extends \Test\TestCase {
 
 		\OC_User::setUserId($this->user2);
 		$to_test = \OCP\Share::getItemsSharedWith('test', Backend::FORMAT_TARGET);
-		$this->assertEquals(2, count($to_test));
-		$this->assertTrue(in_array('test.txt', $to_test));
-		$this->assertTrue(in_array('test1.txt', $to_test));
+		$this->assertCount(2, $to_test);
+		$this->assertContains('test.txt', $to_test);
+		$this->assertContains('test1.txt', $to_test);
 
 		// Remove user
 		\OC_User::setUserId($this->user1);
@@ -410,8 +430,8 @@ class ShareTest extends \Test\TestCase {
 		$query->execute();
 
 		$shares = \OCP\Share::getItemsShared('test');
-		$this->assertSame(1, count($shares));
-		$share = reset($shares);
+		$this->assertCount(1, $shares);
+		$share = \reset($shares);
 		$this->assertSame(\OCP\Share::SHARE_TYPE_USER, $share['share_type']);
 	}
 
@@ -438,15 +458,13 @@ class ShareTest extends \Test\TestCase {
 		$this->shareUserOneTestFileWithUserTwo();
 		$this->shareUserTestFileAsLink();
 
-
 		$this->assertTrue(
 			\OCP\Share::setExpirationDate('test', 'test.txt', $this->dateInFuture, ''),
 			'Failed asserting that user 1 successfully set an expiration date for the test.txt share.'
 		);
 
 		$shares = \OCP\Share::getItemsShared('test');
-		$this->assertSame(2, count($shares));
-
+		$this->assertCount(2, $shares);
 	}
 
 	/*
@@ -454,7 +472,6 @@ class ShareTest extends \Test\TestCase {
 	 * be removed
 	 */
 	public function testShareWithUserAndUserIsExcludedFromResharing() {
-
 		\OC_User::setUserId($this->user1);
 		$this->assertTrue(
 			\OCP\Share::shareItem('test', 'test.txt', \OCP\Share::SHARE_TYPE_USER, $this->user4, \OCP\Constants::PERMISSION_ALL),
@@ -479,7 +496,6 @@ class ShareTest extends \Test\TestCase {
 
 		\OC::$server->getAppConfig()->deleteKey('core', 'shareapi_exclude_groups_list');
 		\OC::$server->getAppConfig()->deleteKey('core', 'shareapi_exclude_groups');
-
 	}
 
 	protected function shareUserOneTestFileWithGroupOne() {
@@ -525,14 +541,14 @@ class ShareTest extends \Test\TestCase {
 
 		$targetUsers = [$this->user1, $this->user2, $this->user3];
 
-		foreach($targetUsers as $targetUser) {
+		foreach ($targetUsers as $targetUser) {
 			\OC_User::setUserId($targetUser);
 			$items = \OCP\Share::getItemsSharedWithUser(
 				'test',
 				$targetUser,
 				Backend::FORMAT_TARGET
 			);
-			$this->assertEquals(1, count($items));
+			$this->assertCount(1, $items);
 		}
 
 		\OC_User::setUserId($this->user5);
@@ -544,19 +560,18 @@ class ShareTest extends \Test\TestCase {
 		);
 
 		// verify that all were deleted
-		foreach($targetUsers as $targetUser) {
+		foreach ($targetUsers as $targetUser) {
 			\OC_User::setUserId($targetUser);
 			$items = \OCP\Share::getItemsSharedWithUser(
 				'test',
 				$targetUser,
 				Backend::FORMAT_TARGET
 			);
-			$this->assertEquals(0, count($items));
+			$this->assertCount(0, $items);
 		}
 	}
 
 	public function testShareWithGroupAndUserBothHaveTheSameId() {
-
 		$this->shareUserTestFileWithUser($this->user1, $this->groupAndUser);
 
 		\OC_User::setUserId($this->groupAndUser);
@@ -586,7 +601,6 @@ class ShareTest extends \Test\TestCase {
 
 		\OC_User::setUserId($this->user1);
 		$this->assertTrue(\OCP\Share::unshareAll('test', 'test.txt'));
-
 	}
 
 	/**
@@ -621,25 +635,24 @@ class ShareTest extends \Test\TestCase {
 		$args = ['test', 99, 'target4', \OCP\Share::SHARE_TYPE_USER, $this->user6, $this->user4];
 		$query->execute($args);
 
-
 		$result1 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user2, $this->user1);
-		$this->assertSame(1, count($result1));
+		$this->assertCount(1, $result1);
 		$this->verifyResult($result1, ['target1']);
 
 		$result2 = \OCP\Share::getItemSharedWithUser('test', 99, null, $this->user1);
-		$this->assertSame(2, count($result2));
+		$this->assertCount(2, $result2);
 		$this->verifyResult($result2, ['target1', 'target2']);
 
 		$result3 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user3);
-		$this->assertSame(2, count($result3));
+		$this->assertCount(2, $result3);
 		$this->verifyResult($result3, ['target3', 'target4']);
 
 		$result4 = \OCP\Share::getItemSharedWithUser('test', 99, null, null);
-		$this->assertSame(5, count($result4)); // 5 because target4 appears twice
+		$this->assertCount(5, $result4); // 5 because target4 appears twice
 		$this->verifyResult($result4, ['target1', 'target2', 'target3', 'target4']);
 
 		$result6 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user6, null);
-		$this->assertSame(1, count($result6));
+		$this->assertCount(1, $result6);
 		$this->verifyResult($result6, ['target4']);
 	}
 
@@ -661,30 +674,30 @@ class ShareTest extends \Test\TestCase {
 
 		// user2 is in group1 and group2
 		$result1 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user2, $this->user1);
-		$this->assertSame(2, count($result1));
+		$this->assertCount(2, $result1);
 		$this->verifyResult($result1, ['target1', 'target2']);
 
 		$result2 = \OCP\Share::getItemSharedWithUser('test', 99, null, $this->user1);
-		$this->assertSame(2, count($result2));
+		$this->assertCount(2, $result2);
 		$this->verifyResult($result2, ['target1', 'target2']);
 
 		// user3 is in group1 and group2
 		$result3 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user3);
-		$this->assertSame(3, count($result3));
+		$this->assertCount(3, $result3);
 		$this->verifyResult($result3, ['target1', 'target3', 'target4']);
 
 		$result4 = \OCP\Share::getItemSharedWithUser('test', 99, null, null);
-		$this->assertSame(4, count($result4));
+		$this->assertCount(4, $result4);
 		$this->verifyResult($result4, ['target1', 'target2', 'target3', 'target4']);
 
 		$result6 = \OCP\Share::getItemSharedWithUser('test', 99, $this->user6, null);
-		$this->assertSame(0, count($result6));
+		$this->assertCount(0, $result6);
 	}
 
 	public function verifyResult($result, $expected) {
 		foreach ($result as $r) {
-			if (in_array($r['item_target'], $expected)) {
-				$key = array_search($r['item_target'], $expected);
+			if (\in_array($r['item_target'], $expected)) {
+				$key = \array_search($r['item_target'], $expected);
 				unset($expected[$key]);
 			}
 		}
@@ -697,7 +710,7 @@ class ShareTest extends \Test\TestCase {
 		$result = \OCP\Share::getItemsSharedWithUser('test', $this->user2);
 		$this->assertCount(1, $result);
 
-		$groupShareId = array_keys($result)[0];
+		$groupShareId = \array_keys($result)[0];
 
 		// remove user from group
 		$userObject = \OC::$server->getUserManager()->get($this->user2);
@@ -719,7 +732,7 @@ class ShareTest extends \Test\TestCase {
 				'item_target' => $qb->expr()->literal('test.txt'),
 				'file_target' => $qb->expr()->literal('test2.txt'),
 				'permissions' => $qb->expr()->literal(1),
-				'stime' => $qb->expr()->literal(time()),
+				'stime' => $qb->expr()->literal(\time()),
 			])->execute();
 
 		$result = \OCP\Share::getItemsSharedWithUser('test', $this->user2);
@@ -795,7 +808,6 @@ class ShareTest extends \Test\TestCase {
 
 		$config->deleteAppValue('core', 'shareapi_default_expire_date');
 		$config->deleteAppValue('core', 'shareapi_expire_after_n_days');
-
 	}
 
 	public function dataShareWithRemoteUserAndRemoteIsInvalid() {
@@ -891,7 +903,7 @@ class ShareTest extends \Test\TestCase {
 		$this->assertEquals($expected, $result);
 	}
 
-	function checkPasswordProtectedShareDataProvider() {
+	public function checkPasswordProtectedShareDataProvider() {
 		return [
 			[true, []],
 			[true, ['share_with' => null]],
@@ -912,13 +924,13 @@ class ShareTest extends \Test\TestCase {
 	/**
 	 * @dataProvider urls
 	 */
-	function testRemoveProtocolFromUrl($url, $expectedResult) {
+	public function testRemoveProtocolFromUrl($url, $expectedResult) {
 		$share = new \OC\Share\Share();
 		$result = self::invokePrivate($share, 'removeProtocolFromUrl', [$url]);
 		$this->assertSame($expectedResult, $result);
 	}
 
-	function urls() {
+	public function urls() {
 		return [
 			['http://owncloud.org', 'owncloud.org'],
 			['https://owncloud.org', 'owncloud.org'],
@@ -927,11 +939,22 @@ class ShareTest extends \Test\TestCase {
 	}
 
 	public function dataRemoteShareUrlCalls() {
+		$expectedException = \Exception::class;
 		return [
-			['admin@localhost', 'localhost'],
-			['admin@https://localhost', 'localhost'],
-			['admin@http://localhost', 'localhost'],
-			['admin@localhost/subFolder', 'localhost/subFolder'],
+			// Fallback prohibited
+			['admin@localhost', 'localhost', false, false, $expectedException],
+			['admin@localhost', 'localhost', false, true],
+			['admin@https://localhost', 'localhost', false, false, $expectedException],
+			['admin@https://localhost', 'localhost', false, true],
+			['admin@http://localhost', 'localhost', false, false, $expectedException],
+			['admin@http://localhost', 'localhost', false, true],
+			['admin@localhost/subFolder', 'localhost/subFolder', false, false, $expectedException],
+			['admin@localhost/subFolder', 'localhost/subFolder', false, true],
+				// Fallback allowed
+			['admin@localhost', 'localhost', true, true],
+			['admin@https://localhost', 'localhost', true, true],
+			['admin@http://localhost', 'localhost', true, true],
+			['admin@localhost/subFolder', 'localhost/subFolder', true, true],
 		];
 	}
 
@@ -940,38 +963,71 @@ class ShareTest extends \Test\TestCase {
 	 *
 	 * @param string $shareWith
 	 * @param string $urlHost
+	 * @param bool $allowFallback
+	 * @param bool $httpsSuccess
+	 * @param string $expectedException
 	 */
-	public function testRemoteShareUrlCalls($shareWith, $urlHost) {
+	public function testRemoteShareUrlCalls($shareWith, $urlHost, $allowFallback, $httpsSuccess, $expectedException = null) {
 		$oldHttpHelper = \OC::$server->query('HTTPHelper');
 		$httpHelperMock = $this->getMockBuilder('OC\HttpHelper')
 			->disableOriginalConstructor()
 			->getMock();
 		$this->setHttpHelper($httpHelperMock);
 
-		$httpHelperMock->expects($this->at(0))
-			->method('post')
-			->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares'), $this->anything())
-			->willReturn(['success' => false, 'result' => 'Exception']);
-		$httpHelperMock->expects($this->at(1))
-			->method('post')
-			->with($this->stringStartsWith('http://' . $urlHost . '/ocs/v1.php/cloud/shares'), $this->anything())
-			->willReturn(['success' => true, 'result' => json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		if ($expectedException !== null) {
+			$this->expectException($expectedException);
+		}
+
+		$oldFallbackValue = \OC::$server->getConfig()->getSystemValue('sharing.federation.allowHttpFallback');
+		\OC::$server->getConfig()->setSystemValue('sharing.federation.allowHttpFallback', $allowFallback);
+
+		if ($httpsSuccess) {
+			$httpHelperMock->expects($this->at(0))
+				->method('post')
+				->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares'), $this->anything())
+				->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		} else {
+			$httpHelperMock->expects($this->at(0))
+				->method('post')
+				->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares'), $this->anything())
+				->willReturn(['success' => false, 'result' => 'Exception']);
+		}
+
+		if ($allowFallback && !$httpsSuccess) {
+			$httpHelperMock->expects($this->at(1))
+				->method('post')
+				->with($this->stringStartsWith('http://' . $urlHost . '/ocs/v1.php/cloud/shares'), $this->anything())
+				->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		}
 
 		\OCP\Share::shareItem('test', 'test.txt', \OCP\Share::SHARE_TYPE_REMOTE, $shareWith, \OCP\Constants::PERMISSION_READ);
-		$shares = \OCP\Share::getItemShared('test', 'test.txt');
-		$share = array_shift($shares);
 
-		$httpHelperMock->expects($this->at(0))
-			->method('post')
-			->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
-			->willReturn(['success' => false, 'result' => 'Exception']);
-		$httpHelperMock->expects($this->at(1))
-			->method('post')
-			->with($this->stringStartsWith('http://' . $urlHost . '/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
-			->willReturn(['success' => true, 'result' => json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		$shares = \OCP\Share::getItemShared('test', 'test.txt');
+		$share = \array_shift($shares);
+
+		if ($httpsSuccess) {
+			$httpHelperMock->expects($this->at(0))
+				->method('post')
+				->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
+				->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		} else {
+			$httpHelperMock->expects($this->at(0))
+				->method('post')
+				->with($this->stringStartsWith('https://' . $urlHost . '/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
+				->willReturn(['success' => false, 'result' => 'Exception']);
+		}
+
+		if ($allowFallback && !$httpsSuccess) {
+			$httpHelperMock->expects($this->at(1))
+				->method('post')
+				->with($this->stringStartsWith('http://' . $urlHost . '/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
+				->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+		}
 
 		\OCP\Share::unshare('test', 'test.txt', \OCP\Share::SHARE_TYPE_REMOTE, $shareWith);
+
 		$this->setHttpHelper($oldHttpHelper);
+		\OC::$server->getConfig()->setSystemValue('sharing.federation.allowHttpFallback', $oldFallbackValue);
 	}
 
 	/**
@@ -979,17 +1035,15 @@ class ShareTest extends \Test\TestCase {
 	 * @param array $ungrouped
 	 * @param array $grouped
 	 */
-	function testGroupItems($ungrouped, $grouped) {
-
+	public function testGroupItems($ungrouped, $grouped) {
 		$result = DummyShareClass::groupItemsTest($ungrouped);
 
 		$this->compareArrays($grouped, $result);
-
 	}
 
-	function compareArrays($result, $expectedResult) {
+	public function compareArrays($result, $expectedResult) {
 		foreach ($expectedResult as $key => $value) {
-			if (is_array($value)) {
+			if (\is_array($value)) {
 				$this->compareArrays($result[$key], $value);
 			} else {
 				$this->assertSame($value, $result[$key]);
@@ -997,7 +1051,7 @@ class ShareTest extends \Test\TestCase {
 		}
 	}
 
-	function dataProviderTestGroupItems() {
+	public function dataProviderTestGroupItems() {
 		return [
 			// one array with one share
 			[
@@ -1094,16 +1148,16 @@ class ShareTest extends \Test\TestCase {
 	 */
 	public function testSetPasswordNoUser() {
 		$userSession = $this->getMockBuilder('\OCP\IUserSession')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 
 		$connection  = $this->getMockBuilder('\OC\DB\Connection')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
+					   ->disableOriginalConstructor()
+					   ->getMock();
 
 		\OC\Share\Share::setPassword($userSession, $connection, $config, 1, 'pass');
 	}
@@ -1116,8 +1170,8 @@ class ShareTest extends \Test\TestCase {
 		$userSession = \OC::$server->getUserSession();
 		$connection = \OC::$server->getDatabaseConnection();
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
+					   ->disableOriginalConstructor()
+					   ->getMock();
 
 		// Find the share ID in the db
 		$qb = $connection->getQueryBuilder();
@@ -1159,22 +1213,21 @@ class ShareTest extends \Test\TestCase {
 	 */
 	public function testSetPassword() {
 		$user = $this->getMockBuilder('\OCP\IUser')
-		             ->disableOriginalConstructor()
-		             ->getMock();
+					 ->disableOriginalConstructor()
+					 ->getMock();
 		$user->method('getUID')->willReturn('user');
 
 		$userSession = $this->getMockBuilder('\OCP\IUserSession')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$userSession->method('getUser')->willReturn($user);
 
-
 		$ex = $this->getMockBuilder('\OC\DB\QueryBuilder\ExpressionBuilder\ExpressionBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb = $this->getMockBuilder('\OC\DB\QueryBuilder\QueryBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb->method('update')->will($this->returnSelf());
 		$qb->method('set')->will($this->returnSelf());
 		$qb->method('where')->will($this->returnSelf());
@@ -1185,21 +1238,19 @@ class ShareTest extends \Test\TestCase {
 		$qb->method('expr')->willReturn($ex);
 
 		$ret = $this->getMockBuilder('\Doctrine\DBAL\Driver\ResultStatement')
-		            ->disableOriginalConstructor()
+					->disableOriginalConstructor()
 					->getMock();
 		$ret->method('fetch')->willReturn(['uid_owner' => 'user']);
 		$qb->method('execute')->willReturn($ret);
 
-
 		$connection  = $this->getMockBuilder('\OC\DB\Connection')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$connection->method('getQueryBuilder')->willReturn($qb);
 
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
-
+					   ->disableOriginalConstructor()
+					   ->getMock();
 
 		$res = \OC\Share\Share::setPassword($userSession, $connection, $config, 1, 'pass');
 
@@ -1214,22 +1265,21 @@ class ShareTest extends \Test\TestCase {
 	 */
 	public function testSetPasswordRemove() {
 		$user = $this->getMockBuilder('\OCP\IUser')
-		             ->disableOriginalConstructor()
-		             ->getMock();
+					 ->disableOriginalConstructor()
+					 ->getMock();
 		$user->method('getUID')->willReturn('user');
 
 		$userSession = $this->getMockBuilder('\OCP\IUserSession')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$userSession->method('getUser')->willReturn($user);
 
-
 		$ex = $this->getMockBuilder('\OC\DB\QueryBuilder\ExpressionBuilder\ExpressionBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb = $this->getMockBuilder('\OC\DB\QueryBuilder\QueryBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb->method('update')->will($this->returnSelf());
 		$qb->method('select')->will($this->returnSelf());
 		$qb->method('from')->will($this->returnSelf());
@@ -1240,20 +1290,19 @@ class ShareTest extends \Test\TestCase {
 		$qb->method('expr')->willReturn($ex);
 
 		$ret = $this->getMockBuilder('\Doctrine\DBAL\Driver\ResultStatement')
-		            ->disableOriginalConstructor()
+					->disableOriginalConstructor()
 					->getMock();
 		$ret->method('fetch')->willReturn(['uid_owner' => 'user']);
 		$qb->method('execute')->willReturn($ret);
 
-
 		$connection  = $this->getMockBuilder('\OC\DB\Connection')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$connection->method('getQueryBuilder')->willReturn($qb);
 
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
+					   ->disableOriginalConstructor()
+					   ->getMock();
 		$config->method('getAppValue')->willReturn('yes');
 
 		\OC\Share\Share::setPassword($userSession, $connection, $config, 1, '');
@@ -1267,22 +1316,21 @@ class ShareTest extends \Test\TestCase {
 	 */
 	public function testSetPasswordInvalidShare() {
 		$user = $this->getMockBuilder('\OCP\IUser')
-		             ->disableOriginalConstructor()
-		             ->getMock();
+					 ->disableOriginalConstructor()
+					 ->getMock();
 		$user->method('getUID')->willReturn('user');
 
 		$userSession = $this->getMockBuilder('\OCP\IUserSession')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$userSession->method('getUser')->willReturn($user);
 
-
 		$ex = $this->getMockBuilder('\OC\DB\QueryBuilder\ExpressionBuilder\ExpressionBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb = $this->getMockBuilder('\OC\DB\QueryBuilder\QueryBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb->method('update')->will($this->returnSelf());
 		$qb->method('set')->will($this->returnSelf());
 		$qb->method('where')->will($this->returnSelf());
@@ -1293,21 +1341,19 @@ class ShareTest extends \Test\TestCase {
 		$qb->method('expr')->willReturn($ex);
 
 		$ret = $this->getMockBuilder('\Doctrine\DBAL\Driver\ResultStatement')
-		            ->disableOriginalConstructor()
+					->disableOriginalConstructor()
 					->getMock();
 		$ret->method('fetch')->willReturn([]);
 		$qb->method('execute')->willReturn($ret);
 
-
 		$connection  = $this->getMockBuilder('\OC\DB\Connection')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$connection->method('getQueryBuilder')->willReturn($qb);
 
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
-
+					   ->disableOriginalConstructor()
+					   ->getMock();
 
 		\OC\Share\Share::setPassword($userSession, $connection, $config, 1, 'pass');
 	}
@@ -1320,22 +1366,21 @@ class ShareTest extends \Test\TestCase {
 	 */
 	public function testSetPasswordShareOtherUser() {
 		$user = $this->getMockBuilder('\OCP\IUser')
-		             ->disableOriginalConstructor()
-		             ->getMock();
+					 ->disableOriginalConstructor()
+					 ->getMock();
 		$user->method('getUID')->willReturn('user');
 
 		$userSession = $this->getMockBuilder('\OCP\IUserSession')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$userSession->method('getUser')->willReturn($user);
 
-
 		$ex = $this->getMockBuilder('\OC\DB\QueryBuilder\ExpressionBuilder\ExpressionBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb = $this->getMockBuilder('\OC\DB\QueryBuilder\QueryBuilder')
-		           ->disableOriginalConstructor()
-		           ->getMock();
+				   ->disableOriginalConstructor()
+				   ->getMock();
 		$qb->method('update')->will($this->returnSelf());
 		$qb->method('set')->will($this->returnSelf());
 		$qb->method('where')->will($this->returnSelf());
@@ -1346,21 +1391,19 @@ class ShareTest extends \Test\TestCase {
 		$qb->method('expr')->willReturn($ex);
 
 		$ret = $this->getMockBuilder('\Doctrine\DBAL\Driver\ResultStatement')
-		            ->disableOriginalConstructor()
+					->disableOriginalConstructor()
 					->getMock();
 		$ret->method('fetch')->willReturn(['uid_owner' => 'user2']);
 		$qb->method('execute')->willReturn($ret);
 
-
 		$connection  = $this->getMockBuilder('\OC\DB\Connection')
-		                    ->disableOriginalConstructor()
-		                    ->getMock();
+							->disableOriginalConstructor()
+							->getMock();
 		$connection->method('getQueryBuilder')->willReturn($qb);
 
 		$config = $this->getMockBuilder('\OCP\IConfig')
-		               ->disableOriginalConstructor()
-		               ->getMock();
-
+					   ->disableOriginalConstructor()
+					   ->getMock();
 
 		\OC\Share\Share::setPassword($userSession, $connection, $config, 1, 'pass');
 	}
@@ -1378,11 +1421,11 @@ class ShareTest extends \Test\TestCase {
 		$httpHelperMock->expects($this->at(0))
 			->method('post')
 			->with($this->stringStartsWith('https://localhost/ocs/v1.php/cloud/shares'), $this->anything())
-			->willReturn(['success' => true, 'result' => json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+			->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
 
 		\OCP\Share::shareItem('test', 'test.txt', \OCP\Share::SHARE_TYPE_REMOTE, 'foo@localhost', \OCP\Constants::PERMISSION_READ);
 		$shares = \OCP\Share::getItemShared('test', 'test.txt');
-		$share = array_shift($shares);
+		$share = \array_shift($shares);
 
 		//Try share again
 		try {
@@ -1395,7 +1438,7 @@ class ShareTest extends \Test\TestCase {
 		$httpHelperMock->expects($this->at(0))
 			->method('post')
 			->with($this->stringStartsWith('https://localhost/ocs/v1.php/cloud/shares/' . $share['id'] . '/unshare'), $this->anything())
-			->willReturn(['success' => true, 'result' => json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
+			->willReturn(['success' => true, 'result' => \json_encode(['ocs' => ['meta' => ['statuscode' => 100]]])]);
 
 		\OCP\Share::unshare('test', 'test.txt', \OCP\Share::SHARE_TYPE_REMOTE, 'foo@localhost');
 		$this->setHttpHelper($oldHttpHelper);
@@ -1410,7 +1453,7 @@ class ShareTest extends \Test\TestCase {
 		$config->setAppValue('core', 'shareapi_expire_after_n_days', '2');
 
 		// Expiration date
-		$expireAt = time() + 2 * 24*60*60;
+		$expireAt = \time() + 2 * 24*60*60;
 		$date = new \DateTime();
 		$date->setTimestamp($expireAt);
 		$date->setTime(0, 0, 0);
@@ -1421,12 +1464,12 @@ class ShareTest extends \Test\TestCase {
 		//User 2 shares as link
 		\OC_User::setUserId($this->user2);
 		$result = \OCP\Share::shareItem('test', 'test.txt', \OCP\Share::SHARE_TYPE_LINK, null, \OCP\Constants::PERMISSION_READ);
-		$this->assertTrue(is_string($result));
+		$this->assertInternalType('string', $result);
 
 		//Check if expire date is correct
 		$result = \OCP\Share::getItemShared('test', 'test.txt');
 		$this->assertCount(1, $result);
-		$result = reset($result);
+		$result = \reset($result);
 		$this->assertNotEmpty($result['expiration']);
 		$expireDate = new \DateTime($result['expiration']);
 		$this->assertEquals($date, $expireDate);
@@ -1449,7 +1492,6 @@ class ShareTest extends \Test\TestCase {
 			$this->assertEquals('Sharing test.txt failed, because you can not share with yourself', $e->getMessage());
 		}
 	}
-
 
 	public function testShareWithOwnerError() {
 		\OC_User::setUserId($this->user1);
@@ -1476,7 +1518,7 @@ class DummyShareClass extends \OC\Share\Share {
 }
 
 class DummyHookListener {
-	static $shareType = null;
+	public static $shareType = null;
 
 	public static function listen($params) {
 		self::$shareType = $params['shareType'];

@@ -7,7 +7,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -26,7 +26,6 @@
 
 namespace OCP;
 
-
 /**
  * Class Manager
  *
@@ -42,7 +41,7 @@ namespace OCP;
  * @since 8.0.0
  */
 interface IUserManager {
-		/**
+	/**
 	 * register a user backend
 	 *
 	 * @param \OCP\UserInterface $backend
@@ -154,7 +153,7 @@ interface IUserManager {
 	 * @param string $search
 	 * @since 9.0.0
 	 */
-	public function callForAllUsers (\Closure $callback, $search = '');
+	public function callForAllUsers(\Closure $callback, $search = '');
 
 	/**
 	 * returns how many users have logged in once
@@ -177,7 +176,7 @@ interface IUserManager {
 	 * @since 10.0
 >>>>>>> d17a83eaa52e94ce1451a9dd610bbc812b80f27e
 	 */
-	public function callForSeenUsers (\Closure $callback);
+	public function callForSeenUsers(\Closure $callback);
 
 	/**
 	 * @param string $email

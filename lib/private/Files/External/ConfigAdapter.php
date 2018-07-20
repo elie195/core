@@ -5,7 +5,7 @@
  * @author Robin McCorkell <robin@mccorkell.me.uk>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -35,11 +35,15 @@ use OCP\Files\External\Service\IUserGlobalStoragesService;
 use OCP\Files\External\IStorageConfig;
 use OC\Files\Storage\FailedStorage;
 use OCP\Files\StorageNotAvailableException;
+use OCP\IConfig;
 
 /**
  * Make the old files_external config work with the new public mount config api
  */
 class ConfigAdapter implements IMountProvider {
+
+	/** @var IConfig */
+	private $config;
 
 	/** @var IUserStoragesService */
 	private $userStoragesService;
@@ -52,9 +56,11 @@ class ConfigAdapter implements IMountProvider {
 	 * @param IUserGlobalStoragesService $userGlobalStoragesService
 	 */
 	public function __construct(
+		IConfig $config,
 		IUserStoragesService $userStoragesService,
 		IUserGlobalStoragesService $userGlobalStoragesService
 	) {
+		$this->config = $config;
 		$this->userStoragesService = $userStoragesService;
 		$this->userGlobalStoragesService = $userGlobalStoragesService;
 	}
@@ -75,7 +81,7 @@ class ConfigAdapter implements IMountProvider {
 		$objectStore = $storage->getBackendOption('objectstore');
 		if ($objectStore) {
 			$objectClass = $objectStore['class'];
-			if (!is_subclass_of($objectClass, '\OCP\Files\ObjectStore\IObjectStore')) {
+			if (!\is_subclass_of($objectClass, '\OCP\Files\ObjectStore\IObjectStore')) {
 				throw new \InvalidArgumentException('Invalid object store');
 			}
 			$storage->setBackendOption('objectstore', new $objectClass($objectStore));
@@ -146,6 +152,7 @@ class ConfigAdapter implements IMountProvider {
 			$mounts[$storage->getMountPoint()] = $mount;
 		}
 
+		$allowUserMountSharing = $this->config->getAppValue('core', 'allow_user_mount_sharing', 'yes') === 'yes';
 		foreach ($this->userStoragesService->getStorages() as $storage) {
 			try {
 				$this->prepareStorageConfig($storage, $user);
@@ -155,6 +162,11 @@ class ConfigAdapter implements IMountProvider {
 				$impl = new FailedStorage(['exception' => $e]);
 			}
 
+			$mountOptions = $storage->getMountOptions();
+			if (!$allowUserMountSharing) {
+				$mountOptions['enable_sharing'] = false;
+			}
+
 			$mount = new PersonalMount(
 				$this->userStoragesService,
 				$storage->getId(),
@@ -162,7 +174,7 @@ class ConfigAdapter implements IMountProvider {
 				'/' . $user->getUID() . '/files' . $storage->getMountPoint(),
 				null,
 				$loader,
-				$storage->getMountOptions()
+				$mountOptions
 			);
 			$mounts[$storage->getMountPoint()] = $mount;
 		}
@@ -181,15 +193,15 @@ class ConfigAdapter implements IMountProvider {
 	 * @return string
 	 */
 	private function setUserVars($user, $input) {
-		if (is_array($input)) {
+		if (\is_array($input)) {
 			foreach ($input as $key => $value) {
-				if (is_string($value)) {
-					$input[$key] = str_replace('$user', $user, $value);
+				if (\is_string($value)) {
+					$input[$key] = \str_replace('$user', $user, $value);
 				}
 			}
 		} else {
-			if (is_string($input)) {
-				$input = str_replace('$user', $user, $input);
+			if (\is_string($input)) {
+				$input = \str_replace('$user', $user, $input);
 			}
 		}
 		return $input;

@@ -10,7 +10,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -68,8 +68,7 @@ class Factory implements ICacheFactory {
 	 * @param string|null $lockingCacheClass
 	 */
 	public function __construct($globalPrefix, ILogger $logger,
-		$localCacheClass = null, $distributedCacheClass = null, $lockingCacheClass = null)
-	{
+		$localCacheClass = null, $distributedCacheClass = null, $lockingCacheClass = null) {
 		$this->logger = $logger;
 		$this->globalPrefix = $globalPrefix;
 
@@ -83,7 +82,7 @@ class Factory implements ICacheFactory {
 		$missingCacheMessage = 'Memcache {class} not available for {use} cache';
 		$missingCacheHint = 'Is the matching PHP module installed and enabled?';
 		if (!$localCacheClass::isAvailable()) {
-			if (\OC::$CLI && !defined('PHPUNIT_RUN')) {
+			if (\OC::$CLI && !\defined('PHPUNIT_RUN')) {
 				// CLI should not hard-fail on broken memcache
 				$this->logger->info($missingCacheMessage, [
 					'class' => $localCacheClass,
@@ -92,13 +91,13 @@ class Factory implements ICacheFactory {
 				]);
 				$localCacheClass = self::NULL_CACHE;
 			} else {
-				throw new \OC\HintException(strtr($missingCacheMessage, [
+				throw new \OC\HintException(\strtr($missingCacheMessage, [
 					'{class}' => $localCacheClass, '{use}' => 'local'
 				]), $missingCacheHint);
 			}
 		}
 		if (!$distributedCacheClass::isAvailable()) {
-			if (\OC::$CLI && !defined('PHPUNIT_RUN')) {
+			if (\OC::$CLI && !\defined('PHPUNIT_RUN')) {
 				// CLI should not hard-fail on broken memcache
 				$this->logger->info($missingCacheMessage, [
 					'class' => $distributedCacheClass,
@@ -107,7 +106,7 @@ class Factory implements ICacheFactory {
 				]);
 				$distributedCacheClass = self::NULL_CACHE;
 			} else {
-				throw new \OC\HintException(strtr($missingCacheMessage, [
+				throw new \OC\HintException(\strtr($missingCacheMessage, [
 					'{class}' => $distributedCacheClass, '{use}' => 'distributed'
 				]), $missingCacheHint);
 			}

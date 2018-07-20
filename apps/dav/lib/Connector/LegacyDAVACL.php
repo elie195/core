@@ -4,7 +4,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -26,8 +26,8 @@ namespace OCA\DAV\Connector;
 use OCA\DAV\Connector\Sabre\DavAclPlugin;
 use Sabre\DAV\INode;
 use Sabre\DAV\PropFind;
-use Sabre\HTTP\URLUtil;
 use Sabre\DAVACL\Xml\Property\Principal;
+use Sabre\HTTP\URLUtil;
 
 class LegacyDAVACL extends DavAclPlugin {
 
@@ -37,10 +37,12 @@ class LegacyDAVACL extends DavAclPlugin {
 	public function getCurrentUserPrincipals() {
 		$principalV2 = $this->getCurrentUserPrincipal();
 
-		if (is_null($principalV2)) return [];
+		if ($principalV2 === null) {
+			return [];
+		}
 
 		$principalV1 = $this->convertPrincipal($principalV2, false);
-		return array_merge(
+		return \array_merge(
 			[
 				$principalV2,
 				$principalV1

@@ -19,7 +19,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -44,11 +44,14 @@ use OC\Files\Cache\Scanner;
 use OC\Files\Cache\Updater;
 use OC\Files\Filesystem;
 use OC\Files\Cache\Watcher;
+use OCP\Constants;
+use OCP\Files\FileInfo;
 use OCP\Files\FileNameTooLongException;
 use OCP\Files\InvalidCharacterInPathException;
 use OCP\Files\InvalidPathException;
 use OCP\Files\ReservedWordException;
 use OCP\Files\Storage\ILockingStorage;
+use OCP\Files\Storage\IVersionedStorage;
 use OCP\Lock\ILockingProvider;
 
 /**
@@ -62,8 +65,7 @@ use OCP\Lock\ILockingProvider;
  * Some \OC\Files\Storage\Common methods call functions which are first defined
  * in classes which extend it, e.g. $this->stat() .
  */
-abstract class Common implements Storage, ILockingStorage {
-
+abstract class Common implements Storage, ILockingStorage, IVersionedStorage {
 	use LocalTempFileTrait;
 
 	protected $cache;
@@ -88,7 +90,7 @@ abstract class Common implements Storage, ILockingStorage {
 	protected function remove($path) {
 		if ($this->is_dir($path)) {
 			return $this->rmdir($path);
-		} else if ($this->is_file($path)) {
+		} elseif ($this->is_file($path)) {
 			return $this->unlink($path);
 		} else {
 			return false;
@@ -140,7 +142,7 @@ abstract class Common implements Storage, ILockingStorage {
 		if ($path === '' || $path === '/') {
 			return false;
 		}
-		$parent = dirname($path);
+		$parent = \dirname($path);
 		return $this->isUpdatable($parent) && $this->isUpdatable($path);
 	}
 
@@ -151,26 +153,26 @@ abstract class Common implements Storage, ILockingStorage {
 	public function getPermissions($path) {
 		$permissions = 0;
 		if ($this->isCreatable($path)) {
-			$permissions |= \OCP\Constants::PERMISSION_CREATE;
+			$permissions |= Constants::PERMISSION_CREATE;
 		}
 		if ($this->isReadable($path)) {
-			$permissions |= \OCP\Constants::PERMISSION_READ;
+			$permissions |= Constants::PERMISSION_READ;
 		}
 		if ($this->isUpdatable($path)) {
-			$permissions |= \OCP\Constants::PERMISSION_UPDATE;
+			$permissions |= Constants::PERMISSION_UPDATE;
 		}
 		if ($this->isDeletable($path)) {
-			$permissions |= \OCP\Constants::PERMISSION_DELETE;
+			$permissions |= Constants::PERMISSION_DELETE;
 		}
 		if ($this->isSharable($path)) {
-			$permissions |= \OCP\Constants::PERMISSION_SHARE;
+			$permissions |= Constants::PERMISSION_SHARE;
 		}
 		return $permissions;
 	}
 
 	public function filemtime($path) {
 		$stat = $this->stat($path);
-		if (isset($stat['mtime']) && $stat['mtime'] > 0) {
+		if (isset($stat['mtime'])) {
 			return $stat['mtime'];
 		} else {
 			return 0;
@@ -182,16 +184,16 @@ abstract class Common implements Storage, ILockingStorage {
 		if (!$handle) {
 			return false;
 		}
-		$data = stream_get_contents($handle);
-		fclose($handle);
+		$data = \stream_get_contents($handle);
+		\fclose($handle);
 		return $data;
 	}
 
 	public function file_put_contents($path, $data) {
 		$handle = $this->fopen($path, "w");
 		$this->removeCachedFile($path);
-		$count = fwrite($handle, $data);
-		fclose($handle);
+		$count = \fwrite($handle, $data);
+		\fclose($handle);
 		return $count;
 	}
 
@@ -207,14 +209,14 @@ abstract class Common implements Storage, ILockingStorage {
 			$this->remove($path2);
 			$dir = $this->opendir($path1);
 			$this->mkdir($path2);
-			while ($file = readdir($dir)) {
+			while ($file = \readdir($dir)) {
 				if (!Filesystem::isIgnoredDir($file) && !Filesystem::isForbiddenFileOrDir($file)) {
 					if (!$this->copy($path1 . '/' . $file, $path2 . '/' . $file)) {
 						return false;
 					}
 				}
 			}
-			closedir($dir);
+			\closedir($dir);
 			return true;
 		} else {
 			$source = $this->fopen($path1, 'r');
@@ -237,10 +239,10 @@ abstract class Common implements Storage, ILockingStorage {
 
 	public function hash($type, $path, $raw = false) {
 		$fh = $this->fopen($path, 'rb');
-		$ctx = hash_init($type);
-		hash_update_stream($ctx, $fh);
-		fclose($fh);
-		return hash_final($ctx, $raw);
+		$ctx = \hash_init($type);
+		\hash_update_stream($ctx, $fh);
+		\fclose($fh);
+		return \hash_final($ctx, $raw);
 	}
 
 	public function search($query) {
@@ -257,15 +259,15 @@ abstract class Common implements Storage, ILockingStorage {
 	 */
 	private function addLocalFolder($path, $target) {
 		$dh = $this->opendir($path);
-		if (is_resource($dh)) {
-			while (($file = readdir($dh)) !== false) {
-				if (!\OC\Files\Filesystem::isIgnoredDir($file)) {
+		if (\is_resource($dh)) {
+			while (($file = \readdir($dh)) !== false) {
+				if (!Filesystem::isIgnoredDir($file)) {
 					if ($this->is_dir($path . '/' . $file)) {
-						mkdir($target . '/' . $file);
+						\mkdir($target . '/' . $file);
 						$this->addLocalFolder($path . '/' . $file, $target . '/' . $file);
 					} else {
 						$tmp = $this->toTmpFile($path . '/' . $file);
-						rename($tmp, $target . '/' . $file);
+						\rename($tmp, $target . '/' . $file);
 					}
 				}
 			}
@@ -280,18 +282,20 @@ abstract class Common implements Storage, ILockingStorage {
 	protected function searchInDir($query, $dir = '') {
 		$files = [];
 		$dh = $this->opendir($dir);
-		if (is_resource($dh)) {
-			while (($item = readdir($dh)) !== false) {
-				if (\OC\Files\Filesystem::isIgnoredDir($item)) continue;
-				if (strstr(strtolower($item), strtolower($query)) !== false) {
+		if (\is_resource($dh)) {
+			while (($item = \readdir($dh)) !== false) {
+				if (Filesystem::isIgnoredDir($item)) {
+					continue;
+				}
+				if (\strstr(\strtolower($item), \strtolower($query)) !== false) {
 					$files[] = $dir . '/' . $item;
 				}
 				if ($this->is_dir($dir . '/' . $item)) {
-					$files = array_merge($files, $this->searchInDir($query, $dir . '/' . $item));
+					$files = \array_merge($files, $this->searchInDir($query, $dir . '/' . $item));
 				}
 			}
 		}
-		closedir($dh);
+		\closedir($dh);
 		return $files;
 	}
 
@@ -400,7 +404,7 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @return string
 	 */
 	public function getETag($path) {
-		return uniqid();
+		return \uniqid();
 	}
 
 	/**
@@ -411,20 +415,20 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @return string cleaned path
 	 */
 	public function cleanPath($path) {
-		if (strlen($path) == 0 or $path[0] != '/') {
+		if (\strlen($path) == 0 or $path[0] != '/') {
 			$path = '/' . $path;
 		}
 
 		$output = [];
-		foreach (explode('/', $path) as $chunk) {
+		foreach (\explode('/', $path) as $chunk) {
 			if ($chunk == '..') {
-				array_pop($output);
-			} else if ($chunk == '.') {
+				\array_pop($output);
+			} elseif ($chunk == '.') {
 			} else {
 				$output[] = $chunk;
 			}
 		}
-		return implode('/', $output);
+		return \implode('/', $output);
 	}
 
 	/**
@@ -446,7 +450,7 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @return int|false
 	 */
 	public function free_space($path) {
-		return \OCP\Files\FileInfo::SPACE_UNKNOWN;
+		return FileInfo::SPACE_UNKNOWN;
 	}
 
 	/**
@@ -465,11 +469,11 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @return bool
 	 */
 	public function instanceOfStorage($class) {
-		if (ltrim($class, '\\') === 'OC\Files\Storage\Shared') {
+		if (\ltrim($class, '\\') === 'OC\Files\Storage\Shared') {
 			// FIXME Temporary fix to keep existing checks working
 			$class = '\OCA\Files_Sharing\SharedStorage';
 		}
-		return is_a($this, $class);
+		return \is_a($this, $class);
 	}
 
 	/**
@@ -500,10 +504,10 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @throws InvalidPathException
 	 */
 	protected function verifyPosixPath($fileName) {
-		$fileName = trim($fileName);
+		$fileName = \trim($fileName);
 		$this->scanForInvalidCharacters($fileName, "\\/");
 		$reservedNames = ['*'];
-		if (in_array($fileName, $reservedNames)) {
+		if (\in_array($fileName, $reservedNames)) {
 			throw new ReservedWordException();
 		}
 	}
@@ -514,13 +518,13 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @throws InvalidPathException
 	 */
 	private function scanForInvalidCharacters($fileName, $invalidChars) {
-		foreach (str_split($invalidChars) as $char) {
-			if (strpos($fileName, $char) !== false) {
+		foreach (\str_split($invalidChars) as $char) {
+			if (\strpos($fileName, $char) !== false) {
 				throw new InvalidCharacterInPathException();
 			}
 		}
 
-		$sanitizedFileName = filter_var($fileName, FILTER_UNSAFE_RAW, FILTER_FLAG_STRIP_LOW);
+		$sanitizedFileName = \filter_var($fileName, FILTER_UNSAFE_RAW, FILTER_FLAG_STRIP_LOW);
 		if ($sanitizedFileName !== $fileName) {
 			throw new InvalidCharacterInPathException();
 		}
@@ -557,8 +561,8 @@ abstract class Common implements Storage, ILockingStorage {
 		if ($sourceStorage->is_dir($sourceInternalPath)) {
 			$dh = $sourceStorage->opendir($sourceInternalPath);
 			$result = $this->mkdir($targetInternalPath);
-			if (is_resource($dh)) {
-				while ($result and ($file = readdir($dh)) !== false) {
+			if (\is_resource($dh)) {
+				while ($result and ($file = \readdir($dh)) !== false) {
 					if (!Filesystem::isIgnoredDir($file) && !Filesystem::isForbiddenFileOrDir($file)) {
 						$result &= $this->copyFromStorage($sourceStorage, $sourceInternalPath . '/' . $file, $targetInternalPath . '/' . $file);
 					}
@@ -576,8 +580,8 @@ abstract class Common implements Storage, ILockingStorage {
 			if ($result and $preserveMtime) {
 				$this->touch($targetInternalPath, $sourceStorage->filemtime($sourceInternalPath));
 			}
-			fclose($source);
-			fclose($target);
+			\fclose($source);
+			\fclose($target);
 
 			if (!$result) {
 				// delete partially written target file
@@ -620,7 +624,7 @@ abstract class Common implements Storage, ILockingStorage {
 	 */
 	public function getMetaData($path) {
 		$permissions = $this->getPermissions($path);
-		if (!$permissions & \OCP\Constants::PERMISSION_READ) {
+		if (!$permissions & Constants::PERMISSION_READ) {
 			//can't read, nothing we can do
 			return null;
 		}
@@ -629,7 +633,7 @@ abstract class Common implements Storage, ILockingStorage {
 		$data['mimetype'] = $this->getMimeType($path);
 		$data['mtime'] = $this->filemtime($path);
 		if ($data['mtime'] === false) {
-			$data['mtime'] = time();
+			$data['mtime'] = \time();
 		}
 		if ($data['mimetype'] == 'httpd/unix-directory') {
 			$data['size'] = -1; //unknown
@@ -650,7 +654,7 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @throws \OCP\Lock\LockedException
 	 */
 	public function acquireLock($path, $type, ILockingProvider $provider) {
-		$provider->acquireLock('files/' . md5($this->getId() . '::' . trim($path, '/')), $type);
+		$provider->acquireLock('files/' . \md5($this->getId() . '::' . \trim($path, '/')), $type);
 	}
 
 	/**
@@ -659,16 +663,17 @@ abstract class Common implements Storage, ILockingStorage {
 	 * @param \OCP\Lock\ILockingProvider $provider
 	 */
 	public function releaseLock($path, $type, ILockingProvider $provider) {
-		$provider->releaseLock('files/' . md5($this->getId() . '::' . trim($path, '/')), $type);
+		$provider->releaseLock('files/' . \md5($this->getId() . '::' . \trim($path, '/')), $type);
 	}
 
 	/**
 	 * @param string $path
 	 * @param int $type \OCP\Lock\ILockingProvider::LOCK_SHARED or \OCP\Lock\ILockingProvider::LOCK_EXCLUSIVE
 	 * @param \OCP\Lock\ILockingProvider $provider
+	 * @throws \OCP\Lock\LockedException
 	 */
 	public function changeLock($path, $type, ILockingProvider $provider) {
-		$provider->changeLock('files/' . md5($this->getId() . '::' . trim($path, '/')), $type);
+		$provider->changeLock('files/' . \md5($this->getId() . '::' . \trim($path, '/')), $type);
 	}
 
 	/**
@@ -683,5 +688,61 @@ abstract class Common implements Storage, ILockingStorage {
 	 */
 	public function setAvailability($isAvailable) {
 		$this->getStorageCache()->setAvailability($isAvailable);
+	}
+	public function getVersions($internalPath) {
+		// KISS implementation
+		if (!\OC_App::isEnabled('files_versions')) {
+			return [];
+		}
+		list($uid, $filename) =  $this->convertInternalPathToGlobalPath($internalPath);
+
+		return \array_map(function ($version) use ($internalPath) {
+			$version['mimetype'] = $this->getMimeType($internalPath);
+			return $version;
+		}, \array_values(
+			\OCA\Files_Versions\Storage::getVersions($uid, $filename)));
+	}
+
+	/**
+	 * @param $internalPath
+	 * @return array
+	 */
+	protected function convertInternalPathToGlobalPath($internalPath) {
+		$mounts = \OC::$server->getMountManager()->findByStorageId($this->getId());
+		$mount = \end($mounts);
+		$p = $mount->getMountPoint() . $internalPath;
+		$p = \explode('/', \ltrim($p, '/'));
+		\array_shift($p);
+		\array_shift($p);
+		$p = \implode('/', $p);
+		$o = \explode('/', $mount->getMountPoint());
+		return [$o[1], $p];
+	}
+
+	public function getVersion($internalPath, $versionId) {
+		$versions = $this->getVersions($internalPath);
+		$versions = \array_filter($versions, function ($version) use ($versionId) {
+			return $version['version'] === $versionId;
+		});
+		return \array_shift($versions);
+	}
+
+	public function getContentOfVersion($internalPath, $versionId) {
+		$v = $this->getVersion($internalPath, $versionId);
+		return \OCA\Files_Versions\Storage::getContentOfVersion($v['owner'], $v['storage_location']);
+	}
+
+	public function restoreVersion($internalPath, $versionId) {
+		// KISS implementation
+		if (!\OC_App::isEnabled('files_versions')) {
+			return false;
+		}
+		$v = $this->getVersion($internalPath, $versionId);
+		return \OCA\Files_Versions\Storage::restoreVersion($v['owner'], $v['path'], $v['storage_location'], $versionId);
+	}
+
+	public function saveVersion($internalPath) {
+		// returning false here will trigger the fallback implementation
+		return false;
 	}
 }

@@ -4,7 +4,7 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -23,13 +23,13 @@
 
 namespace OCA\Files;
 
-use OCP\IDBConnection;
-use OCP\L10N\IFactory;
 use OCP\Activity\IExtension;
 use OCP\Activity\IManager;
 use OCP\IConfig;
+use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\IURLGenerator;
+use OCP\L10N\IFactory;
 
 class Activity implements IExtension {
 	const APP_FILES = 'files';
@@ -105,10 +105,7 @@ class Activity implements IExtension {
 		return [
 			self::TYPE_SHARE_CREATED => (string) $l->t('A new file or folder has been <strong>created</strong>'),
 			self::TYPE_SHARE_CHANGED => (string) $l->t('A file or folder has been <strong>changed</strong>'),
-			self::TYPE_FAVORITES => [
-				'desc' => (string) $l->t('Limit notifications about creation and changes to your <strong>favorite files</strong> <em>(Stream only)</em>'),
-				'methods' => [self::METHOD_STREAM],
-			],
+			self::TYPE_FAVORITES     => (string) $l->t('Limit notifications about creation and changes to your <strong>favorite files</strong>'),
 			self::TYPE_SHARE_DELETED => (string) $l->t('A file or folder has been <strong>deleted</strong>'),
 			self::TYPE_SHARE_RESTORED => (string) $l->t('A file or folder has been <strong>restored</strong>'),
 		];
@@ -226,7 +223,7 @@ class Activity implements IExtension {
 	 * @param string $text
 	 * @return array|false
 	 */
-	function getSpecialParameterList($app, $text) {
+	public function getSpecialParameterList($app, $text) {
 		if ($app === self::APP_FILES) {
 			switch ($text) {
 				case 'created_self':
@@ -340,7 +337,7 @@ class Activity implements IExtension {
 	 */
 	public function filterNotificationTypes($types, $filter) {
 		if ($filter === self::FILTER_FILES || $filter === self::FILTER_FAVORITES) {
-			return array_intersect([
+			return \array_intersect([
 				self::TYPE_SHARE_CREATED,
 				self::TYPE_SHARE_CHANGED,
 				self::TYPE_SHARE_DELETED,
@@ -372,7 +369,7 @@ class Activity implements IExtension {
 		}
 
 		// Display actions from favorites only
-		if ($filter === self::FILTER_FAVORITES || in_array($filter, ['all', 'by', 'self']) && $this->userSettingFavoritesOnly($user)) {
+		if ($filter === self::FILTER_FAVORITES || \in_array($filter, ['all', 'by', 'self']) && $this->userSettingFavoritesOnly($user)) {
 			try {
 				$favorites = $this->helper->getFavoriteFilePaths($user);
 			} catch (\RuntimeException $e) {
@@ -404,7 +401,7 @@ class Activity implements IExtension {
 			return [
 				' CASE '
 					. 'WHEN `app` <> ? THEN 1 '
-					. 'WHEN `app` = ? AND (' . implode(' OR ', $fileQueryList) . ') THEN 1 '
+					. 'WHEN `app` = ? AND (' . \implode(' OR ', $fileQueryList) . ') THEN 1 '
 					. 'ELSE 0 '
 				. 'END = 1 ',
 				$parameters,
@@ -420,6 +417,7 @@ class Activity implements IExtension {
 	 * @return bool
 	 */
 	protected function userSettingFavoritesOnly($user) {
-		return (bool) $this->config->getUserValue($user, 'activity', 'notify_' . self::METHOD_STREAM . '_' . self::TYPE_FAVORITES, false);
+		return (bool)$this->config->getUserValue($user, 'activity', 'notify_' . self::METHOD_STREAM . '_' . self::TYPE_FAVORITES, false) ||
+			(bool)$this->config->getUserValue($user, 'activity', 'notify_' . self::METHOD_MAIL . '_' . self::TYPE_FAVORITES, false);
 	}
 }

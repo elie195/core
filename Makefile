@@ -2,7 +2,7 @@
 #
 # Requirements to run make here:
 #    - node
-#    - npm
+#    - yarn
 #
 # Both can be installed following e.g. the Debian/Ubuntu instructions at
 # https://nodejs.org/en/download/package-manager/
@@ -32,18 +32,14 @@ NODE_PREFIX=build
 SHELL=/bin/bash
 
 #
-# Define NPM and check if it is available on the system.
+# Define YARN and check if it is available on the system.
 #
-NPM := $(shell command -v npm 2> /dev/null)
-ifndef NPM
-    $(error npm is not available on your system, please install npm)
-endif
-
+YARN := $(shell command -v yarn 2> /dev/null)
 KARMA=$(NODE_PREFIX)/node_modules/.bin/karma
-BOWER=$(NODE_PREFIX)/node_modules/bower/bin/bower
 JSDOC=$(NODE_PREFIX)/node_modules/.bin/jsdoc
 PHPUNIT="$(shell pwd)/lib/composer/phpunit/phpunit/phpunit"
 COMPOSER_BIN=build/composer.phar
+PHAN_BIN=build/phan.phar
 
 TEST_DATABASE=sqlite
 TEST_EXTERNAL_ENV=smb-silvershell
@@ -58,8 +54,8 @@ nodejs_deps=build/node_modules
 core_vendor=core/vendor
 
 core_doc_files=AUTHORS COPYING README.md
-core_src_files=$(wildcard *.php) index.html db_structure.xml .htaccess .user.ini
-core_src_dirs=apps core l10n lib occ ocs ocs-provider resources settings themes
+core_src_files=$(wildcard *.php) index.html db_structure.xml .htaccess .user.ini robots.txt
+core_src_dirs=apps core l10n lib occ ocs ocs-provider resources settings
 core_test_dirs=tests
 core_all_src=$(core_src_files) $(core_src_dirs) $(core_doc_files)
 dist_dir=build/dist
@@ -68,10 +64,10 @@ dist_dir=build/dist
 # Catch-all rules
 #
 .PHONY: all
-all: help-hint $(composer_dev_deps) $(core_vendor) $(nodejs_deps)
+all: help-hint $(composer_dev_deps) $(nodejs_deps)
 
 .PHONY: clean
-clean: clean-composer-deps clean-nodejs-deps clean-js-deps clean-test clean-dist
+clean: clean-composer-deps clean-nodejs-deps clean-test clean-dist
 
 .PHONY: help-hint
 help-hint:
@@ -88,7 +84,7 @@ help:
 	@echo -e "make clean\t\t\tclean everything"
 	@echo -e "make install-composer-deps\tinstall composer dependencies"
 	@echo -e "make update-composer\t\tupdate composer.lock"
-	@echo -e "make install-js-deps\t\tinstall Javascript dependencies"
+	@echo -e "make install-nodejs-deps\t\tinstall Node JS and Javascript dependencies"
 	@echo
 	@echo -e "Note that running 'make' without arguments already installs all required dependencies"
 	@echo
@@ -97,7 +93,7 @@ help:
 	@echo -e "make test-php\t\t\trun all PHP tests"
 	@echo -e "make test-js\t\t\trun Javascript tests"
 	@echo -e "make test-js-debug\t\trun Javascript tests in debug mode (continuous)"
-	@echo -e "make test-integration\t\trun integration tests"
+	@echo -e "make test-acceptance\t\trun acceptance tests"
 	@echo -e "make clean-test\t\t\tclean test results"
 	@echo
 	@echo It is also possible to run individual PHP test files with the following command:
@@ -113,6 +109,8 @@ help:
 $(COMPOSER_BIN):
 	cd build && ./getcomposer.sh
 
+$(PHAN_BIN):
+	cd build && curl -s -L https://github.com/phan/phan/releases/download/0.12.10/phan.phar -o phan.phar;
 #
 # ownCloud core PHP dependencies
 #
@@ -145,31 +143,20 @@ clean-composer-deps:
 # Node JS dependencies for tools
 #
 $(nodejs_deps): build/package.json
-	$(NPM) install --prefix $(NODE_PREFIX)
-	touch $(nodejs_deps)
+	@test -x "$(YARN)" || { echo "yarn is not available on your system, please install yarn (npm install -g yarn)" && exit 1; }
+	cd $(NODE_PREFIX) && $(YARN) install
+	touch $@
+
+# alias for core deps
+$(core_vendor): $(nodejs_deps)
 
 .PHONY: install-nodejs-deps
 install-nodejs-deps: $(nodejs_deps)
 
 .PHONY: clean-nodejs-deps
 clean-nodejs-deps:
-	rm -Rf $(nodejs_deps)
-
-#
-# ownCloud core JS dependencies
-$(core_vendor): $(nodejs_deps) bower.json
-	$(BOWER) install
-
-.PHONY: install-js-deps
-install-js-deps: $(nodejs_deps)
-
-.PHONY: update-js-deps
-update-js-deps: $(nodejs_deps)
-	$(BOWER) update
-
-.PHONY: clean-js-deps
-clean-js-deps:
 	rm -Rf $(core_vendor)
+	rm -Rf $(nodejs_deps)
 
 #
 # Tests
@@ -183,16 +170,17 @@ test-external: $(composer_dev_deps)
 	PHPUNIT=$(PHPUNIT) build/autotest-external.sh $(TEST_DATABASE) $(TEST_EXTERNAL_ENV) $(TEST_PHP_SUITE)
 
 .PHONY: test-js
-test-js: $(nodejs_deps) $(js_deps) $(core_vendor)
+test-js: $(nodejs_deps)
 	NODE_PATH='$(NODE_PREFIX)/node_modules' $(KARMA) start tests/karma.config.js --single-run
 
 .PHONY: test-js-debug
-test-js-debug: $(nodejs_deps) $(js_deps) $(core_vendor)
+test-js-debug: $(nodejs_deps)
 	NODE_PATH='$(NODE_PREFIX)/node_modules' $(KARMA) start tests/karma.config.js
 
-.PHONY: test-integration
-test-integration: $(composer_dev_deps)
-	$(MAKE) -C tests/integration \
+.PHONY: test-acceptance
+test-acceptance: $(composer_dev_deps)
+	$(MAKE) -C tests/acceptance \
+		BEHAT_SUITE=$(BEHAT_SUITE) \
 		OC_TEST_ALT_HOME=$(OC_TEST_ALT_HOME) \
 		OC_TEST_ENCRYPTION_ENABLED=$(OC_TEST_ENCRYPTION_ENABLED) \
 		OC_TEST_ENCRYPTION_MASTER_KEY_ENABLED=$(OC_TEST_ENCRYPTION_MASTER_KEY_ENABLED)
@@ -201,20 +189,29 @@ test-integration: $(composer_dev_deps)
 test-php-lint: $(composer_dev_deps)
 	$(composer_deps)/bin/parallel-lint --exclude lib/composer --exclude build .
 
-.PHONY: test
-test: test-php-lint test-php test-js test-integration
+.PHONY: test-php-style
+test-php-style: $(composer_dev_deps)
+	$(composer_deps)/bin/php-cs-fixer fix -v --diff --diff-format udiff --dry-run --allow-risky yes
+	php build/OCPSinceChecker.php
 
-.PHONY: clean-test-integration
-clean-test-integration:
-	$(MAKE) -C tests/integration clean
+.PHONY: test-php-phan
+test-php-phan: $(PHAN_BIN)
+	php $(PHAN_BIN) --config-file .phan/config.php --require-config-exists -p
+
+.PHONY: test
+test: test-php-lint test-php-style test-php test-js test-acceptance
+
+.PHONY: clean-test-acceptance
+clean-test-acceptance:
+	$(MAKE) -C tests/acceptance clean
 
 .PHONY: clean-test-results
 clean-test-results:
 	rm -Rf tests/autotest-*results*.xml
-	$(MAKE) -C tests/integration clean
+	$(MAKE) -C tests/acceptance clean
 
 .PHONY: clean-test
-clean-test: clean-test-integration clean-test-results
+clean-test: clean-test-acceptance clean-test-results
 
 #
 # Documentation
@@ -233,9 +230,9 @@ clean-docs:
 #
 # Build distribution
 #
-$(dist_dir)/owncloud: $(composer_deps) $(core_vendor) $(core_all_src)
+$(dist_dir)/owncloud: $(composer_deps) $(nodejs_deps) $(core_all_src)
 	rm -Rf $@; mkdir -p $@/config
-	cp -R $(core_all_src) $@
+	cp -RL $(core_all_src) $@
 	cp -R config/config.sample.php $@/config
 	rm -Rf $(dist_dir)/owncloud/apps/testing
 	find $@ -name .gitkeep -delete
@@ -284,11 +281,12 @@ clean-dist:
 #
 # Build qa distribution
 #
-$(dist_dir)/qa/owncloud: $(composer_dev_deps) $(core_vendor) $(core_all_src) $(core_test_dirs)
+$(dist_dir)/qa/owncloud: $(composer_dev_deps) $(nodejs_deps) $(core_all_src) $(core_test_dirs)
 	rm -Rf $@; mkdir -p $@/config
-	cp -R $(core_all_src) $@
-	cp -R $(core_test_dirs) $@
+	cp -RL $(core_all_src) $@
+	cp -Rf $(core_test_dirs) $@
 	cp -R config/config.sample.php $@/config
+	rm -Rf $@/lib/composer/bin; cp -R lib/composer/bin $@/lib/composer/bin
 	find $@ -name .gitkeep -delete
 	find $@ -name .gitignore -delete
 	find $@ -name no-php -delete

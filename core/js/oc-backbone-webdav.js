@@ -180,12 +180,43 @@
 	}
 
 	function callPropPatch(client, options, model, headers) {
+		var changes = model.changed;
+		if (options.wait && _.isEmpty(changes)) {
+			// usually with "wait" mode, the changes aren't set yet,
+			changes = options.data;
+
+			// if options.patch is not set, then data contains all the data
+			// instead of just the properties to patch
+			if (!options.patch) {
+				// remove reserved properties
+				delete changes.href;
+				delete changes[_.result(model, 'idAttribute')];
+
+				// note: there is no way to diff with previous values here so
+				// we just send everything
+			}
+		}
 		return client.propPatch(
 			options.url,
-			convertModelAttributesToDavProperties(model.changed, options.davProperties),
+			convertModelAttributesToDavProperties(changes, options.davProperties),
 			headers
 		).then(function(result) {
+			if (result.status === 207 && result.body && result.body.length > 0) {
+				if (_.find(result.body[0].propStat, function(propStat) {
+					var statusCode = parseInt(propStat.status.split(' ')[1], 10);
+					return statusCode >= 400;
+				})) {
+					// in REST, validation errors are usually represented with 422 Unprocessable Entity,
+					result.status = 422;
+				}
+			}
+
 			if (isSuccessStatus(result.status)) {
+				// with wait, we set the changes only after success
+				if (options.wait) {
+					model.set(changes, options);
+				}
+
 				if (_.isFunction(options.success)) {
 					// pass the object's own values because the server
 					// does not return the updated model
@@ -221,12 +252,20 @@
 	}
 
 	function callMethod(client, options, model, headers) {
-		headers['Content-Type'] = 'application/json';
+		var data = options.data;
+		if (_.isObject(data)) {
+			headers['Content-Type'] = 'application/json';
+			data = JSON.stringify(data);
+		} else if (_.isString(data) && data.substr(0, 6) === '<?xml ') {
+			headers['Content-Type'] = 'application/xml';
+		} else {
+			headers['Content-Type'] = 'text/plain';
+		}
 		return client.request(
 			options.type,
 			options.url,
 			headers,
-			options.data
+			data
 		).then(function(result) {
 			if (!isSuccessStatus(result.status)) {
 				if (_.isFunction(options.error)) {
@@ -343,7 +382,7 @@
 
 		// Ensure that we have the appropriate request data.
 		if (options.data == null && model && (method === 'create' || method === 'update' || method === 'patch')) {
-			params.data = JSON.stringify(options.attrs || model.toJSON(options));
+			params.data = options.attrs || model.toJSON(options);
 		}
 
 		// Don't process data on a non-GET request.

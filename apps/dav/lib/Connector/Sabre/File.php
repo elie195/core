@@ -14,7 +14,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -33,14 +33,18 @@
 
 namespace OCA\DAV\Connector\Sabre;
 
+use OC\AppFramework\Http\Request;
 use OC\Files\Filesystem;
 use OC\Files\Storage\Storage;
 use OCA\DAV\Connector\Sabre\Exception\EntityTooLarge;
 use OCA\DAV\Connector\Sabre\Exception\FileLocked;
 use OCA\DAV\Connector\Sabre\Exception\Forbidden as DAVForbiddenException;
 use OCA\DAV\Connector\Sabre\Exception\UnsupportedMediaType;
+use OCA\DAV\Files\IFileNode;
 use OCP\Encryption\Exceptions\GenericEncryptionException;
+use OCP\Events\EventEmitterTrait;
 use OCP\Files\EntityTooLargeException;
+use OCP\Files\FileContentNotAllowedException;
 use OCP\Files\ForbiddenException;
 use OCP\Files\InvalidContentException;
 use OCP\Files\InvalidPathException;
@@ -52,12 +56,54 @@ use OCP\Lock\LockedException;
 use Sabre\DAV\Exception;
 use Sabre\DAV\Exception\BadRequest;
 use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
 use Sabre\DAV\Exception\NotImplemented;
 use Sabre\DAV\Exception\ServiceUnavailable;
 use Sabre\DAV\IFile;
-use Sabre\DAV\Exception\NotFound;
+use Symfony\Component\EventDispatcher\GenericEvent;
 
-class File extends Node implements IFile {
+class File extends Node implements IFile, IFileNode {
+	use EventEmitterTrait;
+	protected $request;
+	
+	/**
+	 * Sets up the node, expects a full path name
+	 *
+	 * @param \OC\Files\View $view
+	 * @param \OCP\Files\FileInfo $info
+	 * @param \OCP\Share\IManager $shareManager
+	 */
+	public function __construct($view, $info, $shareManager = null, Request $request = null) {
+		if (isset($request)) {
+			$this->request = $request;
+		} else {
+			$this->request = \OC::$server->getRequest();
+		}
+		parent::__construct($view, $info, $shareManager);
+	}
+
+	/**
+	 * Handles metadata updates for the target storage (mtime, propagation)
+	 *
+	 * @param Storage $targetStorage
+	 * @param $targetInternalPath
+	 */
+	private function handleMetadataUpdate(\OC\Files\Storage\Storage $targetStorage, $targetInternalPath) {
+		// since we skipped the view we need to scan and emit the hooks ourselves
+		
+		// allow sync clients to send the mtime along in a header
+		if (isset($this->request->server['HTTP_X_OC_MTIME'])) {
+			$mtime = $this->sanitizeMtime(
+				$this->request->server ['HTTP_X_OC_MTIME']
+			);
+			if ($targetStorage->touch($targetInternalPath, $mtime)) {
+				$this->header('X-OC-MTime: accepted');
+			}
+			$targetStorage->getUpdater()->update($targetInternalPath, $mtime);
+		} else {
+			$targetStorage->getUpdater()->update($targetInternalPath);
+		}
+	}
 
 	/**
 	 * Updates the data
@@ -101,7 +147,7 @@ class File extends Node implements IFile {
 		$this->verifyPath();
 
 		// chunked handling
-		if (isset($_SERVER['HTTP_OC_CHUNKED'])) {
+		if (\OC_FileChunking::isWebdavChunk()) {
 			try {
 				return $this->createFileChunked($data);
 			} catch (\Exception $e) {
@@ -109,12 +155,22 @@ class File extends Node implements IFile {
 			}
 		}
 
+		$newFile = false;
+		$path = $this->fileView->getAbsolutePath($this->path);
+		$beforeEvent = new GenericEvent(null, ['path' => $path]);
+		if (!$this->fileView->file_exists($this->path)) {
+			\OC::$server->getEventDispatcher()->dispatch('file.beforecreate', $beforeEvent);
+			$newFile = true;
+		} else {
+			\OC::$server->getEventDispatcher()->dispatch('file.beforeupdate', $beforeEvent);
+		}
+
 		list($partStorage) = $this->fileView->resolvePath($this->path);
-		$needsPartFile = $this->needsPartFile($partStorage) && (strlen($this->path) > 1);
+		$needsPartFile = $this->needsPartFile($partStorage) && (\strlen($this->path) > 1);
 
 		if ($needsPartFile) {
 			// mark file as partial while uploading (ignored by the scanner)
-			$partFilePath = $this->getPartFileBasePath($this->path) . '.ocTransferId' . rand() . '.part';
+			$partFilePath = $this->getPartFileBasePath($this->path) . '.ocTransferId' . \rand() . '.part';
 		} else {
 			// upload file directly as the final path
 			$partFilePath = $this->path;
@@ -133,7 +189,7 @@ class File extends Node implements IFile {
 				throw new Exception('Could not write file contents');
 			}
 			list($count, $result) = \OC_Helper::streamCopy($data, $target);
-			fclose($target);
+			\fclose($target);
 
 			if (!self::isChecksumValid($partStorage, $internalPartPath)) {
 				throw new BadRequest('The computed checksum does not match the one received from the client.');
@@ -156,7 +212,6 @@ class File extends Node implements IFile {
 					throw new BadRequest('expected filesize ' . $expected . ' got ' . $count);
 				}
 			}
-
 		} catch (\Exception $e) {
 			if ($needsPartFile) {
 				$partStorage->unlink($internalPartPath);
@@ -200,8 +255,7 @@ class File extends Node implements IFile {
 				}
 			}
 
-			// since we skipped the view we need to scan and emit the hooks ourselves
-			$storage->getUpdater()->update($internalPath);
+			$this->handleMetadataUpdate($storage, $internalPath);
 
 			try {
 				$this->changeLock(ILockingProvider::LOCK_SHARED);
@@ -209,35 +263,21 @@ class File extends Node implements IFile {
 				throw new FileLocked($e->getMessage(), $e->getCode(), $e);
 			}
 
-			// allow sync clients to send the mtime along in a header
-			$request = \OC::$server->getRequest();
-			if (isset($request->server['HTTP_X_OC_MTIME'])) {
-				if ($this->fileView->touch($this->path, $request->server['HTTP_X_OC_MTIME'])) {
-					header('X-OC-MTime: accepted');
-				}
-			}
-			
 			if ($view) {
 				$this->emitPostHooks($exists);
 			}
-			
-			$this->refreshInfo();
-
-			$meta = $partStorage->getMetaData($internalPartPath);
-
-			if (isset($meta['checksum'])) {
-				$this->fileView->putFileInfo(
-					$this->path,
-					['checksum' => $meta['checksum']]
-				);
-			}
 
 			$this->refreshInfo();
-
 		} catch (StorageNotAvailableException $e) {
 			throw new ServiceUnavailable("Failed to check file size: " . $e->getMessage());
 		}
 
+		$afterEvent = new GenericEvent(null, ['path' => $path]);
+		if ($newFile === true) {
+			\OC::$server->getEventDispatcher()->dispatch('file.aftercreate', $afterEvent);
+		} else {
+			\OC::$server->getEventDispatcher()->dispatch('file.afterupdate', $afterEvent);
+		}
 		return '"' . $this->info->getEtag() . '"';
 	}
 
@@ -246,7 +286,7 @@ class File extends Node implements IFile {
 		if ($partFileInStorage) {
 			return $path;
 		} else {
-			return md5($path); // will place it in the root of the view with a unique name
+			return \md5($path); // will place it in the root of the view with a unique name
 		}
 	}
 
@@ -254,27 +294,43 @@ class File extends Node implements IFile {
 	 * @param string $path
 	 */
 	private function emitPreHooks($exists, $path = null) {
-		if (is_null($path)) {
+		if ($path === null) {
 			$path = $this->path;
 		}
 		$hookPath = Filesystem::getView()->getRelativePath($this->fileView->getAbsolutePath($path));
 		$run = true;
+		$event = new GenericEvent(null);
 
 		if (!$exists) {
 			\OC_Hook::emit(\OC\Files\Filesystem::CLASSNAME, \OC\Files\Filesystem::signal_create, [
 				\OC\Files\Filesystem::signal_param_path => $hookPath,
 				\OC\Files\Filesystem::signal_param_run => &$run,
 			]);
+			if ($run) {
+				$event->setArgument('run', $run);
+				\OC::$server->getEventDispatcher()->dispatch('file.beforeCreate', $event);
+				$run = $event->getArgument('run');
+			}
 		} else {
 			\OC_Hook::emit(\OC\Files\Filesystem::CLASSNAME, \OC\Files\Filesystem::signal_update, [
 				\OC\Files\Filesystem::signal_param_path => $hookPath,
 				\OC\Files\Filesystem::signal_param_run => &$run,
 			]);
+			if ($run) {
+				$event->setArgument('run', $run);
+				\OC::$server->getEventDispatcher()->dispatch('file.beforeUpdate', $event);
+				$run = $event->getArgument('run');
+			}
 		}
 		\OC_Hook::emit(\OC\Files\Filesystem::CLASSNAME, \OC\Files\Filesystem::signal_write, [
 			\OC\Files\Filesystem::signal_param_path => $hookPath,
 			\OC\Files\Filesystem::signal_param_run => &$run,
 		]);
+		if ($run) {
+			$event->setArgument('run', $run);
+			\OC::$server->getEventDispatcher()->dispatch('file.beforeWrite', $event);
+			$run = $event->getArgument('run');
+		}
 		return $run;
 	}
 
@@ -282,7 +338,7 @@ class File extends Node implements IFile {
 	 * @param string $path
 	 */
 	private function emitPostHooks($exists, $path = null) {
-		if (is_null($path)) {
+		if ($path === null) {
 			$path = $this->path;
 		}
 		$hookPath = Filesystem::getView()->getRelativePath($this->fileView->getAbsolutePath($path));
@@ -310,18 +366,19 @@ class File extends Node implements IFile {
 	public function get() {
 		//throw exception if encryption is disabled but files are still encrypted
 		try {
-			if (!$this->info->isReadable()) {
+			$viewPath = \ltrim($this->path, '/');
+			if (!$this->info->isReadable() || !$this->fileView->file_exists($viewPath)) {
 				// do a if the file did not exist
 				throw new NotFound();
 			}
-			$res = $this->fileView->fopen(ltrim($this->path, '/'), 'rb');
+			$res = $this->fileView->fopen($viewPath, 'rb');
 			if ($res === false) {
 				throw new ServiceUnavailable("Could not open file");
 			}
 			return $res;
 		} catch (GenericEncryptionException $e) {
-			// returning 503 will allow retry of the operation at a later point in time
-			throw new ServiceUnavailable("Encryption not ready: " . $e->getMessage());
+			// returning 403 because some apps stops syncing if 503 is returned.
+			throw new Forbidden("Encryption not ready: " . $e->getMessage());
 		} catch (StorageNotAvailableException $e) {
 			throw new ServiceUnavailable("Failed to open file: " . $e->getMessage());
 		} catch (ForbiddenException $ex) {
@@ -382,7 +439,7 @@ class File extends Node implements IFile {
 		}
 		/** @var \OCP\Files\Storage $storage */
 		list($storage, $internalPath) = $this->fileView->resolvePath($this->path);
-		if (is_null($storage)) {
+		if ($storage === null) {
 			return [];
 		}
 
@@ -409,7 +466,7 @@ class File extends Node implements IFile {
 		$bytesWritten = $chunk_handler->store($info['index'], $data);
 
 		//detect aborted upload
-		if (isset ($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'PUT') {
+		if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'PUT') {
 			if (isset($_SERVER['CONTENT_LENGTH'])) {
 				$expected = $_SERVER['CONTENT_LENGTH'];
 				if ($bytesWritten != $expected) {
@@ -421,11 +478,21 @@ class File extends Node implements IFile {
 		}
 
 		if ($chunk_handler->isComplete()) {
-			list($storage,) = $this->fileView->resolvePath($path);
+			list($storage, ) = $this->fileView->resolvePath($path);
 			$needsPartFile = $this->needsPartFile($storage);
 			$partFile = null;
 
 			$targetPath = $path . '/' . $info['name'];
+			$absPath = $this->fileView->getAbsolutePath($targetPath);
+			$beforeEvent = new GenericEvent(null, ['path' => $absPath]);
+			$newFile = false;
+			if (!$this->fileView->file_exists($targetPath)) {
+				\OC::$server->getEventDispatcher()->dispatch('file.beforecreate', $beforeEvent);
+				$newFile = true;
+			} else {
+				\OC::$server->getEventDispatcher()->dispatch('file.beforeupdate', $beforeEvent);
+			}
+
 			/** @var \OC\Files\Storage\Storage $targetStorage */
 			list($targetStorage, $targetInternalPath) = $this->fileView->resolvePath($targetPath);
 
@@ -444,7 +511,6 @@ class File extends Node implements IFile {
 					$partFile = $this->getPartFileBasePath($path . '/' . $info['name']) . '.ocTransferId' . $info['transferid'] . '.part';
 					/** @var \OC\Files\Storage\Storage $targetStorage */
 					list($partStorage, $partInternalPath) = $this->fileView->resolvePath($partFile);
-
 
 					$chunk_handler->file_assemble($partStorage, $partInternalPath);
 
@@ -472,16 +538,7 @@ class File extends Node implements IFile {
 					$chunk_handler->file_assemble($targetStorage, $targetInternalPath);
 				}
 
-				// allow sync clients to send the mtime along in a header
-				$request = \OC::$server->getRequest();
-				if (isset($request->server['HTTP_X_OC_MTIME'])) {
-					if ($targetStorage->touch($targetInternalPath, $request->server['HTTP_X_OC_MTIME'])) {
-						header('X-OC-MTime: accepted');
-					}
-				}
-
-				// since we skipped the view we need to scan and emit the hooks ourselves
-				$targetStorage->getUpdater()->update($targetInternalPath);
+				$this->handleMetadataUpdate($targetStorage, $targetInternalPath);
 
 				$this->fileView->changeLock($targetPath, ILockingProvider::LOCK_SHARED);
 
@@ -490,8 +547,7 @@ class File extends Node implements IFile {
 				// FIXME: should call refreshInfo but can't because $this->path is not the of the final file
 				$info = $this->fileView->getFileInfo($targetPath);
 
-
-				if (isset($partStorage) && isset($partInternalPath)) {
+				if (isset($partStorage, $partInternalPath)) {
 					$checksums = $partStorage->getMetaData($partInternalPath)['checksum'];
 				} else {
 					$checksums = $targetStorage->getMetaData($targetInternalPath)['checksum'];
@@ -506,7 +562,16 @@ class File extends Node implements IFile {
 
 				$this->fileView->unlockFile($targetPath, ILockingProvider::LOCK_SHARED);
 
-				return $info->getEtag();
+				$etag = $info->getEtag();
+				if ($etag !== null) {
+					$afterEvent = new GenericEvent(null, ['path' => $absPath]);
+					if ($newFile === true) {
+						\OC::$server->getEventDispatcher()->dispatch('file.aftercreate', $afterEvent);
+					} else {
+						\OC::$server->getEventDispatcher()->dispatch('file.afterupdate', $afterEvent);
+					}
+				}
+				return $etag;
 			} catch (\Exception $e) {
 				if ($partFile !== null) {
 					$targetStorage->unlink($targetInternalPath);
@@ -534,11 +599,10 @@ class File extends Node implements IFile {
 			return true;
 		}
 
-		$expectedChecksum = trim($request->server['HTTP_OC_CHECKSUM']);
+		$expectedChecksum = \trim($request->server['HTTP_OC_CHECKSUM']);
 		$computedChecksums = $meta['checksum'];
 
-		return strpos($computedChecksums, $expectedChecksum) !== false;
-
+		return \strpos($computedChecksums, $expectedChecksum) !== false;
 	}
 
 	/**
@@ -553,7 +617,7 @@ class File extends Node implements IFile {
 		// TODO: in the future use ChunkHandler provided by storage
 		// and/or add method on Storage called "needsPartFile()"
 		return !$storage->instanceOfStorage('OCA\Files_Sharing\External\Storage') &&
-			!$storage->instanceOfStorage('OC\Files\Storage\OwnCloud') &&
+			!$storage->instanceOfStorage('OCA\Files_external\Lib\Storage\OwnCloud') &&
 			!$storage->instanceOfStorage('OC\Files\ObjectStore\ObjectStoreStorage');
 	}
 
@@ -565,6 +629,10 @@ class File extends Node implements IFile {
 	 * @throws \Sabre\DAV\Exception
 	 */
 	private function convertToSabreException(\Exception $e) {
+		if ($e instanceof FileContentNotAllowedException) {
+			// the file content is not permitted
+			throw new DAVForbiddenException($e->getMessage(), $e->getRetry(), $e);
+		}
 		if ($e instanceof \Sabre\DAV\Exception) {
 			throw $e;
 		}
@@ -604,7 +672,6 @@ class File extends Node implements IFile {
 		throw new \Sabre\DAV\Exception($e->getMessage(), 0, $e);
 	}
 
-
 	/**
 	 * Set $algo to get a specific checksum, leave null to get all checksums
 	 * (space seperated)
@@ -618,16 +685,27 @@ class File extends Node implements IFile {
 			return $allChecksums;
 		}
 
-		$checksums = explode(' ', $allChecksums);
-		$algoPrefix = strtoupper($algo) . ':';
+		$checksums = \explode(' ', $allChecksums);
+		$algoPrefix = \strtoupper($algo) . ':';
 
 		foreach ($checksums as $checksum) {
 			// starts with $algoPrefix
-			if (substr($checksum, 0, strlen($algoPrefix)) === $algoPrefix) {
+			if (\substr($checksum, 0, \strlen($algoPrefix)) === $algoPrefix) {
 				return $checksum;
 			}
 		}
 
 		return '';
+	}
+
+	protected function header($string) {
+		\header($string);
+	}
+
+	/**
+	 * @return \OCP\Files\Node
+	 */
+	public function getNode() {
+		return \OC::$server->getRootFolder()->get($this->getFileInfo()->getPath());
 	}
 }

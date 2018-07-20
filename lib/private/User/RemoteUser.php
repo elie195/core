@@ -2,7 +2,7 @@
 /**
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -19,11 +19,8 @@
  *
  */
 
-
 namespace OC\User;
 
-
-use OCP\IImage;
 use OCP\IUser;
 
 /**
@@ -161,7 +158,7 @@ class RemoteUser implements IUser {
 	public function getCloudId() {
 		$uid = $this->getUID();
 		$server = \OC::$server->getURLGenerator()->getAbsoluteURL('/');
-		return $uid . '@' . rtrim( $this->removeProtocolFromUrl($server), '/');
+		return $uid . '@' . \rtrim($this->removeProtocolFromUrl($server), '/');
 	}
 
 	/**
@@ -169,10 +166,10 @@ class RemoteUser implements IUser {
 	 * @return string
 	 */
 	private function removeProtocolFromUrl($url) {
-		if (strpos($url, 'https://') === 0) {
-			return substr($url, strlen('https://'));
-		} else if (strpos($url, 'http://') === 0) {
-			return substr($url, strlen('http://'));
+		if (\strpos($url, 'https://') === 0) {
+			return \substr($url, \strlen('https://'));
+		} elseif (\strpos($url, 'http://') === 0) {
+			return \substr($url, \strlen('http://'));
 		}
 
 		return $url;
@@ -209,5 +206,4 @@ class RemoteUser implements IUser {
 	 */
 	public function setSearchTerms(array $terms) {
 	}
-
 }

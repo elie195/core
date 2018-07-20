@@ -2,7 +2,7 @@
 /**
  * @author Lukas Reschke <lukas@owncloud.com>
  *
- * @copyright Copyright (c) 2015, ownCloud, Inc.
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -21,7 +21,10 @@
 
 namespace Tests\Settings\Controller;
 
+use GuzzleHttp\Exception\ClientException;
+use OC\IntegrityCheck\Checker;
 use OC\Settings\Controller\CheckSetupController;
+use OC_Util;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
@@ -31,9 +34,7 @@ use OCP\IConfig;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IURLGenerator;
-use OC_Util;
 use Test\TestCase;
-use OC\IntegrityCheck\Checker;
 
 /**
  * Class CheckSetupControllerTest
@@ -78,8 +79,8 @@ class CheckSetupControllerTest extends TestCase {
 			->disableOriginalConstructor()->getMock();
 		$this->l10n->expects($this->any())
 			->method('t')
-			->will($this->returnCallback(function($message, array $replace) {
-				return vsprintf($message, $replace);
+			->will($this->returnCallback(function ($message, array $replace) {
+				return \vsprintf($message, $replace);
 			}));
 		$this->checker = $this->getMockBuilder('\OC\IntegrityCheck\Checker')
 				->disableOriginalConstructor()->getMock();
@@ -129,7 +130,6 @@ class CheckSetupControllerTest extends TestCase {
 		$this->clientService->expects($this->once())
 			->method('newClient')
 			->will($this->returnValue($client));
-
 
 		$this->assertTrue(
 			self::invokePrivate(
@@ -221,7 +221,6 @@ class CheckSetupControllerTest extends TestCase {
 	}
 
 	public function testIsPhpSupportedFalse() {
-
 		$this->checkSetupController
 			->expects($this->once())
 			->method('isEndOfLive')
@@ -234,7 +233,6 @@ class CheckSetupControllerTest extends TestCase {
 	}
 
 	public function testIsPhpSupportedTrue() {
-
 		$this->checkSetupController
 			->expects($this->exactly(2))
 			->method('isEndOfLive')
@@ -354,6 +352,7 @@ class CheckSetupControllerTest extends TestCase {
 				'isCorrectMemcachedPHPModuleInstalled' => true,
 				'hasPassedCodeIntegrityCheck' => null,
 				'codeIntegrityCheckerDocumentation' => null,
+				'hasDebugMode' => null,
 			]
 		);
 		$this->assertEquals($expected, $this->checkSetupController->check());
@@ -406,20 +405,7 @@ class CheckSetupControllerTest extends TestCase {
 			->expects($this->once())
 			->method('getCurlVersion')
 			->will($this->returnValue(['ssl_version' => 'OpenSSL/1.0.1c']));
-		$this->assertSame('cURL is using an outdated OpenSSL version (OpenSSL/1.0.1c). Please update your operating system or features such as installing and updating apps via the app store or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
-	}
-
-	public function testIsUsedTlsLibOutdatedWithOlderOpenSslAndWithoutAppstore() {
-		$this->config
-			->expects($this->at(0))
-			->method('getSystemValue')
-			->with('has_internet_connection', true)
-			->will($this->returnValue(true));
-		$this->checkSetupController
-			->expects($this->once())
-			->method('getCurlVersion')
-			->will($this->returnValue(['ssl_version' => 'OpenSSL/1.0.1c']));
-		$this->assertSame('cURL is using an outdated OpenSSL version (OpenSSL/1.0.1c). Please update your operating system or features such as Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
+		$this->assertSame('cURL is using an outdated OpenSSL version (OpenSSL/1.0.1c). Please update your operating system or features such as installing and updating apps via the market or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
 	}
 
 	public function testIsUsedTlsLibOutdatedWithOlderOpenSsl1() {
@@ -430,7 +416,7 @@ class CheckSetupControllerTest extends TestCase {
 			->expects($this->once())
 			->method('getCurlVersion')
 			->will($this->returnValue(['ssl_version' => 'OpenSSL/1.0.2a']));
-		$this->assertSame('cURL is using an outdated OpenSSL version (OpenSSL/1.0.2a). Please update your operating system or features such as installing and updating apps via the app store or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
+		$this->assertSame('cURL is using an outdated OpenSSL version (OpenSSL/1.0.2a). Please update your operating system or features such as installing and updating apps via the market or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
 	}
 
 	public function testIsUsedTlsLibOutdatedWithMatchingOpenSslVersion() {
@@ -441,7 +427,7 @@ class CheckSetupControllerTest extends TestCase {
 			->expects($this->once())
 			->method('getCurlVersion')
 			->will($this->returnValue(['ssl_version' => 'OpenSSL/1.0.1d']));
-			$this->assertSame('', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
+		$this->assertSame('', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
 	}
 
 	public function testIsUsedTlsLibOutdatedWithMatchingOpenSslVersion1() {
@@ -465,6 +451,7 @@ class CheckSetupControllerTest extends TestCase {
 			->will($this->returnValue(['ssl_version' => 'NSS/1.0.2b']));
 		$client = $this->getMockBuilder('\OCP\Http\Client\IClient')
 			->disableOriginalConstructor()->getMock();
+		/** @var ClientException | \PHPUnit_Framework_MockObject_MockObject $exception */
 		$exception = $this->getMockBuilder('\GuzzleHttp\Exception\ClientException')
 			->disableOriginalConstructor()->getMock();
 		$response = $this->getMockBuilder('\GuzzleHttp\Message\ResponseInterface')
@@ -485,9 +472,8 @@ class CheckSetupControllerTest extends TestCase {
 			->method('newClient')
 			->will($this->returnValue($client));
 
-		$this->assertSame('cURL is using an outdated NSS version (NSS/1.0.2b). Please update your operating system or features such as installing and updating apps via the app store or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
+		$this->assertSame('cURL is using an outdated NSS version (NSS/1.0.2b). Please update your operating system or features such as installing and updating apps via the market or Federated Cloud Sharing will not work reliably.', $this->invokePrivate($this->checkSetupController, 'isUsedTlsLibOutdated'));
 	}
-
 
 	public function testIsBuggyNss200() {
 		$this->config->expects($this->any())
@@ -499,6 +485,7 @@ class CheckSetupControllerTest extends TestCase {
 			->will($this->returnValue(['ssl_version' => 'NSS/1.0.2b']));
 		$client = $this->getMockBuilder('\OCP\Http\Client\IClient')
 			->disableOriginalConstructor()->getMock();
+		/** @var ClientException | \PHPUnit_Framework_MockObject_MockObject $exception */
 		$exception = $this->getMockBuilder('\GuzzleHttp\Exception\ClientException')
 			->disableOriginalConstructor()->getMock();
 		$response = $this->getMockBuilder('\GuzzleHttp\Message\ResponseInterface')
@@ -532,12 +519,6 @@ class CheckSetupControllerTest extends TestCase {
 	}
 
 	public function testIsUsedTlsLibOutdatedWithAppstoreDisabledAndServerToServerSharingEnabled() {
-		// Appstore is disabled by default in EE
-		$appStoreDefault = false;
-		if (\OC_Util::getEditionString() === \OC_Util::EDITION_COMMUNITY) {
-			$appStoreDefault = true;
-		}
-
 		$this->config
 			->expects($this->at(0))
 			->method('getSystemValue')
@@ -545,16 +526,11 @@ class CheckSetupControllerTest extends TestCase {
 			->will($this->returnValue(true));
 		$this->config
 			->expects($this->at(1))
-			->method('getSystemValue')
-			->with('appstoreenabled', $appStoreDefault)
-			->will($this->returnValue(false));
-		$this->config
-			->expects($this->at(2))
 			->method('getAppValue')
 			->with('files_sharing', 'outgoing_server2server_share_enabled', 'yes')
 			->will($this->returnValue('no'));
 		$this->config
-			->expects($this->at(3))
+			->expects($this->at(2))
 			->method('getAppValue')
 			->with('files_sharing', 'incoming_server2server_share_enabled', 'yes')
 			->will($this->returnValue('yes'));
@@ -567,12 +543,6 @@ class CheckSetupControllerTest extends TestCase {
 	}
 
 	public function testIsUsedTlsLibOutdatedWithAppstoreDisabledAndServerToServerSharingDisabled() {
-		// Appstore is disabled by default in EE
-		$appStoreDefault = false;
-		if (\OC_Util::getEditionString() === \OC_Util::EDITION_COMMUNITY) {
-			$appStoreDefault = true;
-		}
-
 		$this->config
 			->expects($this->at(0))
 			->method('getSystemValue')
@@ -580,16 +550,11 @@ class CheckSetupControllerTest extends TestCase {
 			->will($this->returnValue(true));
 		$this->config
 			->expects($this->at(1))
-			->method('getSystemValue')
-			->with('appstoreenabled', $appStoreDefault)
-			->will($this->returnValue(false));
-		$this->config
-			->expects($this->at(2))
 			->method('getAppValue')
 			->with('files_sharing', 'outgoing_server2server_share_enabled', 'yes')
 			->will($this->returnValue('no'));
 		$this->config
-			->expects($this->at(3))
+			->expects($this->at(2))
 			->method('getAppValue')
 			->with('files_sharing', 'incoming_server2server_share_enabled', 'yes')
 			->will($this->returnValue('no'));
@@ -624,7 +589,6 @@ class CheckSetupControllerTest extends TestCase {
 		$expected = new DataDisplayResponse('Integrity checker has been disabled. Integrity cannot be verified.');
 		$this->assertEquals($expected, $this->checkSetupController->getFailedIntegrityCheckFiles());
 	}
-
 
 	public function testGetFailedIntegrityCheckFilesWithNoErrorsFound() {
 		$this->checker

@@ -9,7 +9,7 @@
  * @author Roeland Jago Douma <rullzer@owncloud.com>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ class Folder extends File implements \OCP\Share_Backend_Collection {
 			$shares = \OCP\Share::getItemSharedWithUser('folder', $parent, $shareWith, $owner);
 			if ($shares) {
 				foreach ($shares as $share) {
-					$name = basename($share['path']);
+					$name = \basename($share['path']);
 					$share['collection']['path'] = $name;
 					$share['collection']['item_type'] = 'folder';
 					$share['file_path'] = $name;
@@ -89,7 +89,7 @@ class Folder extends File implements \OCP\Share_Backend_Collection {
 			$mimetype = -1;
 		}
 		while (!empty($parents)) {
-			$parents = "'".implode("','", $parents)."'";
+			$parents = "'".\implode("','", $parents)."'";
 			$query = \OCP\DB::prepare('SELECT `fileid`, `name`, `mimetype` FROM `*PREFIX*filecache`'
 				.' WHERE `parent` IN ('.$parents.')');
 			$result = $query->execute();
@@ -104,5 +104,4 @@ class Folder extends File implements \OCP\Share_Backend_Collection {
 		}
 		return $children;
 	}
-
 }

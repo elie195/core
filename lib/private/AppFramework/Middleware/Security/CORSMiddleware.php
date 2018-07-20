@@ -6,7 +6,7 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Stefan Weil <sw@weilnetz.de>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -27,14 +27,14 @@ namespace OC\AppFramework\Middleware\Security;
 
 use OC\AppFramework\Middleware\Security\Exceptions\SecurityException;
 use OC\AppFramework\Utility\ControllerMethodReflector;
-use OC\Authentication\Exceptions\PasswordLoginForbiddenException;
-use OC\User\Session;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Middleware;
 use OCP\IRequest;
+use OCP\IUserSession;
+use OCP\IConfig;
 
 /**
  * This middleware sets the correct CORS headers on a response if the
@@ -55,50 +55,29 @@ class CORSMiddleware extends Middleware {
 	private $reflector;
 
 	/**
-	 * @var Session
+	 * @var IUserSession
 	 */
 	private $session;
 
 	/**
+	 * @var IConfig
+	 */
+	private $config;
+
+	/**
 	 * @param IRequest $request
 	 * @param ControllerMethodReflector $reflector
-	 * @param Session $session
+	 * @param IUserSession $session
+	 * @param IConfig $config
 	 */
 	public function __construct(IRequest $request,
 								ControllerMethodReflector $reflector,
-								Session $session) {
+								IUserSession $session,
+								IConfig $config) {
 		$this->request = $request;
 		$this->reflector = $reflector;
 		$this->session = $session;
-	}
-
-	/**
-	 * This is being run in normal order before the controller is being
-	 * called which allows several modifications and checks
-	 *
-	 * @param Controller $controller the controller that is being called
-	 * @param string $methodName the name of the method that will be called on
-	 *                           the controller
-	 * @throws SecurityException
-	 * @since 6.0.0
-	 */
-	public function beforeController($controller, $methodName){
-		// ensure that @CORS annotated API routes are not used in conjunction
-		// with session authentication since this enables CSRF attack vectors
-		if ($this->reflector->hasAnnotation('CORS') &&
-			!$this->reflector->hasAnnotation('PublicPage'))  {
-			$user = $this->request->server['PHP_AUTH_USER'];
-			$pass = $this->request->server['PHP_AUTH_PW'];
-
-			$this->session->logout();
-			try {
-				if (!$this->session->logClientIn($user, $pass, $this->request)) {
-					throw new SecurityException('CORS requires basic auth', Http::STATUS_UNAUTHORIZED);
-				}
-			} catch (PasswordLoginForbiddenException $ex) {
-				throw new SecurityException('Password login forbidden, use token instead', Http::STATUS_UNAUTHORIZED);
-			}
-		}
+		$this->config = $config;
 	}
 
 	/**
@@ -112,25 +91,32 @@ class CORSMiddleware extends Middleware {
 	 * @return Response a Response object
 	 * @throws SecurityException
 	 */
-	public function afterController($controller, $methodName, Response $response){
+	public function afterController($controller, $methodName, Response $response) {
 		// only react if its a CORS request and if the request sends origin and
+		$userId = null;
+		if ($this->session->getUser() !== null) {
+			$userId = $this->session->getUser()->getUID();
+		}
 
-		if(isset($this->request->server['HTTP_ORIGIN']) &&
-			$this->reflector->hasAnnotation('CORS')) {
+		if ($this->request->getHeader("Origin") !== null &&
+			$this->reflector->hasAnnotation('CORS') && $userId !== null) {
+			$requesterDomain = $this->request->getHeader("Origin");
+
+			$headers = \OC_Response::setCorsHeaders($userId, $requesterDomain, $this->config);
+			foreach ($headers as $key => $value) {
+				$response->addHeader($key, \implode(',', $value));
+			}
 
 			// allow credentials headers must not be true or CSRF is possible
 			// otherwise
-			foreach($response->getHeaders() as $header => $value) {
-				if(strtolower($header) === 'access-control-allow-credentials' &&
-				   strtolower(trim($value)) === 'true') {
+			foreach ($response->getHeaders() as $header => $value) {
+				if (\strtolower($header) === 'access-control-allow-credentials' &&
+				   \strtolower(\trim($value)) === 'true') {
 					$msg = 'Access-Control-Allow-Credentials must not be '.
 						   'set to true in order to prevent CSRF';
 					throw new SecurityException($msg);
 				}
 			}
-
-			$origin = $this->request->server['HTTP_ORIGIN'];
-			$response->addHeader('Access-Control-Allow-Origin', $origin);
 		}
 		return $response;
 	}
@@ -145,10 +131,10 @@ class CORSMiddleware extends Middleware {
 	 * @throws \Exception the passed in exception if it can't handle it
 	 * @return Response a Response object or null in case that the exception could not be handled
 	 */
-	public function afterException($controller, $methodName, \Exception $exception){
-		if($exception instanceof SecurityException){
+	public function afterException($controller, $methodName, \Exception $exception) {
+		if ($exception instanceof SecurityException) {
 			$response =  new JSONResponse(['message' => $exception->getMessage()]);
-			if($exception->getCode() !== 0) {
+			if ($exception->getCode() !== 0) {
 				$response->setStatus($exception->getCode());
 			} else {
 				$response->setStatus(Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -158,5 +144,4 @@ class CORSMiddleware extends Middleware {
 
 		throw $exception;
 	}
-
 }

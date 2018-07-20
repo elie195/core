@@ -25,6 +25,8 @@ OC.L10N.register(
     "Invalid ownCloud url" : "URL de ownCloud inválido",
     "Share" : "Compartir",
     "No expiration date set" : "No se estableció ninguna fecha de expiración",
+    "Declined" : "Denegado",
+    "Pending" : "Pendiente",
     "Shared by" : "Compartido por",
     "Sharing" : "Compartir",
     "Share API is disabled" : "El API para Compartir está deshabilitado",
@@ -47,7 +49,6 @@ OC.L10N.register(
     "sharing is disabled" : "compartir está desactivado",
     "For more info, please ask the person who sent this link." : "Para mayor información, contacte a la persona que le envió el enlace.",
     "%s is publicly shared" : "%s está compartido públicamente",
-    "Add to your ownCloud" : "Agregar a tu ownCloud",
     "Download" : "Descargar",
     "Download %s" : "Descargar %s",
     "Direct link" : "Enlace directo"

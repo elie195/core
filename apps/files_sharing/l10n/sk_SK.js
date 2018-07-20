@@ -27,6 +27,8 @@ OC.L10N.register(
     "Invalid ownCloud url" : "Chybná ownCloud url",
     "Share" : "Zdieľať",
     "No expiration date set" : "Nie je nastavený dátum expirácie",
+    "Declined" : "Odmietnuté",
+    "Pending" : "Čaká",
     "Shared by" : "Zdieľa",
     "Sharing" : "Zdieľanie",
     "Share API is disabled" : "API na zdieľanie je zakázané",
@@ -59,6 +61,8 @@ OC.L10N.register(
     "Shared via public link" : "Zdieľané prostredníctvom verejného odkazu",
     "Shared by %2$s" : "Zdieľané s %2$s",
     "Shares" : "Zdieľanie",
+    "Accept" : "Schváliť",
+    "Decline" : "Odmietnuť",
     "This share is password-protected" : "Toto zdieľanie je chránené heslom",
     "The password is wrong. Try again." : "Heslo je chybné. Skúste to znova.",
     "Password" : "Heslo",
@@ -72,9 +76,8 @@ OC.L10N.register(
     "the link expired" : "linke vypršala platnosť",
     "sharing is disabled" : "zdieľanie je zakázané",
     "For more info, please ask the person who sent this link." : "Pre viac informácií kontaktujte osobu, ktorá vám poslala tento odkaz.",
-    "Add to your ownCloud" : "Pridať do svojho ownCloudu",
     "Download" : "Sťahovanie",
     "Download %s" : "Stiahnuť %s",
     "Direct link" : "Priama linka"
 },
-"nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;");
+"nplurals=4; plural=(n % 1 == 0 && n == 1 ? 0 : n % 1 == 0 && n >= 2 && n <= 4 ? 1 : n % 1 != 0 ? 2: 3);");

@@ -3,7 +3,7 @@
  * @author Lukas Reschke <lukas@statuscode.ch>
  * @author Robin Appelman <icewind@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -69,7 +69,7 @@ class Client implements IClient {
 			// If the instance is not yet setup we need to use the static path as
 			// $this->certificateManager->getAbsoluteBundlePath() tries to instantiiate
 			// a view
-			if ($this->config->getSystemValue('installed', false)) {
+			if ($this->config->getSystemValue('installed', false) && !\OCP\Util::needUpgrade()) {
 				$this->client->setDefaultOption('verify', $this->certificateManager->getAbsoluteBundlePath(null));
 			} else {
 				$this->client->setDefaultOption('verify', \OC::$SERVERROOT . '/resources/config/ca-bundle.crt');
@@ -92,10 +92,10 @@ class Client implements IClient {
 		$proxyUserPwd = $this->config->getSystemValue('proxyuserpwd', null);
 		$proxyUri = '';
 
-		if (!is_null($proxyUserPwd)) {
+		if ($proxyUserPwd !== null) {
 			$proxyUri .= $proxyUserPwd . '@';
 		}
-		if (!is_null($proxyHost)) {
+		if ($proxyHost !== null) {
 			$proxyUri .= $proxyHost;
 		}
 
@@ -272,7 +272,6 @@ class Client implements IClient {
 		$response = $this->client->delete($uri, $options);
 		return new Response($response);
 	}
-
 
 	/**
 	 * Sends a options request

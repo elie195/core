@@ -10,7 +10,7 @@
  * @author Thomas Müller <thomas.mueller@tmit.eu>
  * @author Vincent Petry <pvince81@owncloud.com>
  *
- * @copyright Copyright (c) 2017, ownCloud GmbH
+ * @copyright Copyright (c) 2018, ownCloud GmbH
  * @license AGPL-3.0
  *
  * This code is free software: you can redistribute it and/or modify
@@ -100,7 +100,7 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	public function offsetGet($offset) {
 		if ($offset === 'type') {
 			return $this->getType();
-		} else if ($offset === 'etag') {
+		} elseif ($offset === 'etag') {
 			return $this->getEtag();
 		} elseif ($offset === 'permissions') {
 			return $this->getPermissions();
@@ -133,12 +133,10 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	}
 
 	/**
-	 * Get FileInfo ID or null in case of part file
-	 *
-	 * @return int/null
+	 * @return int
 	 */
 	public function getId() {
-		return isset($this->data['fileid']) ? intval($this->data['fileid']) : null;
+		return $this->data['fileid'];
 	}
 
 	/**
@@ -159,16 +157,16 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	 * @return string
 	 */
 	public function getName() {
-		return basename($this->getPath());
+		return \basename($this->getPath());
 	}
 
 	/**
 	 * @return string
 	 */
 	public function getEtag() {
-		if (count($this->childEtags) > 0) {
-			$combinedEtag = $this->data['etag'] . '::' . implode('::', $this->childEtags);
-			return md5($combinedEtag);
+		if (\count($this->childEtags) > 0) {
+			$combinedEtag = $this->data['etag'] . '::' . \implode('::', $this->childEtags);
+			return \md5($combinedEtag);
 		} else {
 			return $this->data['etag'];
 		}
@@ -178,14 +176,14 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	 * @return int
 	 */
 	public function getSize() {
-		return isset($this->data['size']) ? intval($this->data['size']) : 0;
+		return isset($this->data['size']) ? $this->data['size'] : 0;
 	}
 
 	/**
 	 * @return int
 	 */
 	public function getMTime() {
-		return intval($this->data['mtime']);
+		return $this->data['mtime'];
 	}
 
 	/**
@@ -201,7 +199,7 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	 * @return int
 	 */
 	public function getEncryptedVersion() {
-		return isset($this->data['encryptedVersion']) ? intval($this->data['encryptedVersion']) : 1;
+		return isset($this->data['encryptedVersion']) ? (int) $this->data['encryptedVersion'] : 1;
 	}
 
 	/**
@@ -212,7 +210,7 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 		if (\OCP\Util::isSharingDisabledForUser() || ($this->isShared() && !\OC\Share\Share::isResharingAllowed())) {
 			$perms = $perms & ~\OCP\Constants::PERMISSION_SHARE;
 		}
-		return intval($perms);
+		return $perms;
 	}
 
 	/**
@@ -281,8 +279,8 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	 */
 	public function isShared() {
 		$sid = $this->getStorage()->getId();
-		if (!is_null($sid)) {
-			$sid = explode(':', $sid);
+		if ($sid !== null) {
+			$sid = \explode(':', $sid);
 			return ($sid[0] === 'shared');
 		}
 
@@ -291,8 +289,8 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 
 	public function isMounted() {
 		$sid = $this->getStorage()->getId();
-		if (!is_null($sid)) {
-			$sid = explode(':', $sid);
+		if ($sid !== null) {
+			$sid = \explode(':', $sid);
 			return ($sid[0] !== 'home' and $sid[0] !== 'shared');
 		}
 
@@ -328,11 +326,11 @@ class FileInfo implements \OCP\Files\FileInfo, \ArrayAccess {
 	public function addSubEntry($data, $entryPath) {
 		$this->data['size'] += isset($data['size']) ? $data['size'] : 0;
 		if (isset($data['mtime'])) {
-			$this->data['mtime'] = max($this->data['mtime'], $data['mtime']);
+			$this->data['mtime'] = \max($this->data['mtime'], $data['mtime']);
 		}
 		if (isset($data['etag'])) {
 			// prefix the etag with the relative path of the subentry to propagate etag on mount moves
-			$relativeEntryPath = substr($entryPath, strlen($this->getPath()));
+			$relativeEntryPath = \substr($entryPath, \strlen($this->getPath()));
 			// attach the permissions to propagate etag on permision changes of submounts
 			$permissions = isset($data['permissions']) ? $data['permissions'] : 0;
 			$this->childEtags[] = $relativeEntryPath . '/' . $data['etag'] . $permissions;

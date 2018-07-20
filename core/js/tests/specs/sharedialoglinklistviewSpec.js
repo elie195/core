@@ -2,7 +2,7 @@
 * ownCloud
 *
 * @author Vincent Petry
-* @copyright 2017 Vincent Petry <pvince81@owncloud.com>
+* @copyright Copyright (c) 2017 Vincent Petry <pvince81@owncloud.com>
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
@@ -32,7 +32,7 @@ describe('OC.Share.ShareDialogLinkListView', function() {
 	beforeEach(function() {
 		configModel = new OC.Share.ShareConfigModel();
 		fileInfoModel = new OCA.Files.FileInfoModel({
-			id: 123,
+			id: '123',
 			name: 'shared_file_name.txt',
 			path: '/subdir',
 			size: 100,
